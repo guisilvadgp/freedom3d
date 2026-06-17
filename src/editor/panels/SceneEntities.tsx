@@ -1,15 +1,69 @@
-import { useRef } from 'react';
+import { XROrigin, useXRStore } from '@react-three/xr';
+import { useRef, useState } from 'react';
 import { useThree } from '@react-three/fiber';
 import { TransformControls, Edges, PositionalAudio, Sparkles, PerspectiveCamera } from '@react-three/drei';
-import { RigidBody } from '@react-three/rapier';
+import { RigidBody, MeshCollider } from '@react-three/rapier';
 import * as THREE from 'three';
 import { useEditorStore } from '../store/editorStore';
 import type { Entity } from '../../engine/ecs/types';
+
+// ── VR Teleport Ring ──────────────────────────────────────────
+// Only rendered in /preview (StandalonePlayer), inside <XR>.
+function VRTeleportRing({ entity }: { entity: Entity }) {
+  const xrStore = useXRStore();
+  const transform = entity.components.Transform;
+  const [hovered, setHovered] = useState(false);
+  if (!transform) return null;
+
+  const pos = transform.position as [number, number, number];
+
+  const handleClick = () => {
+    // Teleporta o jogador para a posição do anel
+    xrStore.setState(state => ({
+      ...state,
+      originReferenceSpace: undefined, // reseta para forçar re-posicionamento
+    }));
+    // Move a câmera via atualização da entidade que tem Camera principal
+    const scene = useEditorStore.getState().activeScene();
+    Object.values(scene.entities).forEach(e => {
+      if (e.tags?.includes('player') || e.components.Camera?.isMain) {
+        useEditorStore.getState().updateComponent(e.id, 'Transform', {
+          position: [pos[0], pos[1], pos[2]],
+        });
+      }
+    });
+  };
+
+  return (
+    <mesh
+      position={pos}
+      rotation={[Math.PI / 2, 0, 0]}
+      onClick={handleClick}
+      onPointerOver={() => setHovered(true)}
+      onPointerOut={() => setHovered(false)}
+    >
+      <torusGeometry args={[0.6, 0.06, 16, 64]} />
+      <meshStandardMaterial
+        color={hovered ? '#ffffff' : '#00ffff'}
+        emissive={hovered ? '#00ffff' : '#007777'}
+        emissiveIntensity={hovered ? 2 : 1}
+        roughness={0.2}
+        metalness={0.8}
+      />
+      {/* Disco de chão translúcido */}
+      <mesh rotation={[0, 0, 0]}>
+        <circleGeometry args={[0.55, 64]} />
+        <meshBasicMaterial color={hovered ? '#00ffff' : '#004444'} transparent opacity={0.25} side={THREE.DoubleSide} />
+      </mesh>
+    </mesh>
+  );
+}
 
 function EntityMesh({ entity }: { entity: Entity }) {
   const meshRef = useRef<THREE.Mesh>(null!);
   const { selectedEntityId, selectEntity, editorMode, isPlaying, updateComponent, snapEnabled, snapValue, setRigidBodyRef, activeViewport } = useEditorStore();
   const isGameView = activeViewport === 'game';
+  const isStandalone = typeof window !== 'undefined' && window.location.pathname === '/preview';
   const transform = entity.components.Transform;
   const mesh = entity.components.MeshRenderer;
   const light = entity.components.Light;
@@ -25,6 +79,22 @@ function EntityMesh({ entity }: { entity: Entity }) {
   const pos = transform.position as [number, number, number];
   const rot = (transform.rotation as [number, number, number]).map((d) => (d * Math.PI) / 180) as [number, number, number];
   const scale = transform.scale as [number, number, number];
+
+  // ── Drag detection: evita seleção acidental ao arrastar a câmera ──
+  const mouseDownPos = useRef<{x: number; y: number} | null>(null);
+  const handlePointerDown = (e: any) => {
+    mouseDownPos.current = { x: e.clientX, y: e.clientY };
+  };
+  const handlePointerUp = (e: any) => {
+    if (!mouseDownPos.current) return;
+    const dx = Math.abs(e.clientX - mouseDownPos.current.x);
+    const dy = Math.abs(e.clientY - mouseDownPos.current.y);
+    mouseDownPos.current = null;
+    if (dx < 5 && dy < 5) { // só seleciona se não houve arrasto
+      e.stopPropagation();
+      selectEntity(entity.id);
+    }
+  };
 
   const handleChange = () => {
     if (isPlaying) return;
@@ -61,6 +131,39 @@ function EntityMesh({ entity }: { entity: Entity }) {
       default: return <boxGeometry args={[1, 1, 1]} />;
     }
   };
+
+  // ── Teleport ring: renderizado de forma especial no modo VR ──
+  if (entity.tags?.includes('teleport')) {
+    if (isStandalone) {
+      return <VRTeleportRing entity={entity} />;
+    }
+    // No editor: anel com TransformControls para poder mover
+    return (
+      <>
+        <mesh
+          ref={meshRef}
+          position={pos}
+          rotation={[Math.PI / 2, 0, 0]}
+          onPointerDown={handlePointerDown}
+          onPointerUp={handlePointerUp}
+        >
+          <torusGeometry args={[0.6, 0.06, 16, 64]} />
+          <meshStandardMaterial color="#00ffff" emissive={isSelected ? '#00ffff' : '#007777'} emissiveIntensity={isSelected ? 1.5 : 0.8} />
+          {isSelected && <Edges scale={1.05} color="#44aaff" />}
+        </mesh>
+        {isSelected && !isGameView && (
+          <TransformControls
+            object={meshRef}
+            mode={editorMode as any}
+            translationSnap={snapEnabled ? snapValue : null}
+            rotationSnap={snapEnabled ? (Math.PI / 12) : null}
+            scaleSnap={snapEnabled ? snapValue : null}
+            onChange={handleChange}
+          />
+        )}
+      </>
+    );
+  }
 
   const renderMaterial = () => {
     if (!mesh) return null;
@@ -114,10 +217,11 @@ function EntityMesh({ entity }: { entity: Entity }) {
     const emptyMesh = (
       <mesh
         ref={meshRef}
-        position={(!rigidBody || !isPlaying) ? pos : undefined}
-        rotation={(!rigidBody || !isPlaying) ? rot : undefined}
+        position={(!rigidBody || !isPlaying || isStandalone) ? pos : undefined}
+        rotation={(!rigidBody || !isPlaying || isStandalone) ? rot : undefined}
         scale={scale}
-        onClick={(e) => { e.stopPropagation(); selectEntity(entity.id); }}
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
       >
         <sphereGeometry args={[0.2, 8, 8]} />
         <meshBasicMaterial color={light ? light.color : "#ffffff"} wireframe opacity={0.3} transparent visible={!isGameView} />
@@ -137,13 +241,16 @@ function EntityMesh({ entity }: { entity: Entity }) {
         )}
         {/* Camera */}
         {camera && (
-          <PerspectiveCamera 
-            makeDefault={isGameView && camera.isMain} 
-            position={camera.offset || [0, 0, 0]}
-            fov={camera.fov} 
-            near={camera.near} 
-            far={camera.far} 
-          />
+          <>
+            {isStandalone && <XROrigin position={camera.offset || [0, 0, 0]} />}
+            <PerspectiveCamera 
+              makeDefault={isGameView && camera.isMain} 
+              position={camera.offset || [0, 0, 0]}
+              fov={camera.fov} 
+              near={camera.near} 
+              far={camera.far} 
+            />
+          </>
         )}
         {entity.childrenIds && entity.childrenIds.map(id => {
           const childEntity = useEditorStore.getState().activeScene().entities[id];
@@ -163,9 +270,16 @@ function EntityMesh({ entity }: { entity: Entity }) {
             type={rigidBody.isStatic ? 'fixed' : 'dynamic'} 
             mass={rigidBody.mass}
             gravityScale={rigidBody.useGravity ? 1 : 0}
-            colliders={rigidBody.collider === 'none' ? false : (rigidBody.collider || 'cuboid')}
+            colliders={rigidBody.collider === 'none' || rigidBody.collider === 'trimesh' ? false : (rigidBody.collider || 'cuboid')}
           >
             {emptyMesh}
+            {rigidBody.collider === 'trimesh' && (
+              <MeshCollider type="trimesh">
+                <mesh geometry={(meshRef.current as any)?.geometry}>
+                  <meshBasicMaterial />
+                </mesh>
+              </MeshCollider>
+            )}
           </RigidBody>
         ) : emptyMesh}
         
@@ -186,12 +300,13 @@ function EntityMesh({ entity }: { entity: Entity }) {
   const innerMesh = (
     <mesh
       ref={meshRef}
-      position={(!rigidBody || !isPlaying) ? pos : undefined}
-      rotation={(!rigidBody || !isPlaying) ? rot : undefined}
+      position={(!rigidBody || !isPlaying || isStandalone) ? pos : undefined}
+      rotation={(!rigidBody || !isPlaying || isStandalone) ? rot : undefined}
       scale={scale}
       castShadow={mesh.castShadow}
       receiveShadow={mesh.receiveShadow}
-      onClick={(e) => { e.stopPropagation(); selectEntity(entity.id); }}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
     >
       {renderGeometry()}
       {renderMaterial()}
@@ -211,13 +326,16 @@ function EntityMesh({ entity }: { entity: Entity }) {
       )}
       {/* Camera */}
       {camera && (
-        <PerspectiveCamera 
-          makeDefault={isGameView && camera.isMain} 
-          position={camera.offset || [0, 0, 0]}
-          fov={camera.fov} 
-          near={camera.near} 
-          far={camera.far} 
-        />
+        <>
+          {isStandalone && <XROrigin position={camera.offset || [0, 0, 0]} />}
+          <PerspectiveCamera 
+            makeDefault={isGameView && camera.isMain} 
+            position={camera.offset || [0, 0, 0]}
+            fov={camera.fov} 
+            near={camera.near} 
+            far={camera.far} 
+          />
+        </>
       )}
       {/* Selection outline */}
       {isSelected && !isGameView && (
@@ -241,9 +359,14 @@ function EntityMesh({ entity }: { entity: Entity }) {
           type={rigidBody.isStatic ? 'fixed' : 'dynamic'} 
           mass={rigidBody.mass}
           gravityScale={rigidBody.useGravity ? 1 : 0}
-          colliders={rigidBody.collider === 'none' ? false : (rigidBody.collider || 'cuboid')}
+          colliders={rigidBody.collider === 'none' || rigidBody.collider === 'trimesh' ? false : (rigidBody.collider || 'cuboid')}
         >
           {innerMesh}
+          {rigidBody.collider === 'trimesh' && (
+            <MeshCollider type="trimesh">
+              {innerMesh}
+            </MeshCollider>
+          )}
         </RigidBody>
       ) : innerMesh}
       
@@ -275,5 +398,6 @@ export function SceneEntities() {
     </>
   );
 }
+
 
 

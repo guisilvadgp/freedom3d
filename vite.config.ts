@@ -7,6 +7,7 @@ const liveSyncPlugin = () => {
 
   return {
     name: 'live-sync',
+    enforce: 'pre',
     configureServer(server: any) {
       server.middlewares.use((req: any, res: any, next: any) => {
         // Sync Scene JSON
@@ -29,23 +30,29 @@ const liveSyncPlugin = () => {
 
         // Sync Assets (GLTF Binary)
         if (req.url.startsWith('/api/asset/') && req.method === 'POST') {
-          const fileName = decodeURIComponent(req.url.split('/api/asset/')[1]);
+          const pathName = req.url.split('?')[0];
+          const fileName = decodeURIComponent(pathName.split('/api/asset/')[1] || '');
           const chunks: any[] = [];
           req.on('data', (chunk: any) => chunks.push(chunk));
           req.on('end', () => {
-            assets.set(fileName, Buffer.concat(chunks));
+            const buffer = Buffer.concat(chunks);
+            assets.set(fileName, buffer);
+            console.log('UPLOADED ASSET: ', fileName, ' SIZE: ', buffer.length);
+            console.log('UPLOADED ASSET: ', fileName);
             res.setHeader('Access-Control-Allow-Origin', '*');
             res.end('ok');
           });
           return;
         }
         if (req.url.startsWith('/api/asset/') && req.method === 'GET') {
-          const fileName = decodeURIComponent(req.url.split('/api/asset/')[1]);
+          const pathName = req.url.split('?')[0];
+          const fileName = decodeURIComponent(pathName.split('/api/asset/')[1] || '');
           if (assets.has(fileName)) {
             res.setHeader('Content-Type', 'model/gltf-binary');
             res.setHeader('Access-Control-Allow-Origin', '*');
             res.end(assets.get(fileName));
           } else {
+            console.log('404 NOT FOUND: ', fileName);
             res.statusCode = 404;
             res.end('Not found');
           }
@@ -66,3 +73,7 @@ export default defineConfig({
     allowedHosts: true
   }
 })
+
+
+
+

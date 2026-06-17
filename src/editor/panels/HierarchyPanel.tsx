@@ -20,6 +20,10 @@ const PLAYER_TYPES = [
   { id: 'third-person', label: '🏃 Third Person Player' },
 ];
 
+const XR_TYPES = [
+  { id: 'vr-position', label: '🌀 VR Position' },
+];
+
 export function HierarchyPanel() {
   const {
     activeScene, selectedEntityId, selectEntity,
@@ -77,6 +81,12 @@ export function HierarchyPanel() {
           ))}
           <div className="create-menu-section">Players</div>
           {PLAYER_TYPES.map((t) => (
+            <button key={t.id} className="create-menu-item" onClick={() => handleCreate(t.id)}>
+              {t.label}
+            </button>
+          ))}
+          <div className="create-menu-section">XR / VR</div>
+          {XR_TYPES.map((t) => (
             <button key={t.id} className="create-menu-item" onClick={() => handleCreate(t.id)}>
               {t.label}
             </button>

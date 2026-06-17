@@ -1,3 +1,4 @@
+import { loadGLTFAsset } from './engine/core/persistence';
 import { StandalonePlayer } from './engine/StandalonePlayer';
 import { Toolbar } from './editor/panels/Toolbar';
 import { HierarchyPanel } from './editor/panels/HierarchyPanel';
@@ -19,13 +20,7 @@ export default function App() {
 
   useEffect(() => {
     const state = useEditorStore.getState();
-    fetch('/api/sync', { method: 'POST', body: JSON.stringify(state.scenes[state.activeSceneId]) }).catch(() => {});
-    const unsub = useEditorStore.subscribe((state, prevState) => {
-      if (state.scenes[state.activeSceneId] !== prevState.scenes[prevState.activeSceneId]) {
-        fetch('/api/sync', { method: 'POST', body: JSON.stringify(state.scenes[state.activeSceneId]) }).catch(() => {});
-      }
-    });
-    return unsub;
+    // Sync automático foi removido. Agora usa botão Publish.
   }, []);
 
   return (
@@ -60,6 +55,8 @@ export default function App() {
     </div>
   );
 }
+
+
 
 
 

@@ -9,7 +9,7 @@ export function Toolbar() {
     showGizmos, toggleGizmos,
     snapEnabled, toggleSnap, snapValue, setSnapValue,
     viewMode, setViewMode,
-    setShowSaveModal, importGLTF,
+    setShowSaveModal, importGLTF, publishToPreview,
   } = useEditorStore();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -131,7 +131,11 @@ export function Toolbar() {
       <div className="toolbar-spacer" />
 
       {/* Play controls */}
-      <div className="toolbar-group play-group">
+      <button className="toolbar-btn publish-btn" onClick={publishToPreview} title="Publish to Preview">
+          <span>??</span><span className="btn-label">Publish to Mobile</span>
+        </button>
+        <div className="toolbar-divider" />
+        <div className="toolbar-group play-group">
         <button
           className={`play-btn ${isPlaying ? 'playing' : ''}`}
           onClick={togglePlay}
@@ -153,3 +157,4 @@ export function Toolbar() {
     </div>
   );
 }
+

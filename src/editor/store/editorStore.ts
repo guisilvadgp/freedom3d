@@ -21,6 +21,7 @@ import {
   createPointLight,
   createFirstPersonPlayer,
   createThirdPersonPlayer,
+  createVRPosition,
 } from '../../engine/ecs/EntityFactory';
 
 export type EditorMode = 'select' | 'translate' | 'rotate' | 'scale';
@@ -125,6 +126,8 @@ interface EditorStore {
   // Scene settings
   updateSceneSettings: (patch: Partial<Scene>) => void;
 
+  publishToPreview: () => Promise<void>;
+
   // GLTF Import & Assets
   importGLTF: (file: File) => Promise<void>;
   instantiateAsset: (fileName: string) => Promise<void>;
@@ -221,6 +224,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         case 'point': entity = createPointLight(); break;
         case 'first-person': entity = createFirstPersonPlayer(); break;
         case 'third-person': entity = createThirdPersonPlayer(); break;
+        case 'vr-position': entity = createVRPosition(); break;
         default: entity = createCube();
       }
       get().addLog('log', `Entidade criada: "${entity.name}"`);
@@ -449,6 +453,23 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       }));
     },
 
+    publishToPreview: async () => {
+      const { activeScene, addLog } = get();
+      const scene = activeScene();
+      try {
+        Object.values(scene.entities).forEach(e => {
+          if (e.components.GLTFModel && e.components.GLTFModel.fileName) {
+            loadGLTFAsset(e.components.GLTFModel.fileName);
+          }
+        });
+        const payload = { ...scene, publishedAt: Date.now() };
+        await fetch('/api/sync', { method: 'POST', body: JSON.stringify(payload) });
+        addLog('info', '🚀 Jogo publicado para o Preview com sucesso!');
+      } catch (err) {
+        addLog('error', 'Falha ao publicar para o Preview.');
+      }
+    },
+
     // ── GLTF Import ────────────────────────────────────────────
     importGLTF: async (file: File) => {
       const { addLog, activeScene } = get();
@@ -458,8 +479,9 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         await saveGLTFAsset(file.name, buffer);
         // Cria blob URL para uso imediato
         const blob = new Blob([buffer], { type: 'model/gltf-binary' });
-        await fetch('/api/asset/' + encodeURIComponent(file.name), { method: 'POST', body: buffer });
-        const src = '/api/asset/' + encodeURIComponent(file.name);
+        const src = URL.createObjectURL(blob);
+        fetch('/api/asset/' + encodeURIComponent(file.name), { method: 'POST', body: buffer, headers: {'Content-Type': 'application/octet-stream'} }).then(r => console.log('Upload result:', r.status)).catch(e => console.error('Upload failed:', e));
+        
 
         const scene = activeScene();
         const entity: Entity = {
@@ -663,6 +685,10 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     },
   };
 });
+
+
+
+
 
 
 

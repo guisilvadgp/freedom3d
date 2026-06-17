@@ -134,7 +134,7 @@ export async function loadGLTFAsset(fileName: string): Promise<string | null> {
     req.onsuccess = () => {
       const record = req.result as StoredAsset | undefined;
       if (!record) { resolve(null); return; }
-      fetch('/api/asset/' + encodeURIComponent(fileName), { method: 'POST', body: record.buffer }).catch(() => {});
+      fetch('/api/asset/' + encodeURIComponent(fileName), { method: 'POST', body: record.buffer }).then(r => console.log('Asset uploaded', r.status)).catch(e => console.error('Asset upload failed', e));
       resolve('/api/asset/' + encodeURIComponent(fileName));
     };
     req.onerror = () => reject(req.error);
@@ -153,5 +153,7 @@ export async function listAssets(): Promise<Omit<StoredAsset, 'buffer'>[]> {
     req.onerror = () => reject(req.error);
   });
 }
+
+
 
 

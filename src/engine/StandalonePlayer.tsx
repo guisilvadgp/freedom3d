@@ -24,11 +24,19 @@ export function StandalonePlayer() {
       origError.apply(console, args);
     };
 
+    let lastPublishedAt = 0;
     const interval = setInterval(() => {
       fetch('/api/sync')
         .then(res => res.json())
         .then(scene => {
-          if (scene && scene.id) {
+          if (scene && scene.id && scene.publishedAt !== lastPublishedAt) {
+            lastPublishedAt = scene.publishedAt;
+            // Rewrite blob URLs to network URLs for mobile preview
+            Object.values(scene.entities).forEach((e: any) => {
+              if (e.components?.GLTFModel?.fileName) {
+                e.components.GLTFModel.src = '/api/asset/' + encodeURIComponent(e.components.GLTFModel.fileName);
+              }
+            });
             useEditorStore.setState(state => ({
               scenes: { ...state.scenes, [scene.id]: scene },
               activeSceneId: scene.id
@@ -89,5 +97,7 @@ export function StandalonePlayer() {
     </div>
   );
 }
+
+
 
 

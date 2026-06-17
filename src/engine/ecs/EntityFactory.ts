@@ -62,6 +62,23 @@ export function createPlane(name = 'Plane'): Entity {
   return e;
 }
 
+export function createVRPosition(name = 'VR Position'): Entity {
+  const e = createEntity(name);
+  e.tags.push('teleport');
+  e.components.Transform!.rotation = [90, 0, 0]; // Deitado no chão
+  e.components.Transform!.scale = [1, 1, 1];
+  e.components.Transform!.position = [0, 0.1, 0]; // Levemente acima do chão
+  e.components.MeshRenderer = {
+    type: 'MeshRenderer',
+    geometry: 'torus',
+    material: 'basic',
+    color: '#00ffff',
+    castShadow: false,
+    receiveShadow: false,
+  };
+  return e;
+}
+
 export function createDirectionalLight(name = 'Directional Light'): Entity {
   const e = createEntity(name);
   e.components.Transform!.position = [5, 10, 5];

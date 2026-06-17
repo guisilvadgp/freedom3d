@@ -2,6 +2,7 @@ import { Suspense, useMemo, useRef, useEffect } from 'react';
 import { useLoader } from '@react-three/fiber';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { TransformControls, useAnimations } from '@react-three/drei';
+import { RigidBody, MeshCollider } from '@react-three/rapier';
 import * as THREE from 'three';
 import { useEditorStore } from '../store/editorStore';
 import type { Entity } from '../../engine/ecs/types';
@@ -16,10 +17,28 @@ function GLTFMesh({ entity }: { entity: Entity }) {
     updateComponent, snapEnabled, snapValue, activeViewport
   } = useEditorStore();
   const isGameView = activeViewport === 'game';
+  const isStandalone = typeof window !== 'undefined' && window.location.pathname === '/preview';
 
   const transform = entity.components.Transform!;
   const model = entity.components.GLTFModel!;
+  const rigidBody = entity.components.RigidBody;
   const isSelected = selectedEntityId === entity.id;
+
+  // Drag detection: evita seleção acidental ao arrastar a câmera
+  const mouseDownPos = useRef<{x: number; y: number} | null>(null);
+  const handlePointerDown = (e: any) => {
+    mouseDownPos.current = { x: e.clientX, y: e.clientY };
+  };
+  const handlePointerUp = (e: any) => {
+    if (!mouseDownPos.current) return;
+    const dx = Math.abs(e.clientX - mouseDownPos.current.x);
+    const dy = Math.abs(e.clientY - mouseDownPos.current.y);
+    mouseDownPos.current = null;
+    if (dx < 5 && dy < 5) {
+      e.stopPropagation();
+      selectEntity(entity.id);
+    }
+  };
 
   const gltf = useLoader(GLTFLoader, model.src);
   const clonedScene = useMemo(() => {
@@ -76,25 +95,51 @@ function GLTFMesh({ entity }: { entity: Entity }) {
     }
   }, [animator?.currentAnimation, animator?.loop, animator?.timeScale, actions, isPlaying]);
 
+  // Mesh com física para GLTF
+  const group = (
+    <group
+      ref={groupRef}
+      position={pos}
+      rotation={rot}
+      scale={[s, s, s]}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+    >
+      <primitive object={clonedScene} />
+
+      {/* Selection highlight */}
+      {isSelected && (
+        <mesh visible={false}>
+          <boxGeometry />
+          <meshBasicMaterial color="#44aaff" wireframe />
+        </mesh>
+      )}
+    </group>
+  );
+
   return (
     <>
-      <group
-        ref={groupRef}
-        position={pos}
-        rotation={rot}
-        scale={[s, s, s]}
-        onClick={(e) => { e.stopPropagation(); selectEntity(entity.id); }}
-      >
-        <primitive object={clonedScene} />
-
-        {/* Selection highlight */}
-        {isSelected && (
-          <mesh visible={false}>
-            <boxGeometry />
-            <meshBasicMaterial color="#44aaff" wireframe />
-          </mesh>
-        )}
-      </group>
+      {(rigidBody && isPlaying && !isStandalone) ? (
+        <RigidBody
+          position={pos}
+          rotation={rot}
+          type={rigidBody.isStatic ? 'fixed' : 'dynamic'}
+          mass={rigidBody.mass}
+          gravityScale={rigidBody.useGravity ? 1 : 0}
+          colliders={rigidBody.collider === 'none' || rigidBody.collider === 'trimesh' ? false : (rigidBody.collider || 'cuboid')}
+        >
+          <group scale={[s, s, s]}>
+            <primitive object={clonedScene} />
+          </group>
+          {rigidBody.collider === 'trimesh' && (
+            <MeshCollider type="trimesh">
+              <group scale={[s, s, s]}>
+                <primitive object={clonedScene} />
+              </group>
+            </MeshCollider>
+          )}
+        </RigidBody>
+      ) : group}
 
       {isSelected && !isGameView && (
         <TransformControls
