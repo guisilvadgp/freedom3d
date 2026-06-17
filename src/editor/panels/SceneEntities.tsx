@@ -33,7 +33,7 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
       let stretchFactor = 1.0; 
       
       if (aspect < 1) {
-        stretchFactor = 1.35; // <- Aumente este valor se quiser que fique AINDA MAIS esticado
+        stretchFactor = 1.8; // Aumentado agressivamente para dar mais distorção
         
         const fovRad = (baseFov * Math.PI) / 180;
         const h = 2 * Math.tan(fovRad / 2);
@@ -41,8 +41,7 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
         const newH = w / aspect; 
         const newFovRad = 2 * Math.atan(newH / 2);
         
-        // Aumenta também o FOV base para compensar a visão
-        ref.current.fov = ((newFovRad * 180) / Math.PI) * 1.1;
+        ref.current.fov = (newFovRad * 180) / Math.PI;
       } else {
         ref.current.fov = baseFov;
       }
