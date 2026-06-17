@@ -25,24 +25,33 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
       }
 
       // Update aspect ratio dynamically to prevent any stretching/distortion
-      const aspect = state.size.width / state.size.height;
-      if (ref.current.aspect !== aspect) {
-        ref.current.aspect = aspect;
+      let aspect = state.size.width / state.size.height;
+      const baseFov = camera.fov || 60;
 
-        // Ajuste de FOV para telas em modo retrato (mobile)
-        // Mantém o mesmo FOV horizontal que a cena teria num monitor 16:9
-        const baseFov = camera.fov || 60;
-        if (aspect < 1) {
-          const fovRad = (baseFov * Math.PI) / 180;
-          const h = 2 * Math.tan(fovRad / 2);
-          const w = h * (16 / 9); // Largura visível em 16:9
-          const newH = w / aspect; // Altura necessária para essa largura no aspect atual
-          const newFovRad = 2 * Math.atan(newH / 2);
-          ref.current.fov = (newFovRad * 180) / Math.PI;
-        } else {
-          ref.current.fov = baseFov;
-        }
+      // Fator de distorção vertical para mobile (portrait)
+      // Um valor maior que 1 vai esticar a cena verticalmente (deixar tudo mais "alto")
+      let stretchFactor = 1.0; 
+      
+      if (aspect < 1) {
+        stretchFactor = 1.35; // <- Aumente este valor se quiser que fique AINDA MAIS esticado
+        
+        const fovRad = (baseFov * Math.PI) / 180;
+        const h = 2 * Math.tan(fovRad / 2);
+        const w = h * (16 / 9); 
+        const newH = w / aspect; 
+        const newFovRad = 2 * Math.atan(newH / 2);
+        
+        // Aumenta também o FOV base para compensar a visão
+        ref.current.fov = ((newFovRad * 180) / Math.PI) * 1.1;
+      } else {
+        ref.current.fov = baseFov;
+      }
 
+      // Aplica a distorção forçando a câmera a ter um aspect ratio diferente da tela real
+      const finalAspect = aspect * stretchFactor;
+
+      if (Math.abs(ref.current.aspect - finalAspect) > 0.001) {
+        ref.current.aspect = finalAspect;
         ref.current.updateProjectionMatrix();
       }
     }
