@@ -1,12 +1,45 @@
 import { XROrigin } from '@react-three/xr';
 import { useRef, useState } from 'react';
-import { useThree } from '@react-three/fiber';
+import { useThree, useFrame } from '@react-three/fiber';
 import { TransformControls, Edges, PositionalAudio, Sparkles, PerspectiveCamera } from '@react-three/drei';
 import { RigidBody, MeshCollider } from '@react-three/rapier';
 import * as THREE from 'three';
 import { useEditorStore } from '../store/editorStore';
 import type { Entity } from '../../engine/ecs/types';
 import { xrStore, attemptTeleport } from './SceneView';
+
+// ── Perspective Camera Wrapper ──────────────────────────────
+// Updates position and rotation on every frame (60fps) directly in Three.js
+// avoiding React re-renders while keeping script mutations synchronized.
+function PerspectiveCameraWrapper({ camera, isGameView, isStandalone }: { camera: any; isGameView: boolean; isStandalone: boolean }) {
+  const ref = useRef<THREE.PerspectiveCamera>(null);
+
+  useFrame(() => {
+    if (ref.current && camera) {
+      if (camera.offset) {
+        ref.current.position.set(camera.offset[0], camera.offset[1], camera.offset[2]);
+      }
+      if (camera.rotation) {
+        ref.current.rotation.set(camera.rotation[0], camera.rotation[1], camera.rotation[2]);
+      }
+    }
+  });
+
+  return (
+    <>
+      {isStandalone && <XROrigin position={camera.offset || [0, 0, 0]} />}
+      <PerspectiveCamera 
+        ref={ref}
+        makeDefault={isGameView && camera.isMain} 
+        position={camera.offset || [0, 0, 0]}
+        rotation={camera.rotation || [0, 0, 0]}
+        fov={camera.fov} 
+        near={camera.near} 
+        far={camera.far} 
+      />
+    </>
+  );
+}
 
 // ── VR Teleport Ring ──────────────────────────────────────────
 // Only rendered in /preview (StandalonePlayer), inside <XR>.
@@ -327,17 +360,11 @@ function EntityMesh({ entity }: { entity: Entity }) {
         )}
         {/* Camera */}
         {camera && (
-          <>
-            {isStandalone && <XROrigin position={camera.offset || [0, 0, 0]} />}
-            <PerspectiveCamera 
-              makeDefault={isGameView && camera.isMain} 
-              position={camera.offset || [0, 0, 0]}
-              rotation={camera.rotation || [0, 0, 0]}
-              fov={camera.fov} 
-              near={camera.near} 
-              far={camera.far} 
-            />
-          </>
+          <PerspectiveCameraWrapper 
+            camera={camera} 
+            isGameView={isGameView} 
+            isStandalone={isStandalone} 
+          />
         )}
         {entity.childrenIds && entity.childrenIds.map(id => {
           const childEntity = useEditorStore.getState().activeScene().entities[id];
@@ -414,17 +441,11 @@ function EntityMesh({ entity }: { entity: Entity }) {
       )}
       {/* Camera */}
       {camera && (
-        <>
-          {isStandalone && <XROrigin position={camera.offset || [0, 0, 0]} />}
-          <PerspectiveCamera 
-            makeDefault={isGameView && camera.isMain} 
-            position={camera.offset || [0, 0, 0]}
-            rotation={camera.rotation || [0, 0, 0]}
-            fov={camera.fov} 
-            near={camera.near} 
-            far={camera.far} 
-          />
-        </>
+        <PerspectiveCameraWrapper 
+          camera={camera} 
+          isGameView={isGameView} 
+          isStandalone={isStandalone} 
+        />
       )}
       {/* Selection outline */}
       {isSelected && !isGameView && (
