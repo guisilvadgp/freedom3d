@@ -158,9 +158,31 @@ export function createFirstPersonPlayer(name = 'First Person Player'): Entity {
     type: 'Script',
     scriptName: 'FPSController',
     code: `// Controle em 1a Pessoa
+let eulerY = 0;
+const speed = 5;
+
 export function onUpdate(delta) {
-  // A Camera é anexada a esta entidade e herda o transform.
-  // Logica simples de giro. No futuro, adicione listeners de mouse/teclado.
+  if (Input.getMouseButton(0)) Input.lockMouse();
+  if (Input.mouse.isLocked) {
+    eulerY -= Input.mouse.movementX * 0.002;
+  }
+  
+  const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, eulerY, 0));
+  if (rigidBody) {
+    rigidBody.setRotation(q, true);
+    
+    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(q);
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(q);
+    const vel = new THREE.Vector3(0, rigidBody.linvel().y, 0);
+    
+    if (Input.getKey('KeyW')) vel.add(forward.clone().multiplyScalar(speed));
+    if (Input.getKey('KeyS')) vel.add(forward.clone().multiplyScalar(-speed));
+    if (Input.getKey('KeyA')) vel.add(right.clone().multiplyScalar(-speed));
+    if (Input.getKey('KeyD')) vel.add(right.clone().multiplyScalar(speed));
+    if (Input.getKey('Space') && Math.abs(vel.y) < 0.1) vel.y = 5;
+    
+    rigidBody.setLinvel(vel, true);
+  }
 }`
   };
   return e;
@@ -196,12 +218,36 @@ export function createThirdPersonPlayer(name = 'Third Person Player'): Entity {
     type: 'Script',
     scriptName: 'TPSController',
     code: `// Controle em 3a Pessoa
+let eulerY = 0;
+const speed = 5;
+
 export function onUpdate(delta) {
-  // Lógica de WASD e controle de RigidBody.
+  if (Input.getMouseButton(0)) Input.lockMouse();
+  if (Input.mouse.isLocked) {
+    eulerY -= Input.mouse.movementX * 0.002;
+  }
+  
+  const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, eulerY, 0));
+  if (rigidBody) {
+    rigidBody.setRotation(q, true);
+    
+    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(q);
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(q);
+    const vel = new THREE.Vector3(0, rigidBody.linvel().y, 0);
+    
+    if (Input.getKey('KeyW')) vel.add(forward.clone().multiplyScalar(speed));
+    if (Input.getKey('KeyS')) vel.add(forward.clone().multiplyScalar(-speed));
+    if (Input.getKey('KeyA')) vel.add(right.clone().multiplyScalar(-speed));
+    if (Input.getKey('KeyD')) vel.add(right.clone().multiplyScalar(speed));
+    if (Input.getKey('Space') && Math.abs(vel.y) < 0.1) vel.y = 5;
+    
+    rigidBody.setLinvel(vel, true);
+  }
 }`
   };
   return e;
 }
+
 
 
 

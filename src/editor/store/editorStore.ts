@@ -115,6 +115,10 @@ interface EditorStore {
   removeComponent: (entityId: EntityId, type: ComponentType) => void;
   updateComponent: (entityId: EntityId, type: ComponentType, patch: Partial<AnyComponent>) => void;
 
+  // Runtime references
+  rigidBodyRefs: Record<string, any>;
+  setRigidBodyRef: (id: string, ref: any) => void;
+
   // Scene settings
   updateSceneSettings: (patch: Partial<Scene>) => void;
 
@@ -145,6 +149,13 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     scenes: { [defaultScene.id]: defaultScene },
     activeSceneId: defaultScene.id,
     activeScene: () => get().scenes[get().activeSceneId],
+
+    rigidBodyRefs: {},
+    setRigidBodyRef: (id, ref) => {
+      set((s) => ({
+        rigidBodyRefs: { ...s.rigidBodyRefs, [id]: ref }
+      }));
+    },
 
     selectedEntityId: null,
     selectEntity: (id) => set({ selectedEntityId: id }),

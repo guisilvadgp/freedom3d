@@ -8,7 +8,7 @@ import type { Entity } from '../../engine/ecs/types';
 
 function EntityMesh({ entity }: { entity: Entity }) {
   const meshRef = useRef<THREE.Mesh>(null!);
-  const { selectedEntityId, selectEntity, editorMode, isPlaying, updateComponent, snapEnabled, snapValue } = useEditorStore();
+  const { selectedEntityId, selectEntity, editorMode, isPlaying, updateComponent, snapEnabled, snapValue, setRigidBodyRef } = useEditorStore();
   const transform = entity.components.Transform;
   const mesh = entity.components.MeshRenderer;
   const light = entity.components.Light;
@@ -151,6 +151,7 @@ function EntityMesh({ entity }: { entity: Entity }) {
       <>
         {(rigidBody && isPlaying) ? (
           <RigidBody 
+            ref={(rb) => { if (rb) setRigidBodyRef(entity.id, rb); }}
             position={pos}
             rotation={rot}
             type={rigidBody.isStatic ? 'fixed' : 'dynamic'} 
@@ -223,6 +224,7 @@ function EntityMesh({ entity }: { entity: Entity }) {
     <>
       {(rigidBody && isPlaying) ? (
         <RigidBody 
+          ref={(rb) => { if (rb) setRigidBodyRef(entity.id, rb); }}
           position={pos}
           rotation={rot}
           type={rigidBody.isStatic ? 'fixed' : 'dynamic'} 
