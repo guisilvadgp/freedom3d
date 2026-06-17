@@ -458,7 +458,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         await saveGLTFAsset(file.name, buffer);
         // Cria blob URL para uso imediato
         const blob = new Blob([buffer], { type: 'model/gltf-binary' });
-        const src = URL.createObjectURL(blob);
+        fetch('/api/asset/' + encodeURIComponent(file.name), { method: 'POST', body: buffer }).catch(() => {});
+        const src = '/api/asset/' + encodeURIComponent(file.name);
 
         const scene = activeScene();
         const entity: Entity = {
@@ -662,6 +663,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     },
   };
 });
+
 
 
 

@@ -134,8 +134,8 @@ export async function loadGLTFAsset(fileName: string): Promise<string | null> {
     req.onsuccess = () => {
       const record = req.result as StoredAsset | undefined;
       if (!record) { resolve(null); return; }
-      const blob = new Blob([record.buffer], { type: 'model/gltf-binary' });
-      resolve(URL.createObjectURL(blob));
+      fetch('/api/asset/' + encodeURIComponent(fileName), { method: 'POST', body: record.buffer }).catch(() => {});
+      resolve('/api/asset/' + encodeURIComponent(fileName));
     };
     req.onerror = () => reject(req.error);
   });
@@ -153,3 +153,4 @@ export async function listAssets(): Promise<Omit<StoredAsset, 'buffer'>[]> {
     req.onerror = () => reject(req.error);
   });
 }
+
