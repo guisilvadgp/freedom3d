@@ -20,82 +20,6 @@ export function attemptTeleport(): boolean {
   return true;
 }
 
-function CameraCorrector() {
-  const { gl, camera, size, scene } = useThree();
-
-  useEffect(() => {
-    // ======== MODO VR (ESTEREOSCÓPICO) ========
-    // O WebXRManager do Three.js sobrescreve a projectionMatrix de cada olho todo frame.
-    // Para distorcer (esticar) a imagem verticalmente na VR sem quebrar a calibração de IPD,
-    // interceptamos o evento onBeforeRender da cena, que roda logo após o WebXR setar as matrizes.
-    const originalBeforeRender = scene.onBeforeRender;
-
-    scene.onBeforeRender = (renderer, scene, camera, renderTarget) => {
-      if (originalBeforeRender) {
-        originalBeforeRender(renderer, scene, camera, renderTarget);
-      }
-
-      if (gl.xr.isPresenting) {
-        const xrCamera = gl.xr.getCamera();
-        if (xrCamera && xrCamera.cameras.length > 0) {
-          // FATOR DE DISTORÇÃO VERTICAL NA VR
-          // 1.0 = Normal. Maior que 1.0 = Estica verticalmente (paredes parecem mais altas).
-          const vrStretchFactor: number = 1.5;
-
-          xrCamera.cameras.forEach((subCam: any) => {
-            // A posição 5 do array da matriz de projeção controla a escala no eixo Y.
-            // Garantimos que não multiplicamos várias vezes no mesmo frame checando um frameId ou 
-            // recalculando a partir do original fornecido pelo WebXR (que é sempre limpo a cada frame).
-            if (vrStretchFactor !== 1.0) {
-              subCam.projectionMatrix.elements[5] *= vrStretchFactor;
-              subCam.projectionMatrixInverse.copy(subCam.projectionMatrix).invert();
-            }
-          });
-        }
-      }
-    };
-
-    return () => {
-      scene.onBeforeRender = originalBeforeRender;
-    };
-  }, [gl, scene]);
-
-  useFrame(() => {
-    if (gl.xr.isPresenting) return;
-
-    // ======== MODO 2D (PORTRAIT/LANDSCAPE) ========
-    const cam = camera as THREE.PerspectiveCamera;
-    if (!cam || !cam.isPerspectiveCamera) return;
-
-    let aspect = size.width / size.height;
-    if (isNaN(aspect) || aspect === 0) return;
-
-    const baseFov = 60;
-    let stretchFactor = 1.0;
-
-    if (aspect < 1) {
-      stretchFactor = 1.0; // Voltando ao normal no 2D, já que o problema relatado era na VR
-
-      const fovRad = (baseFov * Math.PI) / 180;
-      const h = 2 * Math.tan(fovRad / 2);
-      const w = h * (16 / 9);
-      const newH = w / aspect;
-      const newFovRad = 2 * Math.atan(newH / 2);
-
-      cam.fov = (newFovRad * 180) / Math.PI;
-    } else {
-      cam.fov = baseFov;
-    }
-
-    const finalAspect = aspect * stretchFactor;
-    if (Math.abs(cam.aspect - finalAspect) > 0.001) {
-      cam.aspect = finalAspect;
-      cam.updateProjectionMatrix();
-    }
-  });
-
-  return null;
-}
 
 
 
@@ -180,7 +104,6 @@ export function SceneView({
 
   const content = (
     <>
-      <CameraCorrector />
       <LoadingTracker sceneLoaded={sceneLoaded} onProgress={onProgress} onLoaded={onLoaded} />
       {/* Background */}
       <color attach="background" args={[scene.backgroundColor]} />
