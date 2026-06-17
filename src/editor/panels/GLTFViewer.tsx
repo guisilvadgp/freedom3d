@@ -218,8 +218,7 @@ function GLTFErrorFallback({ fileName }: { fileName: string }) {
 // ── Renderiza todos os GLTF da cena ─────────────────────────
 
 export function GLTFViewers() {
-  const { activeScene } = useEditorStore();
-  const scene = activeScene();
+  const scene = useEditorStore(s => s.scenes[s.activeSceneId]);
 
   return (
     <>

@@ -13,7 +13,9 @@ import * as THREE from 'three';
 const FIXED_STEP = 1 / 60; // 60Hz para FixedUpdate
 
 export function GameLoop() {
-  const { isPlaying, activeScene, addLog } = useEditorStore();
+  const isPlaying = useEditorStore(s => s.isPlaying);
+  const scene = useEditorStore(s => s.scenes[s.activeSceneId]);
+  const addLog = useEditorStore(s => s.addLog);
   const rapierContext = useRapier();
 
   const accumulated = useRef(0);
@@ -46,7 +48,6 @@ export function GameLoop() {
       addLog('info', '▶ Game loop iniciado (Update @ requestAnimationFrame, FixedUpdate @ 60Hz)');
       
       // Compila todos os scripts ativos na cena
-      const scene = activeScene();
       compiledScripts.current = {};
       for (const entity of Object.values(scene.entities)) {
         if (!entity?.active || !entity.components.Script) continue;
@@ -68,8 +69,6 @@ export function GameLoop() {
 
     frame.current++;
     accumulated.current += delta;
-
-    const scene = activeScene();
 
     // ── Update (todo frame) ──────────────────────────────────
     const rigidBodyRefs = useEditorStore.getState().rigidBodyRefs || {};

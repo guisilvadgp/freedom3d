@@ -474,8 +474,7 @@ function EntityMesh({ entity }: { entity: Entity }) {
 }
 
 export function SceneEntities() {
-  const { activeScene } = useEditorStore();
-  const scene = activeScene();
+  const scene = useEditorStore(s => s.scenes[s.activeSceneId]);
 
   return (
     <>

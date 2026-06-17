@@ -20,9 +20,13 @@ export function attemptTeleport(): boolean {
 }
 
 export function SceneView({ isStandalone }: { isStandalone?: boolean }) {
-  const { showGrid, isPlaying, activeScene, showGizmos, activeViewport, setActiveViewport } = useEditorStore();
+  const showGrid = useEditorStore(s => s.showGrid);
+  const isPlaying = useEditorStore(s => s.isPlaying);
+  const showGizmos = useEditorStore(s => s.showGizmos);
+  const activeViewport = useEditorStore(s => s.activeViewport);
+  const setActiveViewport = useEditorStore(s => s.setActiveViewport);
+  const scene = useEditorStore(s => s.scenes[s.activeSceneId]);
   const isGameView = isStandalone || activeViewport === 'game';
-  const scene = activeScene();
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
