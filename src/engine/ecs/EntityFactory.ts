@@ -48,13 +48,14 @@ export function createSphere(name = 'Sphere'): Entity {
 
 export function createPlane(name = 'Plane'): Entity {
   const e = createEntity(name);
-  e.components.Transform!.position = [0, -0.5, 0];
-  e.components.Transform!.scale = [10, 1, 10];
+  e.components.Transform!.position = [0, 0, 0];
+  e.components.Transform!.rotation = [-90, 0, 0];
+  e.components.Transform!.scale = [30, 30, 1];
   e.components.MeshRenderer = {
     type: 'MeshRenderer',
     geometry: 'plane',
     material: 'standard',
-    color: '#3a3a3a',
+    color: '#4caf50',
     castShadow: false,
     receiveShadow: true,
   };
