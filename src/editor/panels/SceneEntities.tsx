@@ -14,6 +14,46 @@ import { xrStore, attemptTeleport } from './SceneView';
 function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: { entity: Entity; camera: any; isGameView: boolean; isStandalone: boolean }) {
   const ref = useRef<THREE.PerspectiveCamera>(null);
   const [initialHeadsetHeight, setInitialHeadsetHeight] = useState<number | null>(null);
+  
+  const { gl, scene, camera: defaultCamera } = useThree();
+  const raycaster = useRef(new THREE.Raycaster());
+  const hoveredRing = useRef<any>(null);
+
+  // Setup WebXR "Tap" Event
+  useEffect(() => {
+    if (!isStandalone) return;
+    const xr = gl.xr;
+    let session: any = null;
+
+    const handleSelect = () => {
+      // Dispara raycast do centro da tela ao tocar nela
+      raycaster.current.setFromCamera(new THREE.Vector2(0, 0), defaultCamera);
+      const intersects = raycaster.current.intersectObjects(scene.children, true);
+      const hit = intersects.find(i => i.object.userData?.isTeleportRing);
+      if (hit && hit.object.userData.onClick) {
+        hit.object.userData.onClick({ stopPropagation: () => {} });
+      }
+    };
+
+    const onSessionStart = () => {
+      session = xr.getSession();
+      if (session) session.addEventListener('select', handleSelect);
+    };
+
+    const onSessionEnd = () => {
+      if (session) session.removeEventListener('select', handleSelect);
+      session = null;
+    };
+
+    xr.addEventListener('sessionstart', onSessionStart);
+    xr.addEventListener('sessionend', onSessionEnd);
+
+    return () => {
+      xr.removeEventListener('sessionstart', onSessionStart);
+      xr.removeEventListener('sessionend', onSessionEnd);
+      if (session) session.removeEventListener('select', handleSelect);
+    };
+  }, [gl, scene, defaultCamera, isStandalone]);
 
   useFrame((state, delta) => {
     if (ref.current && camera) {
@@ -35,6 +75,25 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
         const y = xrCamera.position.y;
         if (y > 0.1) {
           setInitialHeadsetHeight(y);
+        }
+      }
+
+      // VR Gaze (Hovering) - raycast a cada frame
+      if (isStandalone) {
+        raycaster.current.setFromCamera(new THREE.Vector2(0, 0), state.camera);
+        const intersects = raycaster.current.intersectObjects(scene.children, true);
+        const hit = intersects.find(i => i.object.userData?.isTeleportRing);
+        if (hit) {
+          if (hoveredRing.current !== hit.object) {
+            if (hoveredRing.current?.userData.setHovered) hoveredRing.current.userData.setHovered(false);
+            hoveredRing.current = hit.object;
+            if (hoveredRing.current?.userData.setHovered) hoveredRing.current.userData.setHovered(true);
+          }
+        } else {
+          if (hoveredRing.current) {
+            if (hoveredRing.current.userData.setHovered) hoveredRing.current.userData.setHovered(false);
+            hoveredRing.current = null;
+          }
         }
       }
 
@@ -146,7 +205,14 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
         fov={camera.fov}
         near={camera.near}
         far={camera.far}
-      />
+      >
+        {isStandalone && (
+          <mesh position={[0, 0, -1.5]}>
+            <ringGeometry args={[0.02, 0.03, 32]} />
+            <meshBasicMaterial color="#ffffff" opacity={0.6} transparent depthTest={false} />
+          </mesh>
+        )}
+      </PerspectiveCamera>
     </>
   );
 }
@@ -202,6 +268,7 @@ function VRTeleportRing({ entity }: { entity: Entity }) {
         onClick={handleClick}
         onPointerOver={() => setHovered(true)}
         onPointerOut={() => setHovered(false)}
+        userData={{ isTeleportRing: true, onClick: handleClick, setHovered }}
       >
         <torusGeometry args={[0.6, 0.06, 16, 64]} />
         <meshStandardMaterial
@@ -217,6 +284,7 @@ function VRTeleportRing({ entity }: { entity: Entity }) {
         onClick={handleClick}
         onPointerOver={() => setHovered(true)}
         onPointerOut={() => setHovered(false)}
+        userData={{ isTeleportRing: true, onClick: handleClick, setHovered }}
       >
         <circleGeometry args={[0.58, 64]} />
         <meshBasicMaterial
