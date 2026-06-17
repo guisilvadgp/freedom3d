@@ -1,5 +1,5 @@
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Grid, GizmoHelper, GizmoViewport, TransformControls, Stats } from '@react-three/drei';
+import { OrbitControls, Grid, GizmoHelper, GizmoViewport, Stats } from '@react-three/drei';
 import { useRef, Suspense } from 'react';
 import { useEditorStore } from '../store/editorStore';
 import { SceneEntities } from './SceneEntities';
@@ -8,6 +8,7 @@ import { GameLoop } from '../../engine/systems/GameLoop';
 import { Physics } from '@react-three/rapier';
 import { XR, createXRStore } from '@react-three/xr';
 import * as THREE from 'three';
+import { Eye, Gamepad } from 'lucide-react';
 
 export const xrStore = createXRStore();
 
@@ -27,6 +28,8 @@ export function SceneView({ isStandalone }: { isStandalone?: boolean }) {
   const setActiveViewport = useEditorStore(s => s.setActiveViewport);
   const scene = useEditorStore(s => s.scenes[s.activeSceneId]);
   const isGameView = isStandalone || activeViewport === 'game';
+  
+  const isDragging = useRef(false);
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -35,7 +38,6 @@ export function SceneView({ isStandalone }: { isStandalone?: boolean }) {
     
     try {
       const data = JSON.parse(dataStr);
-      // Pega a store atual
       const store = useEditorStore.getState();
       
       if (data.type === 'prefab') {
@@ -49,7 +51,7 @@ export function SceneView({ isStandalone }: { isStandalone?: boolean }) {
   };
 
   const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault(); // Necessário para permitir o drop
+    e.preventDefault();
   };
 
   const content = (
@@ -101,6 +103,8 @@ export function SceneView({ isStandalone }: { isStandalone?: boolean }) {
           dampingFactor={0.05}
           minDistance={1}
           maxDistance={200}
+          onStart={() => { isDragging.current = true; }}
+          onEnd={() => { isDragging.current = false; }}
         />
       )}
 
@@ -123,8 +127,8 @@ export function SceneView({ isStandalone }: { isStandalone?: boolean }) {
     <div className="scene-view" onDrop={handleDrop} onDragOver={handleDragOver}>
       {!isStandalone && (
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, background: '#1e293b', display: 'flex', padding: '4px 8px', gap: '8px', borderBottom: '1px solid #334155' }}>
-          <button className={ "panel-btn"  } style={{ background: activeViewport === 'scene' ? '#3b82f6' : 'transparent' }} onClick={() => setActiveViewport('scene')}>📹 Scene</button>
-          <button className={ "panel-btn"  } style={{ background: activeViewport === 'game' ? '#3b82f6' : 'transparent' }} onClick={() => setActiveViewport('game')}>🎮 Game</button>
+          <button className="panel-btn" style={{ background: activeViewport === 'scene' ? '#3b82f6' : 'transparent', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => setActiveViewport('scene')}><Eye size={14} /> Scene</button>
+          <button className="panel-btn" style={{ background: activeViewport === 'game' ? '#3b82f6' : 'transparent', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => setActiveViewport('game')}><Gamepad size={14} /> Game</button>
         </div>
       )}
 
@@ -137,17 +141,17 @@ export function SceneView({ isStandalone }: { isStandalone?: boolean }) {
 
       <Canvas
         shadows
+        dpr={[1, 2]}
         gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping }}
         camera={{ fov: 60, near: 0.1, far: 1000, position: [5, 5, 8] }}
+        onPointerMissed={() => {
+          if (!isGameView && !isDragging.current) {
+            useEditorStore.getState().selectEntity(null);
+          }
+        }}
       >
         {isStandalone ? <XR store={xrStore}>{content}</XR> : content}
       </Canvas>
     </div>
   );
 }
-
-
-
-
-
-

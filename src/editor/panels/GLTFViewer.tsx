@@ -85,34 +85,34 @@ function GLTFMesh({ entity }: { entity: Entity }) {
   const gltf = useLoader(GLTFLoader, model.src);
   const clonedScene = useMemo(() => {
     const clone = gltf.scene.clone(true);
-    // Aplicar shadow em todos os meshes internos
+    const isMobile = isStandalone || (typeof navigator !== 'undefined' && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent));
+
+    // Aplicar shadow em todos os meshes internos e otimizar texturas no mobile para economizar VRAM
     clone.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
-        (child as THREE.Mesh).castShadow = model.castShadow;
-        (child as THREE.Mesh).receiveShadow = model.receiveShadow;
+        const mesh = child as THREE.Mesh;
+        mesh.castShadow = model.castShadow;
+        mesh.receiveShadow = model.receiveShadow;
+
+        // Otimização de texturas para economizar VRAM no mobile
+        if (isMobile && mesh.material) {
+          const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+          materials.forEach((mat: any) => {
+            const textureKeys = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap'];
+            textureKeys.forEach((key) => {
+              if (mat[key] && mat[key].isTexture) {
+                const tex = mat[key];
+                tex.generateMipmaps = false;
+                tex.minFilter = THREE.LinearFilter;
+                tex.needsUpdate = true;
+              }
+            });
+          });
+        }
       }
     });
     return clone;
-  }, [gltf.scene, model.castShadow, model.receiveShadow]);
-
-  // Limpeza de recursos na GPU para evitar crashes por estouro de memória no mobile
-  useEffect(() => {
-    return () => {
-      clonedScene.traverse((child) => {
-        if ((child as THREE.Mesh).isMesh) {
-          const mesh = child as THREE.Mesh;
-          if (mesh.geometry) mesh.geometry.dispose();
-          if (mesh.material) {
-            if (Array.isArray(mesh.material)) {
-              mesh.material.forEach((m) => m.dispose());
-            } else {
-              mesh.material.dispose();
-            }
-          }
-        }
-      });
-    };
-  }, [clonedScene]);
+  }, [gltf.scene, model.castShadow, model.receiveShadow, isStandalone]);
 
   const pos = transform.position as [number, number, number];
   const rot = (transform.rotation as [number, number, number]).map(
