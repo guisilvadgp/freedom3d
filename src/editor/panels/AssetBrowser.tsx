@@ -4,7 +4,7 @@ import { listAssets } from '../../engine/core/persistence';
 import type { StoredAsset } from '../../engine/core/persistence';
 
 export function AssetBrowser() {
-  const { instantiateAsset } = useEditorStore();
+  const { instantiateAsset, prefabs, instantiatePrefab } = useEditorStore();
   const [assets, setAssets] = useState<Omit<StoredAsset, 'buffer'>[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -41,29 +41,66 @@ export function AssetBrowser() {
       
       {loading ? (
         <div className="asset-empty">Carregando assets...</div>
-      ) : assets.length === 0 ? (
-        <div className="asset-empty">Nenhum asset importado. Use o botão na Toolbar para importar modelos GLTF.</div>
       ) : (
-        <div className="asset-grid">
-          {assets.map((asset) => (
-            <div key={asset.fileName} className="asset-card">
-              <div className="asset-icon">📦</div>
-              <div className="asset-info">
-                <span className="asset-name" title={asset.fileName}>{asset.fileName}</span>
-                <span className="asset-size">{formatSize(asset.size)}</span>
-              </div>
-              <div className="asset-actions">
-                <button 
-                  className="asset-btn" 
-                  onClick={() => instantiateAsset(asset.fileName)}
-                  title="Adicionar à Cena"
-                >
-                  ➕ Instanciar
-                </button>
-              </div>
+        <>
+          {/* Prefabs Section */}
+          <div className="asset-toolbar" style={{ borderTop: '1px solid var(--border)', marginTop: '8px' }}>
+            <span className="asset-title">Meus Prefabs</span>
+          </div>
+          {prefabs.length === 0 ? (
+            <div className="asset-empty">Nenhum prefab salvo. Use o botão no Inspector.</div>
+          ) : (
+            <div className="asset-grid">
+              {prefabs.map((prefab, i) => (
+                <div key={i} className="asset-card">
+                  <div className="asset-icon">🎯</div>
+                  <div className="asset-info">
+                    <span className="asset-name" title={prefab.name}>{prefab.name}</span>
+                    <span className="asset-size">Prefab</span>
+                  </div>
+                  <div className="asset-actions">
+                    <button 
+                      className="asset-btn" 
+                      onClick={() => instantiatePrefab(i)}
+                      title="Adicionar à Cena"
+                    >
+                      ➕ Instanciar
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+
+          {/* GLTF Section */}
+          <div className="asset-toolbar" style={{ borderTop: '1px solid var(--border)' }}>
+            <span className="asset-title">Meus Assets (GLTF)</span>
+          </div>
+          {assets.length === 0 ? (
+            <div className="asset-empty">Nenhum asset importado. Use a Toolbar.</div>
+          ) : (
+            <div className="asset-grid">
+              {assets.map((asset) => (
+                <div key={asset.fileName} className="asset-card">
+                  <div className="asset-icon">📦</div>
+                  <div className="asset-info">
+                    <span className="asset-name" title={asset.fileName}>{asset.fileName}</span>
+                    <span className="asset-size">{formatSize(asset.size)}</span>
+                  </div>
+                  <div className="asset-actions">
+                    <button 
+                      className="asset-btn" 
+                      onClick={() => instantiateAsset(asset.fileName)}
+                      title="Adicionar à Cena"
+                    >
+                      ➕ Instanciar
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

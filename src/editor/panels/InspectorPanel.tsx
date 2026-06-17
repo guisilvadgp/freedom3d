@@ -239,7 +239,7 @@ function GLTFModelInspector({ entityId }: { entityId: string }) {
 }
 
 export function InspectorPanel() {
-  const { selectedEntity, selectedEntityId, activeScene, updateSceneSettings } = useEditorStore();
+  const { selectedEntity, selectedEntityId, activeScene, updateSceneSettings, createPrefab } = useEditorStore();
   const entity = selectedEntity();
   const scene = activeScene();
 
@@ -315,11 +315,21 @@ export function InspectorPanel() {
         </div>
         <div className="field-row">
           <label className="field-label">Active</label>
-          <input
-            type="checkbox"
-            checked={entity.active}
-            onChange={() => useEditorStore.getState().toggleEntityActive(selectedEntityId)}
-          />
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <input
+              type="checkbox"
+              checked={entity.active}
+              onChange={() => useEditorStore.getState().toggleEntityActive(selectedEntityId)}
+            />
+            <button 
+              className="panel-btn small" 
+              onClick={() => createPrefab(selectedEntityId)}
+              title="Salvar como Prefab"
+              style={{ padding: '2px 8px', fontSize: '10px' }}
+            >
+              🎯 To Prefab
+            </button>
+          </div>
         </div>
       </div>
 

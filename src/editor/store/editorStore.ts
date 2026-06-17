@@ -116,6 +116,11 @@ interface EditorStore {
   importGLTF: (file: File) => Promise<void>;
   instantiateAsset: (fileName: string) => Promise<void>;
 
+  // Prefabs
+  prefabs: Entity[];
+  createPrefab: (id: EntityId) => void;
+  instantiatePrefab: (index: number) => void;
+
   // Persistence
   savedScenes: SceneMetadata[];
   isSaving: boolean;
@@ -454,6 +459,46 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       } catch (err) {
         addLog('error', `Falha ao instanciar "${fileName}": ${String(err)}`);
       }
+    },
+
+    // ── Prefabs ─────────────────────────────────────────────────
+    prefabs: [],
+    createPrefab: (id) => {
+      const scene = get().activeScene();
+      const entity = scene.entities[id];
+      if (!entity) return;
+      
+      const prefab = JSON.parse(JSON.stringify(entity));
+      set((s) => ({ prefabs: [...s.prefabs, prefab] }));
+      get().addLog('info', `🎯 Prefab "${entity.name}" criado com sucesso.`);
+    },
+    
+    instantiatePrefab: (index) => {
+      const prefab = get().prefabs[index];
+      if (!prefab) return;
+      
+      const scene = get().activeScene();
+      const newEntity: Entity = JSON.parse(JSON.stringify(prefab));
+      newEntity.id = uuidv4();
+      
+      // Se tiver Transform, desloca levemente
+      if (newEntity.components.Transform) {
+        newEntity.components.Transform.position[0] += 0.5;
+        newEntity.components.Transform.position[1] += 0.5;
+      }
+      
+      set((s) => ({
+        scenes: {
+          ...s.scenes,
+          [scene.id]: {
+            ...scene,
+            entities: { ...scene.entities, [newEntity.id]: newEntity },
+            rootEntityIds: [...scene.rootEntityIds, newEntity.id],
+          },
+        },
+        selectedEntityId: newEntity.id,
+      }));
+      get().addLog('info', `🎯 Prefab instanciado: "${newEntity.name}"`);
     },
 
     // ── Persistence ─────────────────────────────────────────────
