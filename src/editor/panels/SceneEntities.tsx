@@ -18,6 +18,7 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
   const { gl, scene, camera: defaultCamera } = useThree();
   const raycaster = useRef(new THREE.Raycaster());
   const hoveredRing = useRef<any>(null);
+  const crosshairRef = useRef<THREE.Mesh>(null);
 
   // Setup WebXR "Tap" Event
   useEffect(() => {
@@ -80,6 +81,7 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
 
       // VR Gaze (Hovering) - raycast a cada frame
       if (isStandalone) {
+        const xrCam = state.gl.xr.getCamera();
         raycaster.current.setFromCamera(new THREE.Vector2(0, 0), state.camera);
         const intersects = raycaster.current.intersectObjects(scene.children, true);
         const hit = intersects.find(i => i.object.userData?.isTeleportRing);
@@ -94,6 +96,13 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
             if (hoveredRing.current.userData.setHovered) hoveredRing.current.userData.setHovered(false);
             hoveredRing.current = null;
           }
+        }
+        
+        // Atualizar a posicao do crosshair para grudar no rosto do jogador
+        if (crosshairRef.current && xrCam) {
+          crosshairRef.current.position.copy(xrCam.position);
+          crosshairRef.current.quaternion.copy(xrCam.quaternion);
+          crosshairRef.current.translateZ(-1.5);
         }
       }
 
@@ -205,14 +214,13 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
         fov={camera.fov}
         near={camera.near}
         far={camera.far}
-      >
-        {isStandalone && (
-          <mesh position={[0, 0, -1.5]}>
-            <ringGeometry args={[0.02, 0.03, 32]} />
-            <meshBasicMaterial color="#ff0000" opacity={0.6} transparent depthTest={false} />
-          </mesh>
-        )}
-      </PerspectiveCamera>
+      />
+      {isStandalone && (
+        <mesh ref={crosshairRef} position={[0, 0, -1.5]} renderOrder={999}>
+          <ringGeometry args={[0.02, 0.03, 32]} />
+          <meshBasicMaterial color="#ff0000" opacity={0.6} transparent depthTest={false} />
+        </mesh>
+      )}
     </>
   );
 }
