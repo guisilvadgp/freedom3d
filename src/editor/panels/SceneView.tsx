@@ -251,44 +251,12 @@ export function SceneView({
       )}
 
       <div
-        style={
-          isStandalone || isGameView
-            ? {
-                // Preview e Game View: letterbox 16:9 centralizado com barras pretas
-                width: '100%',
-                height: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                position: 'relative',
-                background: '#000',
-              }
-            : {
-                width: '100%',
-                height: '100%',
-                position: 'relative',
-              }
-        }
+        style={{
+          width: '100%',
+          height: '100%',
+          position: 'relative',
+        }}
       >
-        {/* Container 16:9 interno — faz o letterbox real */}
-        <div
-          style={
-            isStandalone || isGameView
-              ? {
-                  aspectRatio: '16 / 9',
-                  maxWidth: '100%',
-                  maxHeight: '100%',
-                  width: '100%',
-                  position: 'relative',
-                  overflow: 'hidden',
-                }
-              : {
-                  width: '100%',
-                  height: '100%',
-                  position: 'relative',
-                }
-          }
-        >
         <Canvas
           shadows
           dpr={[1, 2]}
@@ -301,12 +269,11 @@ export function SceneView({
           }}
           style={{
             width: '100%',
-            height: '100%'
+            height: '100%',
           }}
         >
           {isStandalone ? <XR store={xrStore}>{content}</XR> : content}
         </Canvas>
-        </div>
       </div>
     </div>
   );
