@@ -305,7 +305,7 @@ function EntityMesh({ entity }: { entity: Entity }) {
       case 'directional':
         return (
           <directionalLight
-            position={[0, 0, 0]}
+            position={pos}
             color={light.color}
             intensity={light.intensity}
             castShadow={light.castShadow}
