@@ -119,7 +119,7 @@ function GLTFMesh({ entity }: { entity: Entity }) {
 
   return (
     <>
-      {(rigidBody && isPlaying && !isStandalone) ? (
+      {(rigidBody && isPlaying) ? (
         <RigidBody
           position={pos}
           rotation={rot}

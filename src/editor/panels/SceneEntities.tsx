@@ -217,8 +217,8 @@ function EntityMesh({ entity }: { entity: Entity }) {
     const emptyMesh = (
       <mesh
         ref={meshRef}
-        position={(!rigidBody || !isPlaying || isStandalone) ? pos : undefined}
-        rotation={(!rigidBody || !isPlaying || isStandalone) ? rot : undefined}
+        position={(!rigidBody || !isPlaying) ? pos : undefined}
+        rotation={(!rigidBody || !isPlaying) ? rot : undefined}
         scale={scale}
         onPointerDown={handlePointerDown}
         onPointerUp={handlePointerUp}
@@ -300,8 +300,8 @@ function EntityMesh({ entity }: { entity: Entity }) {
   const innerMesh = (
     <mesh
       ref={meshRef}
-      position={(!rigidBody || !isPlaying || isStandalone) ? pos : undefined}
-      rotation={(!rigidBody || !isPlaying || isStandalone) ? rot : undefined}
+      position={(!rigidBody || !isPlaying) ? pos : undefined}
+      rotation={(!rigidBody || !isPlaying) ? rot : undefined}
       scale={scale}
       castShadow={mesh.castShadow}
       receiveShadow={mesh.receiveShadow}
