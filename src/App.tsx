@@ -3,6 +3,7 @@ import { HierarchyPanel } from './editor/panels/HierarchyPanel';
 import { SceneView } from './editor/panels/SceneView';
 import { InspectorPanel } from './editor/panels/InspectorPanel';
 import { ConsolePanel } from './editor/panels/ConsolePanel';
+import { AssetBrowser } from './editor/panels/AssetBrowser';
 import { SaveLoadModal } from './editor/panels/SaveLoadModal';
 import { useEditorStore } from './editor/store/editorStore';
 import './index.css';
@@ -31,11 +32,7 @@ export default function App() {
             </div>
             <div className="bottom-content">
               {bottomTab === 'console' && <ConsolePanel />}
-              {bottomTab === 'assets' && (
-                <div className="assets-placeholder">
-                  <p>📁 Asset Browser em breve (Fase 2)</p>
-                </div>
-              )}
+              {bottomTab === 'assets' && <AssetBrowser />}
             </div>
           </div>
         </div>

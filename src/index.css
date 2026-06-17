@@ -838,3 +838,33 @@ input[type="checkbox"] {
 .modal-btn.danger { background: rgba(245, 64, 64, 0.1); border-color: transparent; color: var(--accent-danger); }
 .modal-btn.danger:hover { background: var(--accent-danger); color: white; }
 .modal-empty { color: var(--text-muted); font-size: var(--font-size-sm); text-align: center; padding: 10px 0; }
+/* ============================================================
+   Asset Browser
+   ============================================================ */
+.asset-browser {
+  height: 100%; display: flex; flex-direction: column; overflow: hidden;
+}
+.asset-toolbar {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 16px; border-bottom: 1px solid var(--border);
+  background: var(--bg-panel-alt);
+}
+.asset-title { font-weight: 600; font-size: var(--font-size-sm); color: var(--text-secondary); text-transform: uppercase; }
+.asset-empty { padding: 24px; text-align: center; color: var(--text-muted); font-size: var(--font-size-sm); }
+.asset-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px; padding: 16px; overflow-y: auto; align-items: start;
+}
+.asset-card {
+  background: var(--bg-base); border: 1px solid var(--border-bright);
+  border-radius: var(--radius); padding: 12px; display: flex; flex-direction: column;
+  gap: 10px; transition: all var(--transition);
+}
+.asset-card:hover { border-color: var(--accent-primary); transform: translateY(-2px); box-shadow: var(--shadow-float); }
+.asset-icon { font-size: 32px; text-align: center; padding: 16px 0; background: var(--bg-panel-alt); border-radius: var(--radius-sm); border: 1px dashed var(--border-bright); }
+.asset-info { display: flex; flex-direction: column; gap: 4px; overflow: hidden; }
+.asset-name { font-size: var(--font-size-sm); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.asset-size { font-size: 10px; color: var(--text-muted); }
+.asset-actions { display: flex; justify-content: stretch; }
+.asset-btn { flex: 1; padding: 6px; background: var(--bg-hover); border: 1px solid var(--border-bright); border-radius: var(--radius-sm); color: var(--text-primary); font-size: var(--font-size-sm); cursor: pointer; transition: all 0.2s; }
+.asset-btn:hover { background: var(--accent-primary); border-color: var(--accent-primary); color: white; }

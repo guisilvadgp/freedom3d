@@ -20,10 +20,10 @@ function EntityMesh({ entity }: { entity: Entity }) {
   const rot = (transform.rotation as [number, number, number]).map((d) => (d * Math.PI) / 180) as [number, number, number];
   const scale = transform.scale as [number, number, number];
 
-  const handleChange = (e: THREE.Event | undefined) => {
-    if (!e?.target || isPlaying) return;
-    const ctrl = e.target as any;
-    const obj = ctrl.object as THREE.Object3D;
+  const handleChange = () => {
+    if (isPlaying) return;
+    const obj = meshRef.current;
+    if (!obj) return;
     updateComponent(entity.id, 'Transform', {
       position: [
         parseFloat(obj.position.x.toFixed(3)),
@@ -107,8 +107,8 @@ function EntityMesh({ entity }: { entity: Entity }) {
     return (
       <group>
         {renderLight()}
-        {/* Light gizmo marker */}
         <mesh
+          ref={meshRef}
           position={pos}
           onClick={(e) => { e.stopPropagation(); selectEntity(entity.id); }}
         >

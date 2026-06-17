@@ -112,8 +112,9 @@ interface EditorStore {
   // Scene settings
   updateSceneSettings: (patch: Partial<Scene>) => void;
 
-  // GLTF Import
+  // GLTF Import & Assets
   importGLTF: (file: File) => Promise<void>;
+  instantiateAsset: (fileName: string) => Promise<void>;
 
   // Persistence
   savedScenes: SceneMetadata[];
@@ -403,6 +404,55 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         }));
       } catch (err) {
         addLog('error', `Falha ao importar "${file.name}": ${String(err)}`);
+      }
+    },
+
+    instantiateAsset: async (fileName: string) => {
+      const { addLog, activeScene } = get();
+      try {
+        const src = await loadGLTFAsset(fileName);
+        if (!src) throw new Error('Asset não encontrado no banco.');
+
+        const scene = activeScene();
+        const entity: Entity = {
+          id: uuidv4(),
+          name: fileName.replace(/\.(gltf|glb)$/i, ''),
+          parentId: null,
+          childrenIds: [],
+          active: true,
+          tags: ['gltf'],
+          components: {
+            Transform: {
+              type: 'Transform',
+              position: [0, 0, 0],
+              rotation: [0, 0, 0],
+              scale: [1, 1, 1],
+            },
+            GLTFModel: {
+              type: 'GLTFModel',
+              src,
+              fileName,
+              modelScale: 1,
+              castShadow: true,
+              receiveShadow: true,
+            },
+          },
+        };
+
+        addLog('info', `📦 Instanciado: "${fileName}"`);
+        set((s) => ({
+          scenes: {
+            ...s.scenes,
+            [scene.id]: {
+              ...scene,
+              entities: { ...scene.entities, [entity.id]: entity },
+              rootEntityIds: [...scene.rootEntityIds, entity.id],
+            },
+          },
+          selectedEntityId: entity.id,
+        }));
+      } catch (err) {
+        addLog('error', `Falha ao instanciar "${fileName}": ${String(err)}`);
       }
     },
 

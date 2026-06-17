@@ -18,7 +18,7 @@
 
 | Item | Status | Detalhe |
 |------|--------|---------|
-| Editor de cenas | 🟡 | Scene View funcional com Canvas Three.js. Sem salvar/carregar arquivo ainda. |
+| Editor de cenas | ✅ | Scene View funcional com Canvas Three.js, suporte a Salvar/Carregar via IndexedDB |
 | Sistema de componentes | ✅ | ECS com Transform, MeshRenderer, Light, Camera, RigidBody, Audio, Script (tipos definidos) |
 | Inspector | ✅ | Inspector com Transform (Vec3), MeshRenderer, Light e Scene Settings |
 | Hierarquia | ✅ | HierarchyPanel com criar, renomear, deletar, duplicar e toggle active |
@@ -37,7 +37,7 @@
 | Camada | Status | Detalhe |
 |--------|--------|---------|
 | React Editor | ✅ | Vite + React + TypeScript com layout de editor completo |
-| Engine Core | 🟡 | Store Zustand como core, game loop ainda não implementado |
+| Engine Core | ✅ | Store Zustand como core, Game Loop (Update/FixedUpdate) rodando a 60Hz |
 | ECS System | ✅ | `types.ts` + `EntityFactory.ts` com Entity/Component totalmente tipados |
 | Three.js Renderer | ✅ | `SceneView.tsx` + `SceneEntities.tsx` com renderização dinâmica |
 | Physics Engine | ❌ | Fase 3 (Rapier/Cannon-es) |
@@ -79,7 +79,7 @@
 ### Banco de Dados
 | Tech | Status | Detalhe |
 |------|--------|---------|
-| IndexedDB | ❌ | Fase 2 (persistência de cenas) |
+| IndexedDB | ✅ | Salvar e carregar cenas completas e blobs binários (GLTF) |
 | SQLite WASM | ❌ | Fase 2+ |
 
 ### Multiplayer
@@ -134,8 +134,8 @@
 | Agrupamento (parenting) | ❌ | parentId/childrenIds existem na struct, mas UI de drag-and-drop não implementada |
 | Drag-and-drop na Hierarchy | ❌ | Fase 2 |
 | Edição em tempo real | ✅ | Inspector atualiza cena instantaneamente |
-| Serialização automática | ❌ | Salvar/carregar cena em arquivo (IndexedDB) — Fase 2 |
-| Importação de assets | ❌ | Fase 2 |
+| Serialização automática | ✅ | Salvar/carregar cena e blobs GLTF em IndexedDB (SaveLoadModal) |
+| Importação de assets | 🟡 | GLTF/GLB importando nativamente para a cena |
 | Organização de arquivos | ❌ | Fase 2 |
 | Logs / Console | ✅ | Console Panel com clear e timestamps |
 | Profiler | ❌ | Stats R3F disponível no modo Play, profiler detalhado — Fase 3 |
@@ -148,7 +148,7 @@
 |---------|--------|---------|
 | Estrutura de Scene | ✅ | `Scene` com entities, rootEntityIds, background, ambient, fog |
 | Múltiplas cenas | 🟡 | Store suporta `Record<SceneId, Scene>`, mas UI de troca ainda não existe |
-| Carregamento assíncrono | ❌ | Fase 2 |
+| Carregamento assíncrono | ✅ | Deserialização assíncrona de cena com reidratação de blobs GLTF |
 | Streaming de mundo | ❌ | Fase 3 |
 
 ---
@@ -157,7 +157,7 @@
 
 | Feature | Status | Detalhe |
 |---------|--------|---------|
-| Lifecycle: Awake/Start/Update/etc. | ❌ | Estrutura `ScriptComponent` existe, game loop não implementado |
+| Lifecycle: Awake/Start/Update/etc. | 🟡 | GameLoop dispara Updates para ScriptComponents ativos |
 | PlayerController example | ❌ | Fase 2 |
 
 ---
@@ -217,7 +217,7 @@
 
 | Formato | Status | Detalhe |
 |---------|--------|---------|
-| glTF | ❌ | Fase 2 (R3F tem `useGLTF` pronto) |
+| glTF | ✅ | Importação completa com clonagem por instâncias, TransformControls e suporte a Sombras |
 | FBX | ❌ | Fase 2 |
 | OBJ | ❌ | Fase 2 |
 | PNG / JPG / HDR | ❌ | Fase 2 |
@@ -242,7 +242,7 @@
 | Método | Status | Detalhe |
 |--------|--------|---------|
 | engine.createScene() | 🟡 | Via store: `makeDefaultScene()` |
-| engine.loadScene() | ❌ | Fase 2 |
+| engine.loadScene() | ✅ | Via store: `loadSavedScene(id)` |
 | engine.instantiate() | 🟡 | Via store: `createEntity(type)` |
 | engine.destroy() | 🟡 | Via store: `deleteEntity(id)` |
 | engine.find() | ❌ | Fase 2 |
@@ -268,8 +268,8 @@
 ## 29. Roadmap – Progresso por Fase
 
 ```
-Fase 1 – Core (3 meses)      ████████░░  ~60% concluído
-Fase 2 – Editor (4 meses)    ██░░░░░░░░  ~20% concluído
+Fase 1 – Core (3 meses)      ██████████  100% concluído
+Fase 2 – Editor (4 meses)    ███░░░░░░░  ~30% concluído
 Fase 3 – Produção (5 meses)  ░░░░░░░░░░   0% concluído
 Fase 4 – XR (3 meses)        ░░░░░░░░░░   0% concluído
 ```
@@ -278,12 +278,14 @@ Fase 4 – XR (3 meses)        ░░░░░░░░░░   0% concluído
 - ✅ Renderer (Three.js com R3F)
 - ✅ ECS (Entity, Component types + Factory)
 - ✅ Editor básico (Layout completo, 5 painéis)
-- ❌ Importação GLTF
+- ✅ Importação GLTF/GLB com Sombras
+- ✅ Game loop (Update/FixedUpdate)
+- ✅ Persistência de cena e assets binários (IndexedDB)
 
-### Fase 1 – O que falta:
-- ❌ Game loop (Update/FixedUpdate)
-- ❌ Importação GLTF/FBX na cena
-- ❌ Persistência de cena (IndexedDB)
+### Fase 2 – Próximos passos (A Iniciar):
+- ❌ Editor de Script / Execução Dinâmica de Código
+- ❌ Assets Browser (UI de pastas, drag-and-drop)
+- ❌ Sistema de Prefabs (Instanciamento e herança)
 
 ---
 
@@ -291,17 +293,17 @@ Fase 4 – XR (3 meses)        ░░░░░░░░░░   0% concluído
 
 | Categoria | Itens totais (estimado) | Implementados | % |
 |-----------|------------------------|---------------|---|
-| ECS Types & Components | 12 | 9 | 75% |
-| Editor Panels | 6 | 5 | 83% |
+| ECS Types & Components | 12 | 10 | 83% |
+| Editor Panels | 6 | 6 | 100% |
 | Materials | 6 | 4 | 67% |
 | Lights | 6 | 3 | 50% |
-| Asset Formats | 8 | 0 | 0% |
+| Asset Formats | 8 | 1 | 12% |
 | Physics | 6 | 0 | 0% |
 | Audio | 4 | 0 | 0% |
 | VR/AR | 10 | 0 | 0% |
 | Multiplayer | 5 | 0 | 0% |
 | Build Targets | 5 | 0 | 0% |
-| **TOTAL** | **~68** | **~21** | **~31%** |
+| **TOTAL** | **~68** | **~24** | **~35%** |
 
-> O MVP (Fase 1) do editor está funcional e serve como base sólida para as fases seguintes.
-> Próxima prioridade: **importação GLTF + persistência de cena + game loop** para completar a Fase 1.
+> O MVP (Fase 1) do editor foi concluído com sucesso. A fundação de renderização, ciclo de vida e persistência está pronta.
+> Próxima prioridade: Iniciar a **Fase 2** com o **Asset Browser** (UI), **Editor de Scripts** (Live Coding) e **Prefabs**.
