@@ -71,7 +71,7 @@ export function SceneView() {
 
         {/* Entities and Physics */}
         <Suspense fallback={null}>
-          <Physics paused={!isPlaying} debug={showGizmos}>
+          <Physics paused={!isPlaying} debug={showGizmos && !isGameView}>
             <SceneEntities />
             <GLTFViewers />
             {/* Systems */}
@@ -125,4 +125,5 @@ export function SceneView() {
     </div>
   );
 }
+
 

@@ -172,8 +172,17 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     setEditorMode: (mode) => set({ editorMode: mode }),
     viewMode: 'perspective',
     setViewMode: (mode) => set({ viewMode: mode }),
+    activeViewport: 'scene',
+    setActiveViewport: (viewport) => set({ activeViewport: viewport }),
     isPlaying: false,
-    togglePlay: () => set((s) => ({ isPlaying: !s.isPlaying })),
+    togglePlay: () => set((s) => {
+      const isNowPlaying = !s.isPlaying;
+      return {
+        isPlaying: isNowPlaying,
+        activeViewport: isNowPlaying ? 'game' : 'scene',
+        consoleLogs: isNowPlaying ? [] : s.consoleLogs
+      };
+    }),
     showGrid: true,
     toggleGrid: () => set((s) => ({ showGrid: !s.showGrid })),
     showGizmos: true,

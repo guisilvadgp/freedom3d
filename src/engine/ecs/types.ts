@@ -35,6 +35,7 @@ export interface CameraComponent {
   far: number;
   isMain: boolean;
   offset: [number, number, number];
+  rotation?: [number, number, number];
 }
 
 export interface ScriptComponent {

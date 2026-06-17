@@ -159,12 +159,20 @@ export function createFirstPersonPlayer(name = 'First Person Player'): Entity {
     scriptName: 'FPSController',
     code: `// Controle em 1a Pessoa
 let eulerY = 0;
+let eulerX = 0;
 const speed = 5;
 
 export function onUpdate(delta) {
   if (Input.getMouseButton(0)) Input.lockMouse();
   if (Input.mouse.isLocked) {
     eulerY -= Input.mouse.movementX * 0.002;
+    eulerX -= Input.mouse.movementY * 0.002;
+    // Limite o angulo vertical da camera (Pitch) para nao virar de cabeca para baixo
+    eulerX = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, eulerX));
+  }
+  
+  if (camera) {
+    camera.rotation = [eulerX, 0, 0];
   }
   
   const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, eulerY, 0));
@@ -217,29 +225,55 @@ export function createThirdPersonPlayer(name = 'Third Person Player'): Entity {
   e.components.Script = {
     type: 'Script',
     scriptName: 'TPSController',
-    code: `// Controle em 3a Pessoa
-let eulerY = 0;
+    code: `// Controle em 3a Pessoa (Orbital)
+let angleX = 0;
+let angleY = Math.PI / 6; // angulo inicial da camera
+let radius = 5;
 const speed = 5;
 
 export function onUpdate(delta) {
   if (Input.getMouseButton(0)) Input.lockMouse();
   if (Input.mouse.isLocked) {
-    eulerY -= Input.mouse.movementX * 0.002;
+    angleX -= Input.mouse.movementX * 0.005;
+    angleY -= Input.mouse.movementY * 0.005;
+    angleY = Math.max(0.1, Math.min(Math.PI / 2 - 0.1, angleY));
   }
   
-  const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, eulerY, 0));
+  // Posiciona a camera orbital ao redor do player
+  if (camera) {
+    camera.offset = [
+      Math.sin(angleX) * Math.cos(angleY) * radius,
+      Math.sin(angleY) * radius + 1, // +1 para focar acima do chao
+      Math.cos(angleX) * Math.cos(angleY) * radius
+    ];
+    // Faz a camera olhar para o centro do player (0, 0, 0 relativo)
+    const lookAtPos = new THREE.Vector3(0, 1, 0);
+    const camPos = new THREE.Vector3(camera.offset[0], camera.offset[1], camera.offset[2]);
+    const m = new THREE.Matrix4().lookAt(camPos, lookAtPos, new THREE.Vector3(0,1,0));
+    const e = new THREE.Euler().setFromRotationMatrix(m);
+    camera.rotation = [e.x, e.y, e.z];
+  }
+  
   if (rigidBody) {
-    rigidBody.setRotation(q, true);
-    
-    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(q);
-    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(q);
+    // Movimentacao relativa a direcao da camera
+    const qCam = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, angleX, 0));
+    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(qCam);
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(qCam);
     const vel = new THREE.Vector3(0, rigidBody.linvel().y, 0);
     
-    if (Input.getKey('KeyW')) vel.add(forward.clone().multiplyScalar(speed));
-    if (Input.getKey('KeyS')) vel.add(forward.clone().multiplyScalar(-speed));
-    if (Input.getKey('KeyA')) vel.add(right.clone().multiplyScalar(-speed));
-    if (Input.getKey('KeyD')) vel.add(right.clone().multiplyScalar(speed));
+    let isMoving = false;
+    if (Input.getKey('KeyW')) { vel.add(forward.clone().multiplyScalar(speed)); isMoving = true; }
+    if (Input.getKey('KeyS')) { vel.add(forward.clone().multiplyScalar(-speed)); isMoving = true; }
+    if (Input.getKey('KeyA')) { vel.add(right.clone().multiplyScalar(-speed)); isMoving = true; }
+    if (Input.getKey('KeyD')) { vel.add(right.clone().multiplyScalar(speed)); isMoving = true; }
     if (Input.getKey('Space') && Math.abs(vel.y) < 0.1) vel.y = 5;
+    
+    // Rotaciona o personagem para onde ele esta andando
+    if (isMoving) {
+      const targetAngle = Math.atan2(vel.x, vel.z);
+      const qRot = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, targetAngle, 0));
+      rigidBody.setRotation(qRot, true);
+    }
     
     rigidBody.setLinvel(vel, true);
   }
