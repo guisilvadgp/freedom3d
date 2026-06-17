@@ -57,6 +57,14 @@ export interface AudioComponent {
   playOnStart: boolean;
 }
 
+export interface ParticleSystemComponent {
+  type: 'ParticleSystem';
+  count: number;
+  color: string;
+  size: number;
+  speed: number;
+}
+
 export interface GLTFModelComponent {
   type: 'GLTFModel';
   src: string;       // blob URL (sessão atual)
@@ -74,6 +82,7 @@ export type AnyComponent =
   | ScriptComponent
   | RigidBodyComponent
   | AudioComponent
+  | ParticleSystemComponent
   | GLTFModelComponent;
 
 export type ComponentType = AnyComponent['type'];

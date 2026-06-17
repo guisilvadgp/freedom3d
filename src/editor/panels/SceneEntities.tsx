@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { useThree } from '@react-three/fiber';
-import { TransformControls, Edges } from '@react-three/drei';
+import { TransformControls, Edges, PositionalAudio, Sparkles } from '@react-three/drei';
 import { RigidBody } from '@react-three/rapier';
 import * as THREE from 'three';
 import { useEditorStore } from '../store/editorStore';
@@ -13,6 +13,8 @@ function EntityMesh({ entity }: { entity: Entity }) {
   const mesh = entity.components.MeshRenderer;
   const light = entity.components.Light;
   const rigidBody = entity.components.RigidBody;
+  const audio = entity.components.Audio;
+  const particles = entity.components.ParticleSystem;
 
   if (!transform) return null;
   if (!entity.active) return null;
@@ -105,18 +107,32 @@ function EntityMesh({ entity }: { entity: Entity }) {
     }
   };
 
-  if (light && !mesh) {
+  if (!mesh) {
+    // Entities without mesh (Light, Audio, Particles, Empty objects)
     return (
-      <group>
+      <group position={pos} rotation={rot} scale={scale}>
         {renderLight()}
+        {audio && audio.src && (
+          <PositionalAudio url={audio.src} loop={audio.loop} autoplay={audio.playOnStart} distance={10} />
+        )}
+        {particles && (
+          <Sparkles 
+            count={particles.count} 
+            scale={5} 
+            size={particles.size} 
+            speed={particles.speed} 
+            color={particles.color} 
+          />
+        )}
+        {/* Helper visual representation for selection when there is no mesh */}
         <mesh
           ref={meshRef}
-          position={pos}
           onClick={(e) => { e.stopPropagation(); selectEntity(entity.id); }}
         >
-          <sphereGeometry args={[0.15, 8, 8]} />
-          <meshBasicMaterial color={light.color} />
+          <sphereGeometry args={[0.2, 8, 8]} />
+          <meshBasicMaterial color={light ? light.color : "#ffffff"} wireframe opacity={0.3} transparent />
         </mesh>
+        
         {isSelected && !isPlaying && (
           <TransformControls
             object={meshRef}
@@ -131,8 +147,6 @@ function EntityMesh({ entity }: { entity: Entity }) {
     );
   }
 
-  if (!mesh) return null;
-
   const innerMesh = (
     <mesh
       ref={meshRef}
@@ -144,6 +158,20 @@ function EntityMesh({ entity }: { entity: Entity }) {
     >
       {renderGeometry()}
       {renderMaterial()}
+      {/* Audio */}
+      {audio && audio.src && (
+        <PositionalAudio url={audio.src} loop={audio.loop} autoplay={audio.playOnStart} distance={10} />
+      )}
+      {/* Particles */}
+      {particles && (
+        <Sparkles 
+          count={particles.count} 
+          scale={5} 
+          size={particles.size} 
+          speed={particles.speed} 
+          color={particles.color} 
+        />
+      )}
       {/* Selection outline */}
       {isSelected && (
         <Edges scale={1.01} color="#44aaff" />

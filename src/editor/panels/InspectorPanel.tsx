@@ -1,5 +1,5 @@
 import { useEditorStore } from '../store/editorStore';
-import type { TransformComponent, MeshRendererComponent, LightComponent, GLTFModelComponent, RigidBodyComponent } from '../../engine/ecs/types';
+import type { TransformComponent, MeshRendererComponent, LightComponent, GLTFModelComponent, RigidBodyComponent, AudioComponent, ParticleSystemComponent } from '../../engine/ecs/types';
 
 function Vec3Field({
   label, value, onChange,
@@ -280,6 +280,101 @@ function RigidBodyInspector({ entityId }: { entityId: string }) {
   );
 }
 
+function AudioInspector({ entityId }: { entityId: string }) {
+  const { selectedEntity, updateComponent } = useEditorStore();
+  const entity = selectedEntity();
+  if (!entity) return null;
+  const audio = entity.components.Audio as AudioComponent;
+
+  return (
+    <div className="component-block">
+      <div className="component-header">
+        <span className="component-icon">🔊</span>
+        <span className="component-title">Audio Source</span>
+      </div>
+      <div className="field-row">
+        <label className="field-label">File URL</label>
+        <input
+          type="text"
+          className="field-input"
+          value={audio.src}
+          placeholder="e.g. sound.mp3"
+          onChange={(e) => updateComponent(entityId, 'Audio', { src: e.target.value })}
+        />
+      </div>
+      <div className="field-row">
+        <label className="field-label">Loop</label>
+        <input
+          type="checkbox"
+          checked={audio.loop}
+          onChange={(e) => updateComponent(entityId, 'Audio', { loop: e.target.checked })}
+        />
+      </div>
+      <div className="field-row">
+        <label className="field-label">Play On Start</label>
+        <input
+          type="checkbox"
+          checked={audio.playOnStart}
+          onChange={(e) => updateComponent(entityId, 'Audio', { playOnStart: e.target.checked })}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ParticleSystemInspector({ entityId }: { entityId: string }) {
+  const { selectedEntity, updateComponent } = useEditorStore();
+  const entity = selectedEntity();
+  if (!entity) return null;
+  const ps = entity.components.ParticleSystem as ParticleSystemComponent;
+
+  return (
+    <div className="component-block">
+      <div className="component-header">
+        <span className="component-icon">✨</span>
+        <span className="component-title">Particle System</span>
+      </div>
+      <div className="field-row">
+        <label className="field-label">Color</label>
+        <input
+          type="color"
+          value={ps.color}
+          onChange={(e) => updateComponent(entityId, 'ParticleSystem', { color: e.target.value })}
+        />
+      </div>
+      <div className="field-row">
+        <label className="field-label">Count</label>
+        <input
+          type="number"
+          className="field-input"
+          value={ps.count}
+          onChange={(e) => updateComponent(entityId, 'ParticleSystem', { count: parseInt(e.target.value) || 100 })}
+        />
+      </div>
+      <div className="field-row">
+        <label className="field-label">Size</label>
+        <input
+          type="number"
+          className="field-input"
+          value={ps.size}
+          step={0.1}
+          onChange={(e) => updateComponent(entityId, 'ParticleSystem', { size: parseFloat(e.target.value) || 1 })}
+        />
+      </div>
+      <div className="field-row">
+        <label className="field-label">Speed</label>
+        <input
+          type="number"
+          className="field-input"
+          value={ps.speed}
+          step={0.1}
+          onChange={(e) => updateComponent(entityId, 'ParticleSystem', { speed: parseFloat(e.target.value) || 1 })}
+        />
+      </div>
+    </div>
+  );
+}
+
 export function InspectorPanel() {
   const { selectedEntity, selectedEntityId, activeScene, updateSceneSettings, createPrefab } = useEditorStore();
   const entity = selectedEntity();
@@ -392,8 +487,14 @@ export function InspectorPanel() {
         {entity.components.RigidBody && (
           <RigidBodyInspector entityId={selectedEntityId} />
         )}
+        {entity.components.Audio && (
+          <AudioInspector entityId={selectedEntityId} />
+        )}
+        {entity.components.ParticleSystem && (
+          <ParticleSystemInspector entityId={selectedEntityId} />
+        )}
 
-        <div className="add-component-wrapper" style={{ marginTop: '16px', display: 'flex', gap: '8px', justifyContent: 'center' }}>
+        <div className="add-component-wrapper" style={{ marginTop: '16px', display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
           {!entity.components.RigidBody && (
             <button 
               className="panel-btn" 
@@ -408,6 +509,22 @@ export function InspectorPanel() {
               onClick={() => useEditorStore.getState().addComponent(selectedEntityId, { type: 'Script', scriptName: 'NewScript', code: '' })}
             >
               ➕ Add Script
+            </button>
+          )}
+          {!entity.components.Audio && (
+            <button 
+              className="panel-btn" 
+              onClick={() => useEditorStore.getState().addComponent(selectedEntityId, { type: 'Audio', src: '', loop: true, playOnStart: true, volume: 1 })}
+            >
+              ➕ Add Audio
+            </button>
+          )}
+          {!entity.components.ParticleSystem && (
+            <button 
+              className="panel-btn" 
+              onClick={() => useEditorStore.getState().addComponent(selectedEntityId, { type: 'ParticleSystem', count: 100, color: '#ffffff', size: 10, speed: 1 })}
+            >
+              ➕ Add Particles
             </button>
           )}
         </div>

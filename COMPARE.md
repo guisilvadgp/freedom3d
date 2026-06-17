@@ -308,3 +308,4 @@ Fase 4 – XR (3 meses)        ░░░░░░░░░░   0% concluído
 > O MVP (Fase 1) do editor foi concluído com sucesso. A fundação de renderização, ciclo de vida e persistência está pronta.
 > Próxima prioridade: Iniciar a **Fase 2** com o **Asset Browser** (UI), **Editor de Scripts** (Live Coding) e **Prefabs**.
 
+
