@@ -160,7 +160,7 @@ export function createFirstPersonPlayer(name = 'First Person Player'): Entity {
     code: `// Controle em 1a Pessoa
 let eulerY = 0;
 let eulerX = 0;
-const speed = 5;
+const speed = properties.speed || 5;
 
 export function onUpdate(delta) {
   if (Input.getMouseButton(0)) Input.lockMouse();
@@ -229,7 +229,7 @@ export function createThirdPersonPlayer(name = 'Third Person Player'): Entity {
 let angleX = 0;
 let angleY = Math.PI / 6; // angulo inicial da camera
 let radius = 5;
-const speed = 5;
+const speed = properties.speed || 5;
 
 export function onUpdate(delta) {
   if (Input.getMouseButton(0)) Input.lockMouse();
@@ -281,6 +281,7 @@ export function onUpdate(delta) {
   };
   return e;
 }
+
 
 
 

@@ -42,6 +42,7 @@ export interface ScriptComponent {
   type: 'Script';
   scriptName: string;
   code: string;
+  properties?: Record<string, number | string | boolean>;
 }
 
 export interface RigidBodyComponent {

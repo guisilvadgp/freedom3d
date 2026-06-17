@@ -494,6 +494,69 @@ function ScriptInspector({ entityId }: { entityId: string }) {
           onChange={(e) => updateComponent(entityId, 'Script', { code: e.target.value })}
         />
       </div>
+
+      <div className="field-row" style={{ display: 'block', marginTop: '16px', borderTop: '1px solid var(--border-color)', paddingTop: '8px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+          <label className="field-label" style={{ fontWeight: 'bold' }}>Script Variables</label>
+          <button 
+            className="panel-btn" 
+            style={{ padding: '2px 6px', fontSize: '10px' }}
+            onClick={() => {
+              const key = prompt('Variable Name (e.g., speed):');
+              if (key) {
+                const props = { ...(s.properties || {}) };
+                if (props[key] === undefined) {
+                  props[key] = 0; // Default number
+                  updateComponent(entityId, 'Script', { properties: props });
+                }
+              }
+            }}
+          >
+            ➕ Add
+          </button>
+        </div>
+        
+        {s.properties && Object.keys(s.properties).map(key => {
+          const val = s.properties![key];
+          const type = typeof val;
+          return (
+            <div key={key} className="field-row" style={{ marginBottom: '4px' }}>
+              <label className="field-label" style={{ width: '80px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{key}</label>
+              {type === 'boolean' ? (
+                <input 
+                  type="checkbox" 
+                  checked={val as boolean} 
+                  onChange={e => updateComponent(entityId, 'Script', { properties: { ...s.properties, [key]: e.target.checked } })}
+                />
+              ) : type === 'number' ? (
+                <input 
+                  type="number" 
+                  className="field-input"
+                  value={val as number} 
+                  onChange={e => updateComponent(entityId, 'Script', { properties: { ...s.properties, [key]: parseFloat(e.target.value) || 0 } })}
+                />
+              ) : (
+                <input 
+                  type="text" 
+                  className="field-input"
+                  value={val as string} 
+                  onChange={e => updateComponent(entityId, 'Script', { properties: { ...s.properties, [key]: e.target.value } })}
+                />
+              )}
+              <button 
+                style={{ background: 'transparent', border: 'none', color: '#ff4444', cursor: 'pointer', marginLeft: '4px' }}
+                onClick={() => {
+                  const props = { ...s.properties };
+                  delete props[key];
+                  updateComponent(entityId, 'Script', { properties: props });
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
