@@ -1,6 +1,6 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, Grid, GizmoHelper, GizmoViewport, Stats } from '@react-three/drei';
-import { useRef, Suspense } from 'react';
+import { OrbitControls, Grid, GizmoHelper, GizmoViewport, Stats, useProgress } from '@react-three/drei';
+import { useRef, Suspense, useEffect } from 'react';
 import { useEditorStore } from '../store/editorStore';
 import { SceneEntities } from './SceneEntities';
 import { GLTFViewers } from './GLTFViewer';
@@ -47,7 +47,41 @@ function XRAspectCorrector() {
   return null;
 }
 
-export function SceneView({ isStandalone }: { isStandalone?: boolean }) {
+function LoadingTracker({ 
+  onProgress, 
+  onLoaded 
+}: { 
+  onProgress?: (progress: number) => void;
+  onLoaded?: () => void;
+}) {
+  const { active, progress } = useProgress();
+
+  useEffect(() => {
+    if (onProgress) {
+      onProgress(Math.round(progress));
+    }
+  }, [progress, onProgress]);
+
+  useEffect(() => {
+    if (!active || progress === 100) {
+      if (onLoaded) {
+        onLoaded();
+      }
+    }
+  }, [active, progress, onLoaded]);
+
+  return null;
+}
+
+export function SceneView({ 
+  isStandalone,
+  onProgress,
+  onLoaded
+}: { 
+  isStandalone?: boolean;
+  onProgress?: (progress: number) => void;
+  onLoaded?: () => void;
+}) {
   const showGrid = useEditorStore(s => s.showGrid);
   const isPlaying = useEditorStore(s => s.isPlaying);
   const showGizmos = useEditorStore(s => s.showGizmos);
@@ -84,6 +118,7 @@ export function SceneView({ isStandalone }: { isStandalone?: boolean }) {
   const content = (
     <>
       <XRAspectCorrector />
+      <LoadingTracker onProgress={onProgress} onLoaded={onLoaded} />
       {/* Background */}
       <color attach="background" args={[scene.backgroundColor]} />
 

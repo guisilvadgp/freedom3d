@@ -40,10 +40,27 @@ export function StandalonePlayer() {
   const addLog = useEditorStore(state => state.addLog);
   const [showDebug, setShowDebug] = useState(false);
 
-  useEffect(() => {
-    // Force Game mode and Playing state on load
-    setActiveViewport('game');
+  // Estados da tela de carregamento e inicio do jogo
+  const [loading, setLoading] = useState(true);
+  const [progressVal, setProgressVal] = useState(0);
+  const [gameStarted, setGameStarted] = useState(false);
+  const [showOverlay, setShowOverlay] = useState(true);
+
+  const handlePlay = () => {
+    setGameStarted(true);
     if (!useEditorStore.getState().isPlaying) {
+      togglePlay(); // Inicia física e scripts
+    }
+    setTimeout(() => {
+      setShowOverlay(false);
+    }, 650);
+  };
+
+  useEffect(() => {
+    // Forçar modo Jogo
+    setActiveViewport('game');
+    // Garante que inicia pausado enquanto carrega os recursos
+    if (useEditorStore.getState().isPlaying) {
       togglePlay();
     }
 
@@ -108,9 +125,124 @@ export function StandalonePlayer() {
   }, []);
 
   return (
-    <div style={{ width: '100vw', height: '100vh', margin: 0, padding: 0, overflow: 'hidden' }}>
-      <SceneView isStandalone={true} />
+    <div style={{ width: '100vw', height: '100vh', margin: 0, padding: 0, overflow: 'hidden', position: 'relative' }}>
+      <SceneView 
+        isStandalone={true} 
+        onProgress={(p) => setProgressVal(p)} 
+        onLoaded={() => setLoading(false)} 
+      />
       {showDebug && <DebugUI />}
+
+      {/* Overlay de Carregamento e Botão PLAY */}
+      {showOverlay && (
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          background: '#06080d',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          transition: 'opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+          opacity: gameStarted ? 0 : 1,
+          pointerEvents: gameStarted ? 'none' : 'all',
+        }}>
+          <div style={{ textAlign: 'center', padding: '20px' }}>
+            <h1 style={{
+              fontSize: '48px',
+              fontWeight: 800,
+              letterSpacing: '2px',
+              background: 'linear-gradient(135deg, #fff, #818cf8)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              marginBottom: '10px',
+              fontFamily: 'Outfit, sans-serif'
+            }}>
+              Freedom3D
+            </h1>
+            <p style={{
+              color: '#9ca3af',
+              fontSize: '12px',
+              letterSpacing: '2px',
+              marginBottom: '40px',
+              textTransform: 'uppercase',
+              fontWeight: 500
+            }}>
+              {loading ? 'Carregando recursos...' : 'Pronto para iniciar'}
+            </p>
+
+            {loading ? (
+              <div style={{ width: '280px', display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '0 auto' }}>
+                <div style={{
+                  width: '100%',
+                  height: '6px',
+                  background: 'rgba(255,255,255,0.05)',
+                  borderRadius: '3px',
+                  overflow: 'hidden',
+                  marginBottom: '12px',
+                  border: '1px solid rgba(255,255,255,0.05)'
+                }}>
+                  <div style={{
+                    width: `${progressVal}%`,
+                    height: '100%',
+                    background: 'linear-gradient(90deg, #6366f1, #a855f7)',
+                    borderRadius: '3px',
+                    transition: 'width 0.3s ease',
+                    boxShadow: '0 0 10px rgba(99, 102, 241, 0.5)'
+                  }} />
+                </div>
+                <span style={{
+                  fontFamily: 'monospace',
+                  fontSize: '13px',
+                  color: '#818cf8',
+                  fontWeight: 600
+                }}>
+                  {progressVal}%
+                </span>
+              </div>
+            ) : (
+              <button
+                onClick={handlePlay}
+                style={{
+                  background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                  color: '#fff',
+                  border: 'none',
+                  padding: '16px 40px',
+                  fontSize: '16px',
+                  fontWeight: 700,
+                  letterSpacing: '1px',
+                  borderRadius: '30px',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 20px rgba(99, 102, 241, 0.4)',
+                  transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  outline: 'none',
+                  margin: '0 auto'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'scale(1.05)';
+                  e.currentTarget.style.boxShadow = '0 6px 25px rgba(99, 102, 241, 0.6)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'scale(1)';
+                  e.currentTarget.style.boxShadow = '0 4px 20px rgba(99, 102, 241, 0.4)';
+                }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+                PLAY GAME
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
