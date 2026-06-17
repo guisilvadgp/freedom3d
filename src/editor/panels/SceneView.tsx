@@ -1,4 +1,4 @@
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Grid, GizmoHelper, GizmoViewport, Stats } from '@react-three/drei';
 import { useRef, Suspense } from 'react';
 import { useEditorStore } from '../store/editorStore';
@@ -18,6 +18,33 @@ export function attemptTeleport(): boolean {
   if (now - lastTeleportTime < 600) return false;
   lastTeleportTime = now;
   return true;
+}
+
+function XRAspectCorrector() {
+  const { gl, camera } = useThree();
+
+  useFrame(() => {
+    if (gl.xr.isPresenting) {
+      const aspect = window.innerWidth / window.innerHeight;
+      if (camera.aspect !== aspect) {
+        camera.aspect = aspect;
+        camera.updateProjectionMatrix();
+      }
+
+      const xrCamera = gl.xr.getCamera();
+      if (xrCamera) {
+        if (xrCamera.aspect !== aspect) {
+          xrCamera.aspect = aspect;
+          xrCamera.updateProjectionMatrix();
+        }
+        xrCamera.cameras.forEach((subCam) => {
+          subCam.updateProjectionMatrix();
+        });
+      }
+    }
+  });
+
+  return null;
 }
 
 export function SceneView({ isStandalone }: { isStandalone?: boolean }) {
@@ -56,6 +83,7 @@ export function SceneView({ isStandalone }: { isStandalone?: boolean }) {
 
   const content = (
     <>
+      <XRAspectCorrector />
       {/* Background */}
       <color attach="background" args={[scene.backgroundColor]} />
 
