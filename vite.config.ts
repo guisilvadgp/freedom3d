@@ -1,10 +1,16 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import fs from 'fs'
+import path from 'path'
 
 const liveSyncPlugin = () => {
   let activeSceneState = "{}";
-  const assets = new Map();
   const clients: any[] = [];
+
+  const cacheDir = path.join(process.cwd(), 'node_modules', '.cache', 'freedom3d-assets');
+  if (!fs.existsSync(cacheDir)) {
+    fs.mkdirSync(cacheDir, { recursive: true });
+  }
 
   return {
     name: 'live-sync',
@@ -59,9 +65,9 @@ const liveSyncPlugin = () => {
           req.on('data', (chunk: any) => chunks.push(chunk));
           req.on('end', () => {
             const buffer = Buffer.concat(chunks);
-            assets.set(fileName, buffer);
-            console.log('UPLOADED ASSET: ', fileName, ' SIZE: ', buffer.length);
-            console.log('UPLOADED ASSET: ', fileName);
+            const filePath = path.join(cacheDir, fileName);
+            fs.writeFileSync(filePath, buffer);
+            console.log('UPLOADED ASSET TO DISK: ', fileName, ' SIZE: ', buffer.length);
             res.setHeader('Access-Control-Allow-Origin', '*');
             res.end('ok');
           });
@@ -70,12 +76,13 @@ const liveSyncPlugin = () => {
         if (req.url.startsWith('/api/asset/') && req.method === 'GET') {
           const pathName = req.url.split('?')[0];
           const fileName = decodeURIComponent(pathName.split('/api/asset/')[1] || '');
-          if (assets.has(fileName)) {
+          const filePath = path.join(cacheDir, fileName);
+          if (fs.existsSync(filePath)) {
             res.setHeader('Content-Type', 'model/gltf-binary');
             res.setHeader('Access-Control-Allow-Origin', '*');
-            res.end(assets.get(fileName));
+            res.end(fs.readFileSync(filePath));
           } else {
-            console.log('404 NOT FOUND: ', fileName);
+            console.log('404 NOT FOUND ON DISK: ', fileName);
             res.statusCode = 404;
             res.end('Not found');
           }
