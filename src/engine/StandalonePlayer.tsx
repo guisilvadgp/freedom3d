@@ -52,6 +52,14 @@ export function StandalonePlayer() {
     if (!useEditorStore.getState().isPlaying) {
       togglePlay(); // Inicia física e scripts
     }
+
+    // Tenta entrar em tela cheia
+    if (document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(err => {
+        console.warn('Não foi possível entrar em tela cheia:', err);
+      });
+    }
+
     // Entrar no modo VR diretamente ao iniciar
     xrStore.enterVR().catch(err => {
       console.warn('Não foi possível entrar no modo VR automaticamente:', err);
@@ -129,6 +137,39 @@ export function StandalonePlayer() {
         onLoaded={() => setLoading(false)} 
       />
       {showDebug && <DebugUI />}
+
+      {/* Botão Flutuante de Atualizar */}
+      {gameStarted && (
+        <button
+          onClick={() => window.location.reload()}
+          style={{
+            position: 'absolute',
+            top: '20px',
+            right: '20px',
+            zIndex: 9999,
+            background: 'rgba(0,0,0,0.5)',
+            color: 'white',
+            border: '1px solid rgba(255,255,255,0.2)',
+            borderRadius: '50%',
+            width: '44px',
+            height: '44px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            backdropFilter: 'blur(4px)',
+            transition: 'background 0.2s'
+          }}
+          title="Atualizar Página"
+          onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.8)'}
+          onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.5)'}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+            <path d="M3 3v5h5" />
+          </svg>
+        </button>
+      )}
 
       {/* Overlay de Carregamento e Botão PLAY */}
       {showOverlay && (
