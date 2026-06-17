@@ -13,6 +13,50 @@ import { xrStore, attemptTeleport } from './SceneView';
 // Habilitar cache global do Three.js para evitar requisições redundantes de rede
 THREE.Cache.enabled = true;
 
+function shrinkTexture(texture: THREE.Texture, maxSize = 1024) {
+  if (!texture || !texture.image) return;
+  
+  const img = texture.image;
+  // Obter dimensões originais da imagem da textura
+  const width = img.width || (img as any).naturalWidth || 0;
+  const height = img.height || (img as any).naturalHeight || 0;
+  
+  if (width === 0 || height === 0) return;
+  if (width <= maxSize && height <= maxSize) return;
+  
+  try {
+    let newWidth = width;
+    let newHeight = height;
+    if (width > height) {
+      if (width > maxSize) {
+        newHeight = Math.round((height * maxSize) / width);
+        newWidth = maxSize;
+      }
+    } else {
+      if (height > maxSize) {
+        newWidth = Math.round((width * maxSize) / height);
+        newHeight = maxSize;
+      }
+    }
+    
+    const canvas = document.createElement('canvas');
+    canvas.width = newWidth;
+    canvas.height = newHeight;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.drawImage(img, 0, 0, newWidth, newHeight);
+      
+      texture.image = canvas;
+      texture.generateMipmaps = false;
+      texture.minFilter = THREE.LinearFilter;
+      texture.magFilter = THREE.LinearFilter;
+      texture.needsUpdate = true;
+    }
+  } catch (err) {
+    console.error('[Texture Shrink] Erro ao redimensionar textura:', err);
+  }
+}
+
 function GLTFMesh({ entity }: { entity: Entity }) {
   const groupRef = useRef<THREE.Group>(null!);
   
@@ -87,24 +131,24 @@ function GLTFMesh({ entity }: { entity: Entity }) {
     const clone = gltf.scene.clone(true);
     const isMobile = isStandalone || (typeof navigator !== 'undefined' && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent));
 
-    // Aplicar shadow em todos os meshes internos e otimizar texturas no mobile para economizar VRAM
+    // Aplicar shadow em todos os meshes internos e otimizar texturas no mobile/desktop para economizar VRAM
     clone.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
         const mesh = child as THREE.Mesh;
         mesh.castShadow = model.castShadow;
         mesh.receiveShadow = model.receiveShadow;
 
-        // Otimização de texturas para economizar VRAM no mobile
-        if (isMobile && mesh.material) {
+        // Otimização de texturas por meio do redimensionamento dinâmico
+        if (mesh.material) {
           const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
           materials.forEach((mat: any) => {
             const textureKeys = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap'];
             textureKeys.forEach((key) => {
               if (mat[key] && mat[key].isTexture) {
                 const tex = mat[key];
-                tex.generateMipmaps = false;
-                tex.minFilter = THREE.LinearFilter;
-                tex.needsUpdate = true;
+                // Limita texturas a 512px no mobile (economia agressiva) e 2048px no desktop (prevenção contra estouro de VRAM)
+                const maxSize = isMobile ? 512 : 2048;
+                shrinkTexture(tex, maxSize);
               }
             });
           });

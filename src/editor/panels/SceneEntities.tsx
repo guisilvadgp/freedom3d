@@ -297,6 +297,9 @@ function EntityMesh({ entity }: { entity: Entity }) {
 
   const renderLight = () => {
     if (!light) return null;
+    const isMobile = typeof navigator !== 'undefined' && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+    const shadowMapSize = isMobile ? 512 : 1024;
+
     // Como esta função é renderizada dentro do container <mesh> que já possui a posição global definida em `pos`,
     // as luzes locais (point e spot) devem ter posição local [0, 0, 0] para coincidir com a posição visual da entidade no editor.
     // Também adicionamos decay={1} para melhorar a visibilidade em intensidades mais baixas.
@@ -311,6 +314,7 @@ function EntityMesh({ entity }: { entity: Entity }) {
             castShadow={light.castShadow}
             shadow-bias={-0.0005}
             shadow-normalBias={0.02}
+            shadow-mapSize={[shadowMapSize, shadowMapSize]}
           />
         );
       case 'point':
@@ -323,6 +327,7 @@ function EntityMesh({ entity }: { entity: Entity }) {
             decay={1}
             shadow-bias={-0.0005}
             shadow-normalBias={0.02}
+            shadow-mapSize={[shadowMapSize, shadowMapSize]}
           />
         );
       case 'spot':
@@ -335,6 +340,7 @@ function EntityMesh({ entity }: { entity: Entity }) {
             decay={1}
             shadow-bias={-0.0005}
             shadow-normalBias={0.02}
+            shadow-mapSize={[shadowMapSize, shadowMapSize]}
           />
         );
       default:
