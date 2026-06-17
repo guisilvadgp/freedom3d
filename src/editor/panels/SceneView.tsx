@@ -1,6 +1,6 @@
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
-import { OrbitControls, Grid, GizmoHelper, GizmoViewport, Stats, useProgress } from '@react-three/drei';
-import { useRef, Suspense, useEffect } from 'react';
+import { OrbitControls, Grid, GizmoHelper, GizmoViewport, Stats } from '@react-three/drei';
+import { useRef, Suspense, useEffect, useState } from 'react';
 import { useEditorStore } from '../store/editorStore';
 import { SceneEntities } from './SceneEntities';
 import { GLTFViewers } from './GLTFViewer';
@@ -32,13 +32,58 @@ function LoadingTracker({
   onProgress?: (progress: number) => void;
   onLoaded?: () => void;
 }) {
-  const { active, progress } = useProgress();
+  const [loadingState, setLoadingState] = useState({ active: false, progress: 0 });
 
   useEffect(() => {
-    if (onProgress) {
-      onProgress(Math.round(progress));
-    }
-  }, [progress, onProgress]);
+    let timeout: any;
+    
+    const updateState = (active: boolean, loaded: number, total: number) => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        const progress = total > 0 ? (loaded / total) * 100 : 0;
+        setLoadingState({ active, progress });
+        if (onProgress) {
+          onProgress(Math.round(progress));
+        }
+      }, 0);
+    };
+
+    const manager = THREE.DefaultLoadingManager;
+    const origStart = manager.onStart;
+    const origProgress = manager.onProgress;
+    const origLoad = manager.onLoad;
+    const origError = manager.onError;
+
+    manager.onStart = (url, loaded, total) => {
+      updateState(true, loaded, total);
+      if (origStart) origStart(url, loaded, total);
+    };
+    manager.onProgress = (url, loaded, total) => {
+      updateState(true, loaded, total);
+      if (origProgress) origProgress(url, loaded, total);
+    };
+    manager.onLoad = () => {
+      updateState(false, 1, 1);
+      if (origLoad) origLoad();
+    };
+    manager.onError = (url) => {
+      updateState(false, 1, 1);
+      if (origError) origError(url);
+    };
+
+    // Caso já tenha carregado algo e o onStart não seja chamado
+    updateState(false, 1, 1);
+
+    return () => {
+      clearTimeout(timeout);
+      manager.onStart = origStart;
+      manager.onProgress = origProgress;
+      manager.onLoad = origLoad;
+      manager.onError = origError;
+    };
+  }, [onProgress]);
+
+  const { active, progress } = loadingState;
 
   useEffect(() => {
     // Só considera carregado se a estrutura da cena do servidor já foi injetada no Zustand,
