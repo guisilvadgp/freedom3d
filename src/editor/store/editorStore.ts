@@ -15,7 +15,6 @@ import {
   createSphere,
   createPlane,
   createDirectionalLight,
-  createCamera,
   createCylinder,
   createTorus,
   createPointLight,
@@ -146,6 +145,8 @@ interface EditorStore {
   refreshSavedScenes: () => Promise<void>;
   showSaveModal: boolean;
   setShowSaveModal: (v: boolean) => void;
+
+  hasUnpublishedChanges: boolean;
 }
 
 export const useEditorStore = create<EditorStore>((set, get) => {
@@ -155,6 +156,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     scenes: { [defaultScene.id]: defaultScene },
     activeSceneId: defaultScene.id,
     activeScene: () => get().scenes[get().activeSceneId],
+
+    hasUnpublishedChanges: false,
 
     rigidBodyRefs: {},
     setRigidBodyRef: (id, ref) => {
@@ -238,6 +241,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           },
         },
         selectedEntityId: entity.id,
+        hasUnpublishedChanges: true,
       }));
     },
 
@@ -258,6 +262,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           },
         },
         selectedEntityId: s.selectedEntityId === id ? null : s.selectedEntityId,
+        hasUnpublishedChanges: true,
       }));
     },
 
@@ -286,6 +291,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           },
         },
         selectedEntityId: clone.id,
+        hasUnpublishedChanges: true,
       }));
     },
 
@@ -302,6 +308,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             },
           },
         },
+        hasUnpublishedChanges: true,
       }));
     },
 
@@ -319,6 +326,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             },
           },
         },
+        hasUnpublishedChanges: true,
       }));
     },
 
@@ -379,6 +387,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             rootEntityIds: newRootIds,
           },
         },
+        hasUnpublishedChanges: true,
       }));
     },
 
@@ -400,6 +409,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             },
           },
         },
+        hasUnpublishedChanges: true,
       }));
     },
 
@@ -417,6 +427,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             entities: { ...scene.entities, [entityId]: { ...entity, components: comps } },
           },
         },
+        hasUnpublishedChanges: true,
       }));
     },
 
@@ -443,6 +454,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             },
           },
         },
+        hasUnpublishedChanges: true,
       }));
     },
 
@@ -450,6 +462,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       const scene = get().activeScene();
       set((s) => ({
         scenes: { ...s.scenes, [scene.id]: { ...scene, ...patch } },
+        hasUnpublishedChanges: true,
       }));
     },
 
@@ -465,6 +478,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         const payload = { ...scene, publishedAt: Date.now() };
         await fetch('/api/sync', { method: 'POST', body: JSON.stringify(payload) });
         addLog('info', '🚀 Jogo publicado para o Preview com sucesso!');
+        set({ hasUnpublishedChanges: false });
       } catch (err) {
         addLog('error', 'Falha ao publicar para o Preview.');
       }
@@ -520,6 +534,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             },
           },
           selectedEntityId: entity.id,
+          hasUnpublishedChanges: true,
         }));
       } catch (err) {
         addLog('error', `Falha ao importar "${file.name}": ${String(err)}`);
@@ -569,6 +584,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             },
           },
           selectedEntityId: entity.id,
+          hasUnpublishedChanges: true,
         }));
       } catch (err) {
         addLog('error', `Falha ao instanciar "${fileName}": ${String(err)}`);
@@ -611,6 +627,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           },
         },
         selectedEntityId: newEntity.id,
+        hasUnpublishedChanges: true,
       }));
       get().addLog('info', `🎯 Prefab instanciado: "${newEntity.name}"`);
     },

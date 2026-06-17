@@ -1,5 +1,19 @@
 import { useRef } from 'react';
 import { useEditorStore } from '../store/editorStore';
+import { 
+  FolderOpen, 
+  Upload, 
+  Move, 
+  RotateCw, 
+  Maximize, 
+  Magnet, 
+  Grid, 
+  Eye, 
+  Send, 
+  Play, 
+  Square, 
+  Hexagon 
+} from 'lucide-react';
 
 export function Toolbar() {
   const {
@@ -9,7 +23,7 @@ export function Toolbar() {
     showGizmos, toggleGizmos,
     snapEnabled, toggleSnap, snapValue, setSnapValue,
     viewMode, setViewMode,
-    setShowSaveModal, importGLTF, publishToPreview,
+    setShowSaveModal, importGLTF, publishToPreview, hasUnpublishedChanges
   } = useEditorStore();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -26,7 +40,7 @@ export function Toolbar() {
     <div className="toolbar">
       {/* Logo */}
       <div className="toolbar-logo">
-        <span className="logo-icon">⬡</span>
+        <Hexagon className="logo-icon" size={20} />
         <span className="logo-text">Orion</span>
         <span className="logo-version">v0.1</span>
       </div>
@@ -36,10 +50,12 @@ export function Toolbar() {
       {/* Project Actions */}
       <div className="toolbar-group">
         <button className="toolbar-btn" onClick={() => setShowSaveModal(true)} title="Save/Load Scene">
-          <span>💾</span><span className="btn-label">Project</span>
+          <FolderOpen size={15} />
+          <span className="btn-label">Project</span>
         </button>
         <button className="toolbar-btn" onClick={() => fileInputRef.current?.click()} title="Import GLTF Model">
-          <span>📦</span><span className="btn-label">Import GLTF</span>
+          <Upload size={15} />
+          <span className="btn-label">Import GLTF</span>
         </button>
         <input type="file" accept=".gltf,.glb" ref={fileInputRef} style={{ display: 'none' }} onChange={handleImport} />
       </div>
@@ -49,9 +65,9 @@ export function Toolbar() {
       {/* Transform modes */}
       <div className="toolbar-group">
         {[
-          { mode: 'translate', icon: '⇔', title: 'Translate (W)' },
-          { mode: 'rotate', icon: '↻', title: 'Rotate (E)' },
-          { mode: 'scale', icon: '⊞', title: 'Scale (R)' },
+          { mode: 'translate', icon: <Move size={15} />, title: 'Translate (W)' },
+          { mode: 'rotate', icon: <RotateCw size={15} />, title: 'Rotate (E)' },
+          { mode: 'scale', icon: <Maximize size={15} />, title: 'Scale (R)' },
         ].map(({ mode, icon, title }) => (
           <button
             key={mode}
@@ -59,7 +75,7 @@ export function Toolbar() {
             onClick={() => setEditorMode(mode as any)}
             title={title}
           >
-            <span>{icon}</span>
+            {icon}
             <span className="btn-label">{mode.charAt(0).toUpperCase() + mode.slice(1)}</span>
           </button>
         ))}
@@ -74,7 +90,7 @@ export function Toolbar() {
           onClick={toggleSnap}
           title="Toggle Snap"
         >
-          <span>⊡</span>
+          <Magnet size={15} />
           <span className="btn-label">Snap</span>
         </button>
         {snapEnabled && (
@@ -98,7 +114,7 @@ export function Toolbar() {
           onClick={toggleGrid}
           title="Toggle Grid"
         >
-          <span>⋮⋮</span>
+          <Grid size={15} />
           <span className="btn-label">Grid</span>
         </button>
         <button
@@ -106,7 +122,7 @@ export function Toolbar() {
           onClick={toggleGizmos}
           title="Toggle Gizmos"
         >
-          <span>✚</span>
+          <Eye size={15} />
           <span className="btn-label">Gizmos</span>
         </button>
       </div>
@@ -131,11 +147,20 @@ export function Toolbar() {
       <div className="toolbar-spacer" />
 
       {/* Play controls */}
-      <button className="toolbar-btn publish-btn" onClick={publishToPreview} title="Publish to Preview">
-          <span>??</span><span className="btn-label">Publish to Mobile</span>
-        </button>
-        <div className="toolbar-divider" />
-        <div className="toolbar-group play-group">
+      <button 
+        className={`toolbar-btn publish-btn ${!hasUnpublishedChanges ? 'disabled' : ''}`} 
+        onClick={publishToPreview} 
+        disabled={!hasUnpublishedChanges}
+        title="Publish to Preview"
+        style={{ opacity: hasUnpublishedChanges ? 1 : 0.5, cursor: hasUnpublishedChanges ? 'pointer' : 'not-allowed' }}
+      >
+        <Send size={15} />
+        <span className="btn-label">{hasUnpublishedChanges ? 'Publish to Mobile' : 'Published'}</span>
+      </button>
+      
+      <div className="toolbar-divider" />
+      
+      <div className="toolbar-group play-group">
         <button
           className={`play-btn ${isPlaying ? 'playing' : ''}`}
           onClick={togglePlay}
@@ -143,12 +168,12 @@ export function Toolbar() {
         >
           {isPlaying ? (
             <>
-              <span>⏹</span>
+              <Square size={15} fill="white" />
               <span className="btn-label">Stop</span>
             </>
           ) : (
             <>
-              <span>▶</span>
+              <Play size={15} fill="white" />
               <span className="btn-label">Play</span>
             </>
           )}
@@ -157,4 +182,3 @@ export function Toolbar() {
     </div>
   );
 }
-

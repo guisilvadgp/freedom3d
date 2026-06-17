@@ -103,10 +103,28 @@ export function StandalonePlayer() {
       .then(scene => {
         handleSceneUpdate(scene);
         setSceneLoaded(true);
+        if (scene && scene.publishedAt) {
+          window.sessionStorage.setItem('lastPublishedAt', scene.publishedAt.toString());
+        }
       })
       .catch(() => {
         setSceneLoaded(true);
       });
+
+    // Polling for updates
+    const pollInterval = setInterval(async () => {
+      try {
+        const res = await fetch('/api/sync', { cache: 'no-store' });
+        const scene = await res.json();
+        if (scene && scene.publishedAt) {
+          const lastPublishedAt = window.sessionStorage.getItem('lastPublishedAt');
+          if (lastPublishedAt && lastPublishedAt !== scene.publishedAt.toString()) {
+            console.log('Nova cena detectada! Recarregando...');
+            window.location.reload();
+          }
+        }
+      } catch (err) {}
+    }, 3000);
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'F2' || (e.ctrlKey && e.shiftKey && e.key === 'D')) {
@@ -116,6 +134,7 @@ export function StandalonePlayer() {
     window.addEventListener('keydown', handleKeyDown);
 
     return () => {
+      clearInterval(pollInterval);
       window.removeEventListener('error', handleError);
       window.removeEventListener('keydown', handleKeyDown);
       console.error = origError;
