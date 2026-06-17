@@ -57,7 +57,12 @@ function GLTFMesh({ entity }: { entity: Entity }) {
   const rot = (transform.rotation as [number, number, number]).map(
     (d) => (d * Math.PI) / 180,
   ) as [number, number, number];
-  const s = model.modelScale;
+  const s = model.modelScale ?? 1;
+  const scale = [
+    transform.scale[0] * s,
+    transform.scale[1] * s,
+    transform.scale[2] * s,
+  ] as [number, number, number];
 
   const handleChange = () => {
     if (!groupRef.current || isPlaying) return;
@@ -69,7 +74,11 @@ function GLTFMesh({ entity }: { entity: Entity }) {
         +((obj.rotation.y * 180) / Math.PI).toFixed(2),
         +((obj.rotation.z * 180) / Math.PI).toFixed(2),
       ],
-      scale: transform.scale, // scale é controlada via modelScale no inspector
+      scale: [
+        +(obj.scale.x / s).toFixed(3),
+        +(obj.scale.y / s).toFixed(3),
+        +(obj.scale.z / s).toFixed(3),
+      ],
     });
   };
 
@@ -101,7 +110,7 @@ function GLTFMesh({ entity }: { entity: Entity }) {
       ref={groupRef}
       position={pos}
       rotation={rot}
-      scale={[s, s, s]}
+      scale={scale}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
     >
@@ -128,12 +137,12 @@ function GLTFMesh({ entity }: { entity: Entity }) {
           gravityScale={rigidBody.useGravity ? 1 : 0}
           colliders={rigidBody.collider === 'none' || rigidBody.collider === 'trimesh' ? false : (rigidBody.collider || 'cuboid')}
         >
-          <group scale={[s, s, s]}>
+          <group scale={scale}>
             <primitive object={clonedScene} />
           </group>
           {rigidBody.collider === 'trimesh' && (
             <MeshCollider type="trimesh">
-              <group scale={[s, s, s]}>
+              <group scale={scale}>
                 <primitive object={clonedScene} />
               </group>
             </MeshCollider>
