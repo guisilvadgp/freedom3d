@@ -110,8 +110,17 @@ function EntityMesh({ entity }: { entity: Entity }) {
 
   if (!mesh) {
     // Entities without mesh (Light, Audio, Particles, Empty objects)
-    return (
-      <group position={pos} rotation={rot} scale={scale}>
+    const emptyMesh = (
+      <mesh
+        ref={meshRef}
+        position={(!rigidBody || !isPlaying) ? pos : undefined}
+        rotation={(!rigidBody || !isPlaying) ? rot : undefined}
+        scale={scale}
+        onClick={(e) => { e.stopPropagation(); selectEntity(entity.id); }}
+      >
+        <sphereGeometry args={[0.2, 8, 8]} />
+        <meshBasicMaterial color={light ? light.color : "#ffffff"} wireframe opacity={0.3} transparent />
+        
         {renderLight()}
         {audio && audio.src && (
           <PositionalAudio url={audio.src} loop={audio.loop} autoplay={audio.playOnStart} distance={10} />
@@ -135,14 +144,23 @@ function EntityMesh({ entity }: { entity: Entity }) {
             far={camera.far} 
           />
         )}
-        {/* Helper visual representation for selection when there is no mesh */}
-        <mesh
-          ref={meshRef}
-          onClick={(e) => { e.stopPropagation(); selectEntity(entity.id); }}
-        >
-          <sphereGeometry args={[0.2, 8, 8]} />
-          <meshBasicMaterial color={light ? light.color : "#ffffff"} wireframe opacity={0.3} transparent />
-        </mesh>
+      </mesh>
+    );
+
+    return (
+      <>
+        {(rigidBody && isPlaying) ? (
+          <RigidBody 
+            position={pos}
+            rotation={rot}
+            type={rigidBody.isStatic ? 'fixed' : 'dynamic'} 
+            mass={rigidBody.mass}
+            gravityScale={rigidBody.useGravity ? 1 : 0}
+            colliders={rigidBody.collider === 'none' ? false : (rigidBody.collider || 'cuboid')}
+          >
+            {emptyMesh}
+          </RigidBody>
+        ) : emptyMesh}
         
         {isSelected && !isPlaying && (
           <TransformControls
@@ -154,15 +172,15 @@ function EntityMesh({ entity }: { entity: Entity }) {
             onChange={handleChange}
           />
         )}
-      </group>
+      </>
     );
   }
 
   const innerMesh = (
     <mesh
       ref={meshRef}
-      position={!rigidBody ? pos : undefined}
-      rotation={!rigidBody ? rot : undefined}
+      position={(!rigidBody || !isPlaying) ? pos : undefined}
+      rotation={(!rigidBody || !isPlaying) ? rot : undefined}
       scale={scale}
       castShadow={mesh.castShadow}
       receiveShadow={mesh.receiveShadow}
@@ -203,7 +221,7 @@ function EntityMesh({ entity }: { entity: Entity }) {
 
   return (
     <>
-      {rigidBody ? (
+      {(rigidBody && isPlaying) ? (
         <RigidBody 
           position={pos}
           rotation={rot}
