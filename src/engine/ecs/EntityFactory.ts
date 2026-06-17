@@ -142,6 +142,7 @@ export function createFirstPersonPlayer(name = 'First Person Player'): Entity {
     mass: 1,
     isStatic: false,
     useGravity: true,
+    collider: 'cuboid',
   };
   e.components.Camera = {
     type: 'Camera',
@@ -178,6 +179,7 @@ export function createThirdPersonPlayer(name = 'Third Person Player'): Entity {
     mass: 1,
     isStatic: false,
     useGravity: true,
+    collider: 'cuboid',
   };
   e.components.Script = {
     type: 'Script',
@@ -189,5 +191,6 @@ export function onUpdate(delta) {
   };
   return e;
 }
+
 
 

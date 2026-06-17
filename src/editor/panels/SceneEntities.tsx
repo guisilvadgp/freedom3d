@@ -187,6 +187,7 @@ function EntityMesh({ entity }: { entity: Entity }) {
             type={rigidBody.isStatic ? 'fixed' : 'dynamic'} 
             mass={rigidBody.mass}
             gravityScale={rigidBody.useGravity ? 1 : 0}
+            colliders={rigidBody.collider === 'none' ? false : (rigidBody.collider || 'cuboid')}
           >
             {innerMesh}
           </RigidBody>

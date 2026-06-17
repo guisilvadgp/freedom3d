@@ -47,6 +47,7 @@ export interface RigidBodyComponent {
   mass: number;
   isStatic: boolean;
   useGravity: boolean;
+  collider: 'cuboid' | 'ball' | 'hull' | 'trimesh' | 'none';
 }
 
 export interface AudioComponent {

@@ -276,6 +276,20 @@ function RigidBodyInspector({ entityId }: { entityId: string }) {
           onChange={(e) => updateComponent(entityId, 'RigidBody', { useGravity: e.target.checked })}
         />
       </div>
+      <div className="field-row">
+        <label className="field-label">Collider</label>
+        <select
+          className="field-input"
+          value={rb.collider || 'cuboid'}
+          onChange={(e) => updateComponent(entityId, 'RigidBody', { collider: e.target.value as any })}
+        >
+          <option value="cuboid">Cuboid</option>
+          <option value="ball">Ball (Sphere)</option>
+          <option value="hull">Convex Hull</option>
+          <option value="trimesh">Trimesh (Complex)</option>
+          <option value="none">None</option>
+        </select>
+      </div>
     </div>
   );
 }
@@ -498,7 +512,7 @@ export function InspectorPanel() {
           {!entity.components.RigidBody && (
             <button 
               className="panel-btn" 
-              onClick={() => useEditorStore.getState().addComponent(selectedEntityId, { type: 'RigidBody', mass: 1, isStatic: false, useGravity: true })}
+              onClick={() => useEditorStore.getState().addComponent(selectedEntityId, { type: 'RigidBody', mass: 1, isStatic: false, useGravity: true, collider: 'cuboid' })}
             >
               ➕ Add RigidBody
             </button>
