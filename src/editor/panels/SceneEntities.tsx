@@ -27,8 +27,11 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
     let session: any = null;
 
     const handleSelect = () => {
-      // Dispara raycast do centro da tela ao tocar nela
-      raycaster.current.setFromCamera(new THREE.Vector2(0, 0), defaultCamera);
+      // Dispara raycast a partir da posição e direção da cabeça
+      const xrCam = gl.xr.isPresenting ? gl.xr.getCamera() : defaultCamera;
+      raycaster.current.ray.origin.setFromMatrixPosition(xrCam.matrixWorld);
+      xrCam.getWorldDirection(raycaster.current.ray.direction);
+      
       const intersects = raycaster.current.intersectObjects(scene.children, true);
       const hit = intersects.find(i => i.object.userData?.isTeleportRing);
       if (hit && hit.object.userData.onClick) {
@@ -82,7 +85,9 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
       // VR Gaze (Hovering) - raycast a cada frame
       if (isStandalone) {
         const xrCam = state.gl.xr.getCamera();
-        raycaster.current.setFromCamera(new THREE.Vector2(0, 0), state.camera);
+        raycaster.current.ray.origin.setFromMatrixPosition(xrCam.matrixWorld);
+        xrCam.getWorldDirection(raycaster.current.ray.direction);
+        
         const intersects = raycaster.current.intersectObjects(scene.children, true);
         const hit = intersects.find(i => i.object.userData?.isTeleportRing);
         if (hit) {
