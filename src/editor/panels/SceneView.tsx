@@ -1,4 +1,4 @@
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Grid, GizmoHelper, GizmoViewport, Stats, useProgress } from '@react-three/drei';
 import { useRef, Suspense, useEffect } from 'react';
 import { useEditorStore } from '../store/editorStore';
