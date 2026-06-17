@@ -1,6 +1,6 @@
 import { XROrigin } from '@react-three/xr';
-import { useRef, useState } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useRef, useState, useEffect } from 'react';
+import { useFrame, useThree } from '@react-three/fiber';
 import { TransformControls, Edges, PositionalAudio, Sparkles, PerspectiveCamera } from '@react-three/drei';
 import { RigidBody, MeshCollider } from '@react-three/rapier';
 import * as THREE from 'three';
