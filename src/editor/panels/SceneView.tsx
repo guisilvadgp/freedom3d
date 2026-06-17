@@ -6,7 +6,10 @@ import { SceneEntities } from './SceneEntities';
 import { GLTFViewers } from './GLTFViewer';
 import { GameLoop } from '../../engine/systems/GameLoop';
 import { Physics } from '@react-three/rapier';
+import { XR, createXRStore } from '@react-three/xr';
 import * as THREE from 'three';
+
+const store = createXRStore();
 
 export function SceneView() {
   const { showGrid, isPlaying, activeScene, showGizmos } = useEditorStore();
@@ -38,12 +41,19 @@ export function SceneView() {
 
   return (
     <div className="scene-view" onDrop={handleDrop} onDragOver={handleDragOver}>
+      {/* XR Buttons */}
+      <div style={{ position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)', zIndex: 10, display: 'flex', gap: '10px' }}>
+        <button className="panel-btn" onClick={() => store.enterVR()}>Enter VR</button>
+        <button className="panel-btn" onClick={() => store.enterAR()}>Enter AR</button>
+      </div>
+
       <Canvas
         shadows
         gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping }}
         camera={{ fov: 60, near: 0.1, far: 1000, position: [5, 5, 8] }}
       >
-        {/* Background */}
+        <XR store={store}>
+          {/* Background */}
         <color attach="background" args={[scene.backgroundColor]} />
 
         {/* Fog */}
@@ -105,6 +115,7 @@ export function SceneView() {
 
         {/* Performance stats in play mode */}
         {isPlaying && <Stats />}
+        </XR>
       </Canvas>
     </div>
   );
