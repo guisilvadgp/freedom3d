@@ -109,6 +109,7 @@ interface EditorStore {
   duplicateEntity: (id: EntityId) => void;
   renameEntity: (id: EntityId, name: string) => void;
   toggleEntityActive: (id: EntityId) => void;
+  reparentEntity: (childId: EntityId, newParentId: EntityId | null) => void;
 
   // Component operations
   addComponent: (entityId: EntityId, component: AnyComponent) => void;
@@ -301,6 +302,66 @@ export const useEditorStore = create<EditorStore>((set, get) => {
               ...scene.entities,
               [id]: { ...entity, active: !entity.active },
             },
+          },
+        },
+      }));
+    },
+
+    reparentEntity: (childId, newParentId) => {
+      const scene = get().activeScene();
+      const child = scene.entities[childId];
+      if (!child) return;
+
+      // Prevent cyclical parenting
+      if (newParentId) {
+        let curr = scene.entities[newParentId];
+        while (curr) {
+          if (curr.id === childId) return; // Cycle detected
+          if (!curr.parentId) break;
+          curr = scene.entities[curr.parentId];
+        }
+      }
+
+      const newEntities = { ...scene.entities };
+      const newRootIds = [...scene.rootEntityIds];
+
+      // Remove from old parent
+      if (child.parentId) {
+        const oldParent = newEntities[child.parentId];
+        if (oldParent) {
+          newEntities[child.parentId] = {
+            ...oldParent,
+            childrenIds: oldParent.childrenIds.filter(id => id !== childId)
+          };
+        }
+      } else {
+        const idx = newRootIds.indexOf(childId);
+        if (idx !== -1) newRootIds.splice(idx, 1);
+      }
+
+      // Add to new parent
+      newEntities[childId] = { ...child, parentId: newParentId };
+      if (newParentId) {
+        const newParent = newEntities[newParentId];
+        if (newParent) {
+          newEntities[newParentId] = {
+            ...newParent,
+            childrenIds: [...newParent.childrenIds, childId]
+          };
+        }
+      } else {
+        if (!newRootIds.includes(childId)) {
+          newRootIds.push(childId);
+        }
+      }
+
+      set((s) => ({
+        scenes: {
+          ...s.scenes,
+          [scene.id]: {
+            ...scene,
+            entities: newEntities,
+            rootEntityIds: newRootIds,
           },
         },
       }));
@@ -590,3 +651,5 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     },
   };
 });
+
+
