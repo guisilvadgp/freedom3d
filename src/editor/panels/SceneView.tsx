@@ -82,9 +82,15 @@ function LoadingTracker({
 function TeleportCursor() {
   const meshRef = useRef<THREE.Mesh>(null);
   const { raycaster, pointer, camera, scene } = useThree();
+  const lastUpdate = useRef(0);
 
-  useFrame(() => {
+  useFrame((state) => {
     if (!meshRef.current) return;
+
+    // Throttling: atualiza apenas a cada 60ms (~16 FPS) para economizar processamento
+    const elapsed = state.clock.getElapsedTime();
+    if (elapsed - lastUpdate.current < 0.06) return;
+    lastUpdate.current = elapsed;
 
     raycaster.setFromCamera(pointer, camera);
     const intersects = raycaster.intersectObjects(scene.children, true);
