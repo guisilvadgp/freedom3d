@@ -1,5 +1,5 @@
 import { useEditorStore } from '../store/editorStore';
-import type { TransformComponent, MeshRendererComponent, LightComponent, GLTFModelComponent, RigidBodyComponent, AudioComponent, ParticleSystemComponent } from '../../engine/ecs/types';
+import type { TransformComponent, MeshRendererComponent, LightComponent, GLTFModelComponent, RigidBodyComponent, AudioComponent, ParticleSystemComponent, ScriptComponent } from '../../engine/ecs/types';
 
 function Vec3Field({
   label, value, onChange,
@@ -389,6 +389,40 @@ function ParticleSystemInspector({ entityId }: { entityId: string }) {
   );
 }
 
+function ScriptInspector({ entityId }: { entityId: string }) {
+  const { selectedEntity, updateComponent } = useEditorStore();
+  const entity = selectedEntity();
+  if (!entity) return null;
+  const s = entity.components.Script as ScriptComponent;
+
+  return (
+    <div className="component-block">
+      <div className="component-header">
+        <span className="component-icon">📜</span>
+        <span className="component-title">Script</span>
+      </div>
+      <div className="field-row">
+        <label className="field-label">Name</label>
+        <input
+          type="text"
+          className="field-input"
+          value={s.scriptName}
+          onChange={(e) => updateComponent(entityId, 'Script', { scriptName: e.target.value })}
+        />
+      </div>
+      <div className="field-row" style={{ display: 'block', marginTop: '8px' }}>
+        <label className="field-label" style={{ marginBottom: '4px', display: 'block' }}>Code</label>
+        <textarea
+          className="field-input"
+          style={{ width: '100%', height: '150px', fontFamily: 'monospace', fontSize: '12px', resize: 'vertical' }}
+          value={s.code}
+          onChange={(e) => updateComponent(entityId, 'Script', { code: e.target.value })}
+        />
+      </div>
+    </div>
+  );
+}
+
 export function InspectorPanel() {
   const { selectedEntity, selectedEntityId, activeScene, updateSceneSettings, createPrefab } = useEditorStore();
   const entity = selectedEntity();
@@ -506,6 +540,9 @@ export function InspectorPanel() {
         )}
         {entity.components.ParticleSystem && (
           <ParticleSystemInspector entityId={selectedEntityId} />
+        )}
+        {entity.components.Script && (
+          <ScriptInspector entityId={selectedEntityId} />
         )}
 
         <div className="add-component-wrapper" style={{ marginTop: '16px', display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>

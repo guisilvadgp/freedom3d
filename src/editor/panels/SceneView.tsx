@@ -12,8 +12,32 @@ export function SceneView() {
   const { showGrid, isPlaying, activeScene, showGizmos } = useEditorStore();
   const scene = activeScene();
 
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const dataStr = e.dataTransfer.getData('application/json');
+    if (!dataStr) return;
+    
+    try {
+      const data = JSON.parse(dataStr);
+      // Pega a store atual
+      const store = useEditorStore.getState();
+      
+      if (data.type === 'prefab') {
+        store.instantiatePrefab(data.index);
+      } else if (data.type === 'gltf') {
+        store.instantiateAsset(data.fileName);
+      }
+    } catch (err) {
+      console.error('Failed to handle drop', err);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault(); // Necessário para permitir o drop
+  };
+
   return (
-    <div className="scene-view">
+    <div className="scene-view" onDrop={handleDrop} onDragOver={handleDragOver}>
       <Canvas
         shadows
         gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping }}

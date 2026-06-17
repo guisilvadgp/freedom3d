@@ -22,8 +22,8 @@
 | Sistema de componentes | ✅ | ECS com Transform, MeshRenderer, Light, Camera, RigidBody, Audio, Script (tipos definidos) |
 | Inspector | ✅ | Inspector com Transform (Vec3), MeshRenderer, Light e Scene Settings |
 | Hierarquia | ✅ | HierarchyPanel com criar, renomear, deletar, duplicar e toggle active |
-| Sistema de assets | ❌ | Asset Browser planejado para Fase 2 |
-| Sistema de scripts | ❌ | Tipo `ScriptComponent` definido, mas editor e execução ainda não implementados |
+| Sistema de assets | ✅ | Asset Browser integrado com importação GLTF e Prefabs |
+| Sistema de scripts | ✅ | Editor de código integrado no Inspector com JIT execution no Game Loop |
 | Física | ❌ | Fase 3 |
 | Multiplayer | ❌ | Fase 3 |
 | Exportação Web | ❌ | Fase 3 |
@@ -102,7 +102,7 @@
 | Camera | 🟡 | Tipo definido (fov, near, far, isMain), sem preview de câmera |
 | AudioSource | 🟡 | Tipo definido, sem reprodução ainda |
 | Animator | ❌ | Fase 3 |
-| Script | 🟡 | Tipo definido, sem editor de código nem execução |
+| Script | ✅ | Editor de código integrado (Monaco/Textarea) e injeção do Three/Physics |
 | Light | ✅ | directional, point, spot, ambient — editável no Inspector |
 | ParticleEmitter | ❌ | Fase 3 |
 | RenderSystem | ✅ | `SceneEntities.tsx` renderiza todos os componentes ativos |
@@ -122,7 +122,7 @@
 | Scene View | ✅ | Canvas Three.js com OrbitControls, Grid infinita e GizmoHelper |
 | Inspector | ✅ | Edição em tempo real de Transform, MeshRenderer, Light, Scene Settings |
 | Console | ✅ | Logs com timestamp coloridos por tipo (log/info/warn/error) |
-| Assets (Project Browser) | ❌ | Painel existe mas sem conteúdo ainda (Fase 2) |
+| Assets (Project Browser) | ✅ | GLTFs e Prefabs com funcionalidade de Drag and Drop para instanciar |
 
 ---
 
@@ -132,11 +132,11 @@
 |---------|--------|---------|
 | Criação de objetos | ✅ | Menu "+ Create" com 5 geometrias + 2 tipos de luz |
 | Agrupamento (parenting) | ❌ | parentId/childrenIds existem na struct, mas UI de drag-and-drop não implementada |
-| Drag-and-drop na Hierarchy | ❌ | Fase 2 |
+| Drag-and-drop na cena | ✅ | Arrastar GLTFs e Prefabs do Asset Browser direto para o Canvas |
 | Edição em tempo real | ✅ | Inspector atualiza cena instantaneamente |
 | Serialização automática | ✅ | Salvar/carregar cena e blobs GLTF em IndexedDB (SaveLoadModal) |
-| Importação de assets | 🟡 | GLTF/GLB importando nativamente para a cena |
-| Organização de arquivos | ❌ | Fase 2 |
+| Importação de assets | ✅ | GLTF/GLB importando nativamente para a cena e listado no Assets Browser |
+| Organização de arquivos | 🟡 | Fase 2 (Drag and drop existe, UI de pastas futura) |
 | Logs / Console | ✅ | Console Panel com clear e timestamps |
 | Profiler | ❌ | Stats R3F disponível no modo Play, profiler detalhado — Fase 3 |
 
@@ -157,8 +157,8 @@
 
 | Feature | Status | Detalhe |
 |---------|--------|---------|
-| Lifecycle: Awake/Start/Update/etc. | 🟡 | GameLoop dispara Updates para ScriptComponents ativos |
-| PlayerController example | ❌ | Fase 2 |
+| Lifecycle: Awake/Start/Update/etc. | ✅ | GameLoop dispara Updates para ScriptComponents ativos com Input e Física |
+| PlayerController example | ✅ | `FPSController` e `TPSController` embutidos na criação das entidades |
 
 ---
 
@@ -166,7 +166,7 @@
 
 | Feature | Status | Detalhe |
 |---------|--------|---------|
-| Instanciamento | ❌ | Fase 2 |
+| Instanciamento | ✅ | Botão 'To Prefab' no Inspector e drag-and-drop no AssetBrowser |
 | Herança / overrides | ❌ | Fase 2 |
 | Nested prefabs | ❌ | Fase 2 |
 
@@ -269,7 +269,7 @@
 
 ```
 Fase 1 – Core (3 meses)      ██████████  100% concluído
-Fase 2 – Editor (4 meses)    ███░░░░░░░  ~30% concluído
+Fase 2 – Editor (4 meses)    ███████░░░  ~75% concluído
 Fase 3 – Produção (5 meses)  ░░░░░░░░░░   0% concluído
 Fase 4 – XR (3 meses)        ░░░░░░░░░░   0% concluído
 ```
@@ -282,10 +282,12 @@ Fase 4 – XR (3 meses)        ░░░░░░░░░░   0% concluído
 - ✅ Game loop (Update/FixedUpdate)
 - ✅ Persistência de cena e assets binários (IndexedDB)
 
-### Fase 2 – Próximos passos (A Iniciar):
-- ❌ Editor de Script / Execução Dinâmica de Código
-- ❌ Assets Browser (UI de pastas, drag-and-drop)
-- ❌ Sistema de Prefabs (Instanciamento e herança)
+### Fase 2 – O que foi feito (Em andamento):
+- ✅ Editor de Script / Execução Dinâmica de Código
+- ✅ Assets Browser (Instanciamento de Prefabs e Modelos 3D via Drag-and-Drop)
+- ✅ Sistema de Prefabs (Salvar propriedades de Entidades para clonagem)
+- ❌ Assets Browser (UI avançada de pastas)
+- ❌ Drag-and-drop na Hierarchy (Parenting visual)
 
 ---
 
@@ -293,17 +295,17 @@ Fase 4 – XR (3 meses)        ░░░░░░░░░░   0% concluído
 
 | Categoria | Itens totais (estimado) | Implementados | % |
 |-----------|------------------------|---------------|---|
-| ECS Types & Components | 12 | 10 | 83% |
+| ECS Types & Components | 12 | 11 | 91% |
 | Editor Panels | 6 | 6 | 100% |
 | Materials | 6 | 4 | 67% |
 | Lights | 6 | 3 | 50% |
 | Asset Formats | 8 | 1 | 12% |
-| Physics | 6 | 0 | 0% |
+| Physics | 6 | 1 | 16% |
 | Audio | 4 | 0 | 0% |
 | VR/AR | 10 | 0 | 0% |
 | Multiplayer | 5 | 0 | 0% |
 | Build Targets | 5 | 0 | 0% |
-| **TOTAL** | **~68** | **~24** | **~35%** |
+| **TOTAL** | **~68** | **~26** | **~38%** |
 
 > O MVP (Fase 1) do editor foi concluído com sucesso. A fundação de renderização, ciclo de vida e persistência está pronta.
 > Próxima prioridade: Iniciar a **Fase 2** com o **Asset Browser** (UI), **Editor de Scripts** (Live Coding) e **Prefabs**.

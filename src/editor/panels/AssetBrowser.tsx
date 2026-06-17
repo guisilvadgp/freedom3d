@@ -52,7 +52,14 @@ export function AssetBrowser() {
           ) : (
             <div className="asset-grid">
               {prefabs.map((prefab, i) => (
-                <div key={i} className="asset-card">
+                <div 
+                  key={i} 
+                  className="asset-card"
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData('application/json', JSON.stringify({ type: 'prefab', index: i }));
+                  }}
+                >
                   <div className="asset-icon">🎯</div>
                   <div className="asset-info">
                     <span className="asset-name" title={prefab.name}>{prefab.name}</span>
@@ -81,7 +88,14 @@ export function AssetBrowser() {
           ) : (
             <div className="asset-grid">
               {assets.map((asset) => (
-                <div key={asset.fileName} className="asset-card">
+                <div 
+                  key={asset.fileName} 
+                  className="asset-card"
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData('application/json', JSON.stringify({ type: 'gltf', fileName: asset.fileName }));
+                  }}
+                >
                   <div className="asset-icon">📦</div>
                   <div className="asset-info">
                     <span className="asset-name" title={asset.fileName}>{asset.fileName}</span>
