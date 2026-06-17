@@ -3,6 +3,8 @@ import { OrbitControls, Grid, GizmoHelper, GizmoViewport, TransformControls, Sta
 import { useRef, Suspense } from 'react';
 import { useEditorStore } from '../store/editorStore';
 import { SceneEntities } from './SceneEntities';
+import { GLTFViewers } from './GLTFViewer';
+import { GameLoop } from '../../engine/systems/GameLoop';
 import * as THREE from 'three';
 
 export function SceneView() {
@@ -30,7 +32,11 @@ export function SceneView() {
         {/* Entities */}
         <Suspense fallback={null}>
           <SceneEntities />
+          <GLTFViewers />
         </Suspense>
+
+        {/* Systems */}
+        <GameLoop />
 
         {/* Grid */}
         {showGrid && (

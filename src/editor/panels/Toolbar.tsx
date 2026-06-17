@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { useEditorStore } from '../store/editorStore';
 
 export function Toolbar() {
@@ -8,7 +9,18 @@ export function Toolbar() {
     showGizmos, toggleGizmos,
     snapEnabled, toggleSnap, snapValue, setSnapValue,
     viewMode, setViewMode,
+    setShowSaveModal, importGLTF,
   } = useEditorStore();
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      importGLTF(file);
+      e.target.value = '';
+    }
+  };
 
   return (
     <div className="toolbar">
@@ -17,6 +29,19 @@ export function Toolbar() {
         <span className="logo-icon">⬡</span>
         <span className="logo-text">Orion</span>
         <span className="logo-version">v0.1</span>
+      </div>
+
+      <div className="toolbar-divider" />
+
+      {/* Project Actions */}
+      <div className="toolbar-group">
+        <button className="toolbar-btn" onClick={() => setShowSaveModal(true)} title="Save/Load Scene">
+          <span>💾</span><span className="btn-label">Project</span>
+        </button>
+        <button className="toolbar-btn" onClick={() => fileInputRef.current?.click()} title="Import GLTF Model">
+          <span>📦</span><span className="btn-label">Import GLTF</span>
+        </button>
+        <input type="file" accept=".gltf,.glb" ref={fileInputRef} style={{ display: 'none' }} onChange={handleImport} />
       </div>
 
       <div className="toolbar-divider" />

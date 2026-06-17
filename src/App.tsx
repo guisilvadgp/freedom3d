@@ -3,6 +3,7 @@ import { HierarchyPanel } from './editor/panels/HierarchyPanel';
 import { SceneView } from './editor/panels/SceneView';
 import { InspectorPanel } from './editor/panels/InspectorPanel';
 import { ConsolePanel } from './editor/panels/ConsolePanel';
+import { SaveLoadModal } from './editor/panels/SaveLoadModal';
 import { useEditorStore } from './editor/store/editorStore';
 import './index.css';
 
@@ -40,6 +41,7 @@ export default function App() {
         </div>
         <InspectorPanel />
       </div>
+      <SaveLoadModal />
     </div>
   );
 }

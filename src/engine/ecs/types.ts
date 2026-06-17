@@ -57,6 +57,15 @@ export interface AudioComponent {
   playOnStart: boolean;
 }
 
+export interface GLTFModelComponent {
+  type: 'GLTFModel';
+  src: string;       // blob URL (sessão atual)
+  fileName: string;  // nome original do arquivo
+  modelScale: number;
+  castShadow: boolean;
+  receiveShadow: boolean;
+}
+
 export type AnyComponent =
   | TransformComponent
   | MeshRendererComponent
@@ -64,7 +73,8 @@ export type AnyComponent =
   | CameraComponent
   | ScriptComponent
   | RigidBodyComponent
-  | AudioComponent;
+  | AudioComponent
+  | GLTFModelComponent;
 
 export type ComponentType = AnyComponent['type'];
 

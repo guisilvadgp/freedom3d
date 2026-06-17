@@ -1,6 +1,15 @@
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
-import type { Entity, EntityId, Scene, SceneId, AnyComponent, ComponentType } from '../engine/ecs/types';
+import type { Entity, EntityId, Scene, SceneId, AnyComponent, ComponentType } from '../../engine/ecs/types';
+import {
+  saveScene as dbSaveScene,
+  loadScene as dbLoadScene,
+  listScenes,
+  deleteScene as dbDeleteScene,
+  saveGLTFAsset,
+  loadGLTFAsset,
+} from '../../engine/core/persistence';
+import type { SceneMetadata } from '../../engine/core/persistence';
 import {
   createCube,
   createSphere,
@@ -10,7 +19,7 @@ import {
   createCylinder,
   createTorus,
   createPointLight,
-} from '../engine/ecs/EntityFactory';
+} from '../../engine/ecs/EntityFactory';
 
 export type EditorMode = 'select' | 'translate' | 'rotate' | 'scale';
 export type ViewMode = 'perspective' | 'top' | 'front' | 'right';
@@ -102,6 +111,19 @@ interface EditorStore {
 
   // Scene settings
   updateSceneSettings: (patch: Partial<Scene>) => void;
+
+  // GLTF Import
+  importGLTF: (file: File) => Promise<void>;
+
+  // Persistence
+  savedScenes: SceneMetadata[];
+  isSaving: boolean;
+  saveCurrentScene: () => Promise<void>;
+  loadSavedScene: (id: string) => Promise<void>;
+  deleteSavedScene: (id: string) => Promise<void>;
+  refreshSavedScenes: () => Promise<void>;
+  showSaveModal: boolean;
+  setShowSaveModal: (v: boolean) => void;
 }
 
 export const useEditorStore = create<EditorStore>((set, get) => {
@@ -328,6 +350,129 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       set((s) => ({
         scenes: { ...s.scenes, [scene.id]: { ...scene, ...patch } },
       }));
+    },
+
+    // ── GLTF Import ────────────────────────────────────────────
+    importGLTF: async (file: File) => {
+      const { addLog, activeScene } = get();
+      try {
+        const buffer = await file.arrayBuffer();
+        // Salva o asset no IndexedDB para persistência
+        await saveGLTFAsset(file.name, buffer);
+        // Cria blob URL para uso imediato
+        const blob = new Blob([buffer], { type: 'model/gltf-binary' });
+        const src = URL.createObjectURL(blob);
+
+        const scene = activeScene();
+        const entity: Entity = {
+          id: uuidv4(),
+          name: file.name.replace(/\.(gltf|glb)$/i, ''),
+          parentId: null,
+          childrenIds: [],
+          active: true,
+          tags: ['gltf'],
+          components: {
+            Transform: {
+              type: 'Transform',
+              position: [0, 0, 0],
+              rotation: [0, 0, 0],
+              scale: [1, 1, 1],
+            },
+            GLTFModel: {
+              type: 'GLTFModel',
+              src,
+              fileName: file.name,
+              modelScale: 1,
+              castShadow: true,
+              receiveShadow: true,
+            },
+          },
+        };
+
+        addLog('info', `📦 Modelo importado: "${file.name}" (${(file.size / 1024).toFixed(1)} KB)`);
+        set((s) => ({
+          scenes: {
+            ...s.scenes,
+            [scene.id]: {
+              ...scene,
+              entities: { ...scene.entities, [entity.id]: entity },
+              rootEntityIds: [...scene.rootEntityIds, entity.id],
+            },
+          },
+          selectedEntityId: entity.id,
+        }));
+      } catch (err) {
+        addLog('error', `Falha ao importar "${file.name}": ${String(err)}`);
+      }
+    },
+
+    // ── Persistence ─────────────────────────────────────────────
+    savedScenes: [],
+    isSaving: false,
+    showSaveModal: false,
+    setShowSaveModal: (v) => set({ showSaveModal: v }),
+
+    saveCurrentScene: async () => {
+      const { activeScene, addLog } = get();
+      set({ isSaving: true });
+      try {
+        const scene = activeScene();
+        await dbSaveScene(scene);
+        addLog('info', `💾 Cena "${scene.name}" salva com sucesso.`);
+        await get().refreshSavedScenes();
+      } catch (err) {
+        get().addLog('error', `Falha ao salvar: ${String(err)}`);
+      } finally {
+        set({ isSaving: false });
+      }
+    },
+
+    loadSavedScene: async (id) => {
+      const { addLog } = get();
+      try {
+        const record = await dbLoadScene(id);
+        if (!record) { addLog('warn', 'Cena não encontrada.'); return; }
+
+        const scene = record.scene;
+        // Reidrata blob URLs de modelos GLTF
+        for (const entity of Object.values(scene.entities)) {
+          if (entity.components.GLTFModel) {
+            const { fileName } = entity.components.GLTFModel;
+            const src = await loadGLTFAsset(fileName);
+            if (src) {
+              entity.components.GLTFModel.src = src;
+            } else {
+              addLog('warn', `Asset GLTF "${fileName}" não encontrado no cache. Re-importe o arquivo.`);
+              entity.active = false;
+            }
+          }
+        }
+
+        set((s) => ({
+          scenes: { ...s.scenes, [scene.id]: scene },
+          activeSceneId: scene.id,
+          selectedEntityId: null,
+          showSaveModal: false,
+        }));
+        addLog('info', `📂 Cena "${scene.name}" carregada.`);
+      } catch (err) {
+        get().addLog('error', `Falha ao carregar: ${String(err)}`);
+      }
+    },
+
+    deleteSavedScene: async (id) => {
+      await dbDeleteScene(id);
+      await get().refreshSavedScenes();
+      get().addLog('warn', 'Cena deletada do armazenamento.');
+    },
+
+    refreshSavedScenes: async () => {
+      try {
+        const list = await listScenes();
+        set({ savedScenes: list });
+      } catch (_) {
+        // IndexedDB pode não estar disponível em alguns contextos
+      }
     },
   };
 });

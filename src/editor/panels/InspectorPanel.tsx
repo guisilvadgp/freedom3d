@@ -1,5 +1,5 @@
 import { useEditorStore } from '../store/editorStore';
-import type { TransformComponent, MeshRendererComponent, LightComponent } from '../../engine/ecs/types';
+import type { TransformComponent, MeshRendererComponent, LightComponent, GLTFModelComponent } from '../../engine/ecs/types';
 
 function Vec3Field({
   label, value, onChange,
@@ -192,6 +192,52 @@ function LightInspector({ entityId }: { entityId: string }) {
   );
 }
 
+function GLTFModelInspector({ entityId }: { entityId: string }) {
+  const { selectedEntity, updateComponent } = useEditorStore();
+  const entity = selectedEntity();
+  if (!entity) return null;
+  const m = entity.components.GLTFModel as GLTFModelComponent;
+
+  return (
+    <div className="component-block">
+      <div className="component-header">
+        <span className="component-icon">📦</span>
+        <span className="component-title">GLTF Model</span>
+      </div>
+      <div className="field-row">
+        <label className="field-label">File Name</label>
+        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{m.fileName}</span>
+      </div>
+      <div className="field-row">
+        <label className="field-label">Scale</label>
+        <input
+          type="number"
+          className="field-input"
+          value={m.modelScale}
+          step={0.1}
+          onChange={(e) => updateComponent(entityId, 'GLTFModel', { modelScale: parseFloat(e.target.value) || 1 })}
+        />
+      </div>
+      <div className="field-row">
+        <label className="field-label">Cast Shadow</label>
+        <input
+          type="checkbox"
+          checked={m.castShadow}
+          onChange={(e) => updateComponent(entityId, 'GLTFModel', { castShadow: e.target.checked })}
+        />
+      </div>
+      <div className="field-row">
+        <label className="field-label">Receive Shadow</label>
+        <input
+          type="checkbox"
+          checked={m.receiveShadow}
+          onChange={(e) => updateComponent(entityId, 'GLTFModel', { receiveShadow: e.target.checked })}
+        />
+      </div>
+    </div>
+  );
+}
+
 export function InspectorPanel() {
   const { selectedEntity, selectedEntityId, activeScene, updateSceneSettings } = useEditorStore();
   const entity = selectedEntity();
@@ -284,6 +330,9 @@ export function InspectorPanel() {
         )}
         {entity.components.MeshRenderer && (
           <MeshRendererInspector entityId={selectedEntityId} />
+        )}
+        {entity.components.GLTFModel && (
+          <GLTFModelInspector entityId={selectedEntityId} />
         )}
         {entity.components.Light && (
           <LightInspector entityId={selectedEntityId} />
