@@ -20,17 +20,12 @@ export function attemptTeleport(): boolean {
   return true;
 }
 
-function XRAspectCorrector() {
-  const { gl, camera } = useThree();
+function AspectCorrector() {
+  const { gl, camera, size } = useThree();
 
   useFrame(() => {
     if (gl.xr.isPresenting) {
-      const aspect = window.innerWidth / window.innerHeight;
-      if (camera.aspect !== aspect) {
-        camera.aspect = aspect;
-        camera.updateProjectionMatrix();
-      }
-
+      // Dentro de uma sessão XR, corrige a câmera principal pelo viewport real
       const xrCamera = gl.xr.getCamera();
       if (xrCamera) {
         xrCamera.cameras.forEach((subCam) => {
@@ -39,6 +34,14 @@ function XRAspectCorrector() {
             subCam.updateProjectionMatrix();
           }
         });
+      }
+    } else {
+      // Fora do XR (mobile/desktop), sincroniza o aspect ratio da câmera
+      // com as dimensões reais do canvas para evitar distorção
+      const aspect = size.width / size.height;
+      if ((camera as THREE.PerspectiveCamera).aspect !== aspect) {
+        (camera as THREE.PerspectiveCamera).aspect = aspect;
+        (camera as THREE.PerspectiveCamera).updateProjectionMatrix();
       }
     }
   });
@@ -127,7 +130,7 @@ export function SceneView({
 
   const content = (
     <>
-      <XRAspectCorrector />
+      <AspectCorrector />
       <LoadingTracker sceneLoaded={sceneLoaded} onProgress={onProgress} onLoaded={onLoaded} />
       {/* Background */}
       <color attach="background" args={[scene.backgroundColor]} />
