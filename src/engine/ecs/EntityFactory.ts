@@ -153,11 +153,11 @@ export function createFirstPersonPlayer(name = 'First Person Player'): Entity {
   e.components.Script = {
     type: 'Script',
     scriptName: 'FPSController',
-    code: \// Controle em 1a Pessoa
+    code: `// Controle em 1a Pessoa
 export function onUpdate(delta) {
-  // A Camera é anexada a esta entidade e herda o transform.
+  // A Camera Ã© anexada a esta entidade e herda o transform.
   // Logica simples de giro. No futuro, adicione listeners de mouse/teclado.
-}\
+}`
   };
   return e;
 }
@@ -182,10 +182,12 @@ export function createThirdPersonPlayer(name = 'Third Person Player'): Entity {
   e.components.Script = {
     type: 'Script',
     scriptName: 'TPSController',
-    code: \// Controle em 3a Pessoa
+    code: `// Controle em 3a Pessoa
 export function onUpdate(delta) {
-  // Lógica de WASD e controle de RigidBody.
-}\
+  // LÃ³gica de WASD e controle de RigidBody.
+}`
   };
   return e;
 }
+
+

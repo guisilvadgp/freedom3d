@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { useThree } from '@react-three/fiber';
-import { TransformControls } from '@react-three/drei';
+import { TransformControls, Edges } from '@react-three/drei';
 import { RigidBody } from '@react-three/rapier';
 import * as THREE from 'three';
 import { useEditorStore } from '../store/editorStore';
@@ -146,7 +146,7 @@ function EntityMesh({ entity }: { entity: Entity }) {
       {renderMaterial()}
       {/* Selection outline */}
       {isSelected && (
-        <meshBasicMaterial color="#44aaff" wireframe />
+        <Edges scale={1.01} color="#44aaff" />
       )}
     </mesh>
   );
