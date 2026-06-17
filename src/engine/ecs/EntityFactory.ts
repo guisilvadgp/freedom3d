@@ -180,6 +180,8 @@ let eulerX = 0;
 const speed = 5;
 
 export function onUpdate(delta) {
+  if (typeof window !== 'undefined' && window.isVRActive) return;
+
   if (Input.getMouseButton(0)) Input.lockMouse();
   if (Input.mouse.isLocked) {
     eulerY -= Input.mouse.movementX * 0.002;

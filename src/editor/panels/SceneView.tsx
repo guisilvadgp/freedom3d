@@ -6,16 +6,11 @@ import { SceneEntities } from './SceneEntities';
 import { GLTFViewers } from './GLTFViewer';
 import { GameLoop } from '../../engine/systems/GameLoop';
 import { Physics } from '@react-three/rapier';
-import { XR, createXRStore, DefaultXRInputSourceRayPointer } from '@react-three/xr';
+import { XR, createXRStore } from '@react-three/xr';
 import * as THREE from 'three';
 import { Eye, Gamepad } from 'lucide-react';
 
-export const xrStore = createXRStore({
-  controller: false,
-  hand: false,
-  transientPointer: false,
-  gaze: false,
-});
+export const xrStore = createXRStore();
 
 let lastTeleportTime = 0;
 export function attemptTeleport(): boolean {
@@ -49,55 +44,6 @@ function XRAspectCorrector() {
   });
 
   return null;
-}
-
-function CameraGazeController() {
-  const { raycaster, camera, pointer, gl } = useThree();
-
-  useEffect(() => {
-    if (!gl.xr.isPresenting) return;
-
-    const originalSetFromCamera = raycaster.setFromCamera.bind(raycaster);
-
-    raycaster.setFromCamera = (coords, cam) => {
-      pointer.set(0, 0);
-      originalSetFromCamera(pointer, cam);
-    };
-
-    return () => {
-      raycaster.setFromCamera = originalSetFromCamera;
-    };
-  }, [raycaster, gl.xr.isPresenting, pointer]);
-
-  return null;
-}
-
-function CenterReticle() {
-  const meshRef = useRef<THREE.Mesh>(null);
-  const { camera, gl } = useThree();
-
-  useFrame(() => {
-    if (meshRef.current) {
-      const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
-      meshRef.current.position.copy(camera.position).addScaledVector(dir, 1.5);
-      meshRef.current.lookAt(camera.position);
-    }
-  });
-
-  if (!gl.xr.isPresenting) return null;
-
-  return (
-    <mesh ref={meshRef} renderOrder={10000}>
-      <ringGeometry args={[0.012, 0.024, 32]} />
-      <meshBasicMaterial 
-        color="#ffffff" 
-        depthTest={false} 
-        depthWrite={false}
-        transparent 
-        opacity={1.0} 
-      />
-    </mesh>
-  );
 }
 
 function LoadingTracker({ 
@@ -181,12 +127,6 @@ export function SceneView({
     <>
       <XRAspectCorrector />
       <LoadingTracker sceneLoaded={sceneLoaded} onProgress={onProgress} onLoaded={onLoaded} />
-      {isStandalone && (
-        <>
-          <CameraGazeController />
-          <CenterReticle />
-        </>
-      )}
       {/* Background */}
       <color attach="background" args={[scene.backgroundColor]} />
 
@@ -255,7 +195,21 @@ export function SceneView({
   );
 
   return (
-    <div className="scene-view" onDrop={handleDrop} onDragOver={handleDragOver}>
+    <div 
+      className="scene-view" 
+      onDrop={handleDrop} 
+      onDragOver={handleDragOver}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#040508',
+        width: '100%',
+        height: '100%',
+        position: 'relative',
+        overflow: 'hidden'
+      }}
+    >
       {!isStandalone && (
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, background: '#1e293b', display: 'flex', padding: '4px 8px', gap: '8px', borderBottom: '1px solid #334155' }}>
           <button className="panel-btn" style={{ background: activeViewport === 'scene' ? '#3b82f6' : 'transparent', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => setActiveViewport('scene')}><Eye size={14} /> Scene</button>
@@ -270,19 +224,41 @@ export function SceneView({
         </div>
       )}
 
-      <Canvas
-        shadows
-        dpr={[1, 2]}
-        gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping }}
-        camera={{ fov: 60, near: 0.1, far: 1000, position: [5, 5, 8] }}
-        onPointerMissed={() => {
-          if (!isGameView && !isDragging.current) {
-            useEditorStore.getState().selectEntity(null);
-          }
+      <div
+        style={isGameView ? {
+          aspectRatio: '16 / 9',
+          width: '100%',
+          height: '100%',
+          maxWidth: '100%',
+          maxHeight: '100%',
+          position: 'relative',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        } : {
+          width: '100%',
+          height: '100%',
+          position: 'relative'
         }}
       >
-        {isStandalone ? <XR store={xrStore}>{content}</XR> : content}
-      </Canvas>
+        <Canvas
+          shadows
+          dpr={[1, 2]}
+          gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping }}
+          camera={{ fov: 60, near: 0.1, far: 1000, position: [5, 5, 8] }}
+          onPointerMissed={() => {
+            if (!isGameView && !isDragging.current) {
+              useEditorStore.getState().selectEntity(null);
+            }
+          }}
+          style={{
+            width: '100%',
+            height: '100%'
+          }}
+        >
+          {isStandalone ? <XR store={xrStore}>{content}</XR> : content}
+        </Canvas>
+      </div>
     </div>
   );
 }

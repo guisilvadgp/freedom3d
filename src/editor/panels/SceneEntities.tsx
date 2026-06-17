@@ -11,11 +11,11 @@ import { xrStore, attemptTeleport } from './SceneView';
 // ── Perspective Camera Wrapper ──────────────────────────────
 // Updates position and rotation on every frame (60fps) directly in Three.js
 // avoiding React re-renders while keeping script mutations synchronized.
-function PerspectiveCameraWrapper({ camera, isGameView, isStandalone }: { camera: any; isGameView: boolean; isStandalone: boolean }) {
+function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: { entity: Entity; camera: any; isGameView: boolean; isStandalone: boolean }) {
   const ref = useRef<THREE.PerspectiveCamera>(null);
   const [initialHeadsetHeight, setInitialHeadsetHeight] = useState<number | null>(null);
 
-  useFrame((state) => {
+  useFrame((state, delta) => {
     if (ref.current && camera) {
       if (camera.offset) {
         ref.current.position.set(camera.offset[0], camera.offset[1], camera.offset[2]);
@@ -23,9 +23,20 @@ function PerspectiveCameraWrapper({ camera, isGameView, isStandalone }: { camera
       if (camera.rotation) {
         ref.current.rotation.set(camera.rotation[0], camera.rotation[1], camera.rotation[2]);
       }
+
+      // Update aspect ratio dynamically to prevent any stretching/distortion
+      const aspect = state.size.width / state.size.height;
+      if (ref.current.aspect !== aspect) {
+        ref.current.aspect = aspect;
+        ref.current.updateProjectionMatrix();
+      }
     }
 
     if (state.gl.xr.isPresenting) {
+      if (typeof window !== 'undefined') {
+        (window as any).isVRActive = true;
+      }
+
       const xrCamera = state.gl.xr.getCamera();
       if (xrCamera && initialHeadsetHeight === null) {
         const y = xrCamera.position.y;
@@ -33,7 +44,90 @@ function PerspectiveCameraWrapper({ camera, isGameView, isStandalone }: { camera
           setInitialHeadsetHeight(y);
         }
       }
+
+      // VR Locomotion (Smooth movement + turning)
+      const session = state.gl.xr.getSession();
+      if (session) {
+        let moveX = 0; // Strafe (Left Stick X)
+        let moveZ = 0; // Forward/Backward (Left Stick Y)
+        let turnX = 0; // Rotate (Right Stick X)
+
+        for (const source of session.inputSources) {
+          if (source.gamepad) {
+            const axes = source.gamepad.axes;
+            if (source.handedness === 'left') {
+              if (axes.length >= 4) {
+                moveX = axes[2];
+                moveZ = axes[3];
+              }
+            } else if (source.handedness === 'right') {
+              if (axes.length >= 4) {
+                turnX = axes[2];
+              }
+            }
+          }
+        }
+
+        const storeState = useEditorStore.getState();
+        const rb = storeState.rigidBodyRefs[entity.id];
+
+        // Apply turning (yaw rotation)
+        const turnSpeed = 1.5; // rad/s
+        if (Math.abs(turnX) > 0.05) {
+          const currentRot = entity.components.Transform?.rotation || [0, 0, 0];
+          const newEulerY = currentRot[1] - turnX * turnSpeed * delta * (180 / Math.PI);
+          storeState.updateComponent(entity.id, 'Transform', {
+            rotation: [currentRot[0], newEulerY, currentRot[2]]
+          });
+
+          if (rb) {
+            const qRot = new THREE.Quaternion().setFromEuler(
+              new THREE.Euler(0, (newEulerY * Math.PI) / 180, 0)
+            );
+            rb.setRotation(qRot, true);
+          }
+        }
+
+        // Apply movement vector
+        const headCamera = state.camera;
+        const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(headCamera.quaternion);
+        const right = new THREE.Vector3(1, 0, 0).applyQuaternion(headCamera.quaternion);
+
+        // Keep movement horizontal
+        forward.y = 0;
+        right.y = 0;
+        forward.normalize();
+        right.normalize();
+
+        const moveSpeed = 4.0; // m/s
+        const moveVec = new THREE.Vector3()
+          .addScaledVector(forward, -moveZ)
+          .addScaledVector(right, moveX)
+          .multiplyScalar(moveSpeed);
+
+        if (rb) {
+          const currentVel = rb.linvel();
+          rb.setLinvel({
+            x: moveVec.x,
+            y: currentVel.y,
+            z: moveVec.z
+          }, true);
+        } else {
+          const currentPos = entity.components.Transform?.position || [0, 0, 0];
+          const newPos: [number, number, number] = [
+            currentPos[0] + moveVec.x * delta,
+            currentPos[1],
+            currentPos[2] + moveVec.z * delta
+          ];
+          storeState.updateComponent(entity.id, 'Transform', {
+            position: newPos
+          });
+        }
+      }
     } else {
+      if (typeof window !== 'undefined' && (window as any).isVRActive) {
+        (window as any).isVRActive = false;
+      }
       if (initialHeadsetHeight !== null) {
         setInitialHeadsetHeight(null);
       }
@@ -401,6 +495,7 @@ function EntityMesh({ entity }: { entity: Entity }) {
         {/* Camera */}
         {camera && (
           <PerspectiveCameraWrapper 
+            entity={entity}
             camera={camera} 
             isGameView={isGameView} 
             isStandalone={isStandalone} 
@@ -482,6 +577,7 @@ function EntityMesh({ entity }: { entity: Entity }) {
       {/* Camera */}
       {camera && (
         <PerspectiveCameraWrapper 
+          entity={entity}
           camera={camera} 
           isGameView={isGameView} 
           isStandalone={isStandalone} 
