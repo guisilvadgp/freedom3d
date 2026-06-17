@@ -108,13 +108,27 @@ export type AnyComponent =
 
 export type ComponentType = AnyComponent['type'];
 
+export type ComponentsMap = {
+  Transform: TransformComponent;
+  MeshRenderer: MeshRendererComponent;
+  Light: LightComponent;
+  Camera: CameraComponent;
+  Script: ScriptComponent;
+  RigidBody: RigidBodyComponent;
+  Audio: AudioComponent;
+  ParticleSystem: ParticleSystemComponent;
+  GLTFModel: GLTFModelComponent;
+  Animator: AnimatorComponent;
+  Network: NetworkComponent;
+};
+
 export interface Entity {
   id: EntityId;
   name: string;
   parentId: EntityId | null;
   childrenIds: EntityId[];
   active: boolean;
-  components: Partial<Record<ComponentType, AnyComponent>>;
+  components: Partial<ComponentsMap>;
   tags: string[];
 }
 
