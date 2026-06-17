@@ -137,7 +137,6 @@ export function SceneView({
 
   const content = (
     <>
-      <AspectCorrector />
       <LoadingTracker sceneLoaded={sceneLoaded} onProgress={onProgress} onLoaded={onLoaded} />
       {/* Background */}
       <color attach="background" args={[scene.backgroundColor]} />
@@ -272,15 +271,6 @@ export function SceneView({
           dpr={[1, 2]}
           gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping }}
           camera={{ fov: 60, near: 0.1, far: 1000, position: [5, 5, 8] }}
-          onCreated={({ gl, camera }) => {
-            // Corrige o aspect ratio logo no primeiro frame, antes de qualquer render
-            const cam = camera as THREE.PerspectiveCamera;
-            const { width, height } = gl.domElement.getBoundingClientRect();
-            if (height > 0) {
-              cam.aspect = width / height;
-              cam.updateProjectionMatrix();
-            }
-          }}
           onPointerMissed={() => {
             if (!isGameView && !isDragging.current) {
               useEditorStore.getState().selectEntity(null);

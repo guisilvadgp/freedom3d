@@ -28,6 +28,21 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
       const aspect = state.size.width / state.size.height;
       if (ref.current.aspect !== aspect) {
         ref.current.aspect = aspect;
+
+        // Ajuste de FOV para telas em modo retrato (mobile)
+        // Mantém o mesmo FOV horizontal que a cena teria num monitor 16:9
+        const baseFov = camera.fov || 60;
+        if (aspect < 1) {
+          const fovRad = (baseFov * Math.PI) / 180;
+          const h = 2 * Math.tan(fovRad / 2);
+          const w = h * (16 / 9); // Largura visível em 16:9
+          const newH = w / aspect; // Altura necessária para essa largura no aspect atual
+          const newFovRad = 2 * Math.atan(newH / 2);
+          ref.current.fov = (newFovRad * 180) / Math.PI;
+        } else {
+          ref.current.fov = baseFov;
+        }
+
         ref.current.updateProjectionMatrix();
       }
     }
