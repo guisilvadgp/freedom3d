@@ -83,6 +83,15 @@ export interface AnimatorComponent {
   timeScale: number;
 }
 
+export interface NetworkComponent {
+  type: 'Network';
+  isLocal: boolean; // Se é o jogador local ou um "ghost" recebido pela rede
+  syncPosition: boolean;
+  syncRotation: boolean;
+  syncAnimation: boolean;
+  sendRate: number; // updates por segundo
+}
+
 export type AnyComponent =
   | TransformComponent
   | MeshRendererComponent
@@ -93,7 +102,8 @@ export type AnyComponent =
   | AudioComponent
   | ParticleSystemComponent
   | GLTFModelComponent
-  | AnimatorComponent;
+  | AnimatorComponent
+  | NetworkComponent;
 
 export type ComponentType = AnyComponent['type'];
 

@@ -432,6 +432,38 @@ function AnimatorInspector({ entityId }: { entityId: string }) {
   );
 }
 
+function NetworkInspector({ entityId }: { entityId: string }) {
+  const { selectedEntity, updateComponent } = useEditorStore();
+  const entity = selectedEntity();
+  if (!entity) return null;
+  const net = entity.components.Network as any;
+
+  return (
+    <div className="component-block">
+      <div className="component-header">
+        <span className="component-icon">??</span>
+        <span className="component-title">Network Identity</span>
+      </div>
+      <div className="field-row">
+        <label className="field-label">Is Local Player</label>
+        <input type="checkbox" checked={net.isLocal} onChange={(e) => updateComponent(entityId, 'Network', { isLocal: e.target.checked })} />
+      </div>
+      <div className="field-row">
+        <label className="field-label">Sync Position</label>
+        <input type="checkbox" checked={net.syncPosition} onChange={(e) => updateComponent(entityId, 'Network', { syncPosition: e.target.checked })} />
+      </div>
+      <div className="field-row">
+        <label className="field-label">Sync Rotation</label>
+        <input type="checkbox" checked={net.syncRotation} onChange={(e) => updateComponent(entityId, 'Network', { syncRotation: e.target.checked })} />
+      </div>
+      <div className="field-row">
+        <label className="field-label">Send Rate (Hz)</label>
+        <input type="number" className="field-input" value={net.sendRate} onChange={(e) => updateComponent(entityId, 'Network', { sendRate: parseInt(e.target.value) || 10 })} />
+      </div>
+    </div>
+  );
+}
+
 function ScriptInspector({ entityId }: { entityId: string }) {
   const { selectedEntity, updateComponent } = useEditorStore();
   const entity = selectedEntity();
@@ -587,6 +619,9 @@ export function InspectorPanel() {
         {entity.components.Animator && (
           <AnimatorInspector entityId={selectedEntityId} />
         )}
+        {entity.components.Network && (
+          <NetworkInspector entityId={selectedEntityId} />
+        )}
         {entity.components.Script && (
           <ScriptInspector entityId={selectedEntityId} />
         )}
@@ -637,3 +672,4 @@ export function InspectorPanel() {
     </div>
   );
 }
+
