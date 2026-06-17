@@ -207,11 +207,8 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
     entityPos[1] + offset[1] - (initialHeadsetHeight ?? 1.6),
     entityPos[2] + offset[2]
   ];
-  const xrOriginScale = entity.components.Transform?.scale || [1, 1, 1];
-
   return (
     <>
-      {isStandalone && <XROrigin position={xrOriginPos} scale={xrOriginScale as [number, number, number]} />}
       <PerspectiveCamera
         ref={ref}
         makeDefault={isGameView && camera.isMain}
@@ -668,11 +665,33 @@ function EntityMesh({ entity }: { entity: Entity }) {
 }
 
 export function SceneEntities() {
-  const scene = useEditorStore(s => s.scenes[s.activeSceneId]);
+  const scene = useEditorStore(s => s.activeScene());
+  const isStandalone = typeof window !== 'undefined' && window.location.pathname === '/preview';
+
+  // Buscar a entidade player/camera para ancorar o XROrigin globalmente sem interferencia da fisica
+  let xrOriginPos: [number, number, number] = [0, 0, 0];
+  let xrOriginScale: [number, number, number] = [1, 1, 1];
+  if (isStandalone) {
+    const player = Object.values(scene.entities).find(e => e.tags?.includes('player') || e.components.Camera?.isMain);
+    if (player) {
+      const ePos = player.components.Transform?.position || [0, 0, 0];
+      const offset = player.components.Camera?.offset || [0, 0, 0];
+      // Altura aproximada do Headset se nao conseguirmos ler, senao usamos o padrao 1.6
+      // Como movi pro root, não temos initialHeadsetHeight aqui com facilidade.
+      // Vou usar 1.6 fixo pro offset e deixar o RoomScale cuidar do resto.
+      xrOriginPos = [
+        ePos[0] + offset[0],
+        ePos[1] + offset[1] - 1.6,
+        ePos[2] + offset[2]
+      ];
+      xrOriginScale = player.components.Transform?.scale || [1, 1, 1];
+    }
+  }
 
   return (
     <>
-      {scene.rootEntityIds.map((id) => {
+      {isStandalone && <XROrigin position={xrOriginPos} scale={xrOriginScale} />}
+      {scene.rootEntityIds.map(id => {
         const entity = scene.entities[id];
         if (!entity) return null;
         return <EntityMesh key={id} entity={entity} />;
