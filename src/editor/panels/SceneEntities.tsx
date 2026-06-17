@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { useThree } from '@react-three/fiber';
-import { TransformControls, Edges, PositionalAudio, Sparkles } from '@react-three/drei';
+import { TransformControls, Edges, PositionalAudio, Sparkles, PerspectiveCamera } from '@react-three/drei';
 import { RigidBody } from '@react-three/rapier';
 import * as THREE from 'three';
 import { useEditorStore } from '../store/editorStore';
@@ -15,6 +15,7 @@ function EntityMesh({ entity }: { entity: Entity }) {
   const rigidBody = entity.components.RigidBody;
   const audio = entity.components.Audio;
   const particles = entity.components.ParticleSystem;
+  const camera = entity.components.Camera;
 
   if (!transform) return null;
   if (!entity.active) return null;
@@ -124,6 +125,16 @@ function EntityMesh({ entity }: { entity: Entity }) {
             color={particles.color} 
           />
         )}
+        {/* Camera */}
+        {camera && (
+          <PerspectiveCamera 
+            makeDefault={isPlaying && camera.isMain} 
+            position={camera.offset || [0, 0, 0]}
+            fov={camera.fov} 
+            near={camera.near} 
+            far={camera.far} 
+          />
+        )}
         {/* Helper visual representation for selection when there is no mesh */}
         <mesh
           ref={meshRef}
@@ -170,6 +181,16 @@ function EntityMesh({ entity }: { entity: Entity }) {
           size={particles.size} 
           speed={particles.speed} 
           color={particles.color} 
+        />
+      )}
+      {/* Camera */}
+      {camera && (
+        <PerspectiveCamera 
+          makeDefault={isPlaying && camera.isMain} 
+          position={camera.offset || [0, 0, 0]}
+          fov={camera.fov} 
+          near={camera.near} 
+          far={camera.far} 
         />
       )}
       {/* Selection outline */}

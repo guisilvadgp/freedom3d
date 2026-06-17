@@ -34,6 +34,7 @@ export interface CameraComponent {
   near: number;
   far: number;
   isMain: boolean;
+  offset: [number, number, number];
 }
 
 export interface ScriptComponent {

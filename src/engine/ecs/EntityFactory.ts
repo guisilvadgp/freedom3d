@@ -97,6 +97,7 @@ export function createCamera(name = 'Main Camera'): Entity {
     near: 0.1,
     far: 1000,
     isMain: true,
+    offset: [0, 0.4, 0],
   };
   return e;
 }
@@ -151,6 +152,7 @@ export function createFirstPersonPlayer(name = 'First Person Player'): Entity {
     near: 0.1,
     far: 1000,
     isMain: true,
+    offset: [0, 0.4, 0],
   };
   e.components.Script = {
     type: 'Script',
@@ -182,6 +184,14 @@ export function createThirdPersonPlayer(name = 'Third Person Player'): Entity {
     useGravity: true,
     collider: 'cuboid',
   };
+  e.components.Camera = {
+    type: 'Camera',
+    fov: 75,
+    near: 0.1,
+    far: 1000,
+    isMain: true,
+    offset: [0, 2, 4], // Terceira pessoa (Atrás e acima)
+  };
   e.components.Script = {
     type: 'Script',
     scriptName: 'TPSController',
@@ -192,6 +202,7 @@ export function onUpdate(delta) {
   };
   return e;
 }
+
 
 
 
