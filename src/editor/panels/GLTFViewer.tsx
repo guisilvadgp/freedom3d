@@ -57,14 +57,15 @@ function GLTFMesh({ entity }: { entity: Entity }) {
     const scene = storeState.activeScene();
     Object.values(scene.entities).forEach(playerEnt => {
       if (playerEnt.tags?.includes('player') || playerEnt.components.Camera?.isMain) {
+        const targetY = clickPoint.y + 1.05;
         storeState.updateComponent(playerEnt.id, 'Transform', {
-          position: [clickPoint.x, clickPoint.y, clickPoint.z],
+          position: [clickPoint.x, targetY, clickPoint.z],
         });
 
         // Se houver um RigidBody físico ativo, teleporta e zera a velocidade dele
         const rb = storeState.rigidBodyRefs[playerEnt.id];
         if (rb) {
-          rb.setTranslation({ x: clickPoint.x, y: clickPoint.y, z: clickPoint.z }, true);
+          rb.setTranslation({ x: clickPoint.x, y: targetY, z: clickPoint.z }, true);
           rb.setLinvel({ x: 0, y: 0, z: 0 }, true);
           rb.setAngvel({ x: 0, y: 0, z: 0 }, true);
         }
