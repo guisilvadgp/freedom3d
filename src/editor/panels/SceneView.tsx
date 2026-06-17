@@ -10,29 +10,11 @@ import { XR, createXRStore, DefaultXRInputSourceRayPointer } from '@react-three/
 import * as THREE from 'three';
 import { Eye, Gamepad } from 'lucide-react';
 
-function CustomGaze(props: any) {
-  return (
-    <DefaultXRInputSourceRayPointer
-      {...props}
-      rayModel={{
-        color: '#ffffff',
-        opacity: 1.0,
-        size: 0.015,
-      }}
-      cursorModel={{
-        color: '#ffffff',
-        opacity: 1.0,
-        size: 0.15,
-      }}
-    />
-  );
-}
-
 export const xrStore = createXRStore({
   controller: false,
   hand: false,
   transientPointer: false,
-  gaze: CustomGaze,
+  gaze: false,
 });
 
 let lastTeleportTime = 0;
@@ -67,6 +49,55 @@ function XRAspectCorrector() {
   });
 
   return null;
+}
+
+function CameraGazeController() {
+  const { raycaster, camera, pointer, gl } = useThree();
+
+  useEffect(() => {
+    if (!gl.xr.isPresenting) return;
+
+    const originalSetFromCamera = raycaster.setFromCamera.bind(raycaster);
+
+    raycaster.setFromCamera = (coords, cam) => {
+      pointer.set(0, 0);
+      originalSetFromCamera(pointer, cam);
+    };
+
+    return () => {
+      raycaster.setFromCamera = originalSetFromCamera;
+    };
+  }, [raycaster, gl.xr.isPresenting, pointer]);
+
+  return null;
+}
+
+function CenterReticle() {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const { camera, gl } = useThree();
+
+  useFrame(() => {
+    if (meshRef.current) {
+      const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+      meshRef.current.position.copy(camera.position).addScaledVector(dir, 1.5);
+      meshRef.current.lookAt(camera.position);
+    }
+  });
+
+  if (!gl.xr.isPresenting) return null;
+
+  return (
+    <mesh ref={meshRef} renderOrder={10000}>
+      <ringGeometry args={[0.012, 0.024, 32]} />
+      <meshBasicMaterial 
+        color="#ffffff" 
+        depthTest={false} 
+        depthWrite={false}
+        transparent 
+        opacity={1.0} 
+      />
+    </mesh>
+  );
 }
 
 function LoadingTracker({ 
@@ -150,6 +181,12 @@ export function SceneView({
     <>
       <XRAspectCorrector />
       <LoadingTracker sceneLoaded={sceneLoaded} onProgress={onProgress} onLoaded={onLoaded} />
+      {isStandalone && (
+        <>
+          <CameraGazeController />
+          <CenterReticle />
+        </>
+      )}
       {/* Background */}
       <color attach="background" args={[scene.backgroundColor]} />
 
