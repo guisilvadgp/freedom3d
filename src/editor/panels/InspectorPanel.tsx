@@ -1,0 +1,294 @@
+import { useEditorStore } from '../store/editorStore';
+import type { TransformComponent, MeshRendererComponent, LightComponent } from '../../engine/ecs/types';
+
+function Vec3Field({
+  label, value, onChange,
+}: {
+  label: string;
+  value: [number, number, number];
+  onChange: (v: [number, number, number]) => void;
+}) {
+  return (
+    <div className="vec3-field">
+      <span className="vec3-label">{label}</span>
+      <div className="vec3-inputs">
+        {(['X', 'Y', 'Z'] as const).map((axis, i) => (
+          <label key={axis} className="vec3-input-wrap">
+            <span className={`axis-label axis-${axis.toLowerCase()}`}>{axis}</span>
+            <input
+              type="number"
+              className="vec3-input"
+              value={value[i]}
+              step={0.1}
+              onChange={(e) => {
+                const copy: [number, number, number] = [...value];
+                copy[i] = parseFloat(e.target.value) || 0;
+                onChange(copy);
+              }}
+            />
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TransformInspector({ entityId }: { entityId: string }) {
+  const { selectedEntity, updateComponent } = useEditorStore();
+  const entity = selectedEntity();
+  if (!entity) return null;
+  const t = entity.components.Transform as TransformComponent;
+
+  return (
+    <div className="component-block">
+      <div className="component-header">
+        <span className="component-icon">⟳</span>
+        <span className="component-title">Transform</span>
+      </div>
+      <Vec3Field
+        label="Position"
+        value={t.position}
+        onChange={(v) => updateComponent(entityId, 'Transform', { position: v })}
+      />
+      <Vec3Field
+        label="Rotation"
+        value={t.rotation}
+        onChange={(v) => updateComponent(entityId, 'Transform', { rotation: v })}
+      />
+      <Vec3Field
+        label="Scale"
+        value={t.scale}
+        onChange={(v) => updateComponent(entityId, 'Transform', { scale: v })}
+      />
+    </div>
+  );
+}
+
+function MeshRendererInspector({ entityId }: { entityId: string }) {
+  const { selectedEntity, updateComponent } = useEditorStore();
+  const entity = selectedEntity();
+  if (!entity) return null;
+  const m = entity.components.MeshRenderer as MeshRendererComponent;
+
+  return (
+    <div className="component-block">
+      <div className="component-header">
+        <span className="component-icon">🔷</span>
+        <span className="component-title">Mesh Renderer</span>
+      </div>
+      <div className="field-row">
+        <label className="field-label">Geometry</label>
+        <select
+          className="field-select"
+          value={m.geometry}
+          onChange={(e) => updateComponent(entityId, 'MeshRenderer', { geometry: e.target.value as any })}
+        >
+          <option value="box">Box</option>
+          <option value="sphere">Sphere</option>
+          <option value="plane">Plane</option>
+          <option value="cylinder">Cylinder</option>
+          <option value="torus">Torus</option>
+          <option value="cone">Cone</option>
+        </select>
+      </div>
+      <div className="field-row">
+        <label className="field-label">Material</label>
+        <select
+          className="field-select"
+          value={m.material}
+          onChange={(e) => updateComponent(entityId, 'MeshRenderer', { material: e.target.value as any })}
+        >
+          <option value="standard">Standard (PBR)</option>
+          <option value="basic">Basic</option>
+          <option value="phong">Phong</option>
+          <option value="wireframe">Wireframe</option>
+        </select>
+      </div>
+      <div className="field-row">
+        <label className="field-label">Color</label>
+        <input
+          type="color"
+          className="field-color"
+          value={m.color}
+          onChange={(e) => updateComponent(entityId, 'MeshRenderer', { color: e.target.value })}
+        />
+      </div>
+      <div className="field-row">
+        <label className="field-label">Cast Shadow</label>
+        <input
+          type="checkbox"
+          checked={m.castShadow}
+          onChange={(e) => updateComponent(entityId, 'MeshRenderer', { castShadow: e.target.checked })}
+        />
+      </div>
+      <div className="field-row">
+        <label className="field-label">Receive Shadow</label>
+        <input
+          type="checkbox"
+          checked={m.receiveShadow}
+          onChange={(e) => updateComponent(entityId, 'MeshRenderer', { receiveShadow: e.target.checked })}
+        />
+      </div>
+    </div>
+  );
+}
+
+function LightInspector({ entityId }: { entityId: string }) {
+  const { selectedEntity, updateComponent } = useEditorStore();
+  const entity = selectedEntity();
+  if (!entity) return null;
+  const l = entity.components.Light as LightComponent;
+
+  return (
+    <div className="component-block">
+      <div className="component-header">
+        <span className="component-icon">💡</span>
+        <span className="component-title">Light</span>
+      </div>
+      <div className="field-row">
+        <label className="field-label">Type</label>
+        <select
+          className="field-select"
+          value={l.lightType}
+          onChange={(e) => updateComponent(entityId, 'Light', { lightType: e.target.value as any })}
+        >
+          <option value="directional">Directional</option>
+          <option value="point">Point</option>
+          <option value="spot">Spot</option>
+          <option value="ambient">Ambient</option>
+        </select>
+      </div>
+      <div className="field-row">
+        <label className="field-label">Color</label>
+        <input
+          type="color"
+          className="field-color"
+          value={l.color}
+          onChange={(e) => updateComponent(entityId, 'Light', { color: e.target.value })}
+        />
+      </div>
+      <div className="field-row">
+        <label className="field-label">Intensity</label>
+        <input
+          type="range"
+          min={0}
+          max={10}
+          step={0.1}
+          value={l.intensity}
+          onChange={(e) => updateComponent(entityId, 'Light', { intensity: parseFloat(e.target.value) })}
+          className="field-range"
+        />
+        <span className="range-value">{l.intensity.toFixed(1)}</span>
+      </div>
+      <div className="field-row">
+        <label className="field-label">Cast Shadow</label>
+        <input
+          type="checkbox"
+          checked={l.castShadow}
+          onChange={(e) => updateComponent(entityId, 'Light', { castShadow: e.target.checked })}
+        />
+      </div>
+    </div>
+  );
+}
+
+export function InspectorPanel() {
+  const { selectedEntity, selectedEntityId, activeScene, updateSceneSettings } = useEditorStore();
+  const entity = selectedEntity();
+  const scene = activeScene();
+
+  if (!selectedEntityId || !entity) {
+    return (
+      <div className="panel inspector-panel">
+        <div className="panel-header">
+          <span className="panel-title">Inspector</span>
+        </div>
+        <div className="inspector-scene-settings">
+          <div className="scene-settings-title">⚙ Scene Settings</div>
+          <div className="field-row">
+            <label className="field-label">BG Color</label>
+            <input type="color" className="field-color" value={scene.backgroundColor}
+              onChange={(e) => updateSceneSettings({ backgroundColor: e.target.value })} />
+          </div>
+          <div className="field-row">
+            <label className="field-label">Ambient Color</label>
+            <input type="color" className="field-color" value={scene.ambientColor}
+              onChange={(e) => updateSceneSettings({ ambientColor: e.target.value })} />
+          </div>
+          <div className="field-row">
+            <label className="field-label">Ambient Intensity</label>
+            <input type="range" min={0} max={5} step={0.1} className="field-range" value={scene.ambientIntensity}
+              onChange={(e) => updateSceneSettings({ ambientIntensity: parseFloat(e.target.value) })} />
+            <span className="range-value">{scene.ambientIntensity.toFixed(1)}</span>
+          </div>
+          <div className="field-row">
+            <label className="field-label">Fog</label>
+            <input type="checkbox" checked={scene.fogEnabled}
+              onChange={(e) => updateSceneSettings({ fogEnabled: e.target.checked })} />
+          </div>
+          {scene.fogEnabled && (
+            <>
+              <div className="field-row">
+                <label className="field-label">Fog Color</label>
+                <input type="color" className="field-color" value={scene.fogColor}
+                  onChange={(e) => updateSceneSettings({ fogColor: e.target.value })} />
+              </div>
+              <div className="field-row">
+                <label className="field-label">Fog Near</label>
+                <input type="number" className="field-input" value={scene.fogNear} step={1}
+                  onChange={(e) => updateSceneSettings({ fogNear: parseFloat(e.target.value) })} />
+              </div>
+              <div className="field-row">
+                <label className="field-label">Fog Far</label>
+                <input type="number" className="field-input" value={scene.fogFar} step={1}
+                  onChange={(e) => updateSceneSettings({ fogFar: parseFloat(e.target.value) })} />
+              </div>
+            </>
+          )}
+          <p className="inspector-hint">Selecione uma entidade para inspecioná-la.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="panel inspector-panel">
+      <div className="panel-header">
+        <span className="panel-title">Inspector</span>
+      </div>
+
+      {/* Entity header */}
+      <div className="entity-header-block">
+        <div className="field-row">
+          <label className="field-label">Name</label>
+          <input
+            className="field-input"
+            value={entity.name}
+            onChange={(e) => useEditorStore.getState().renameEntity(selectedEntityId, e.target.value)}
+          />
+        </div>
+        <div className="field-row">
+          <label className="field-label">Active</label>
+          <input
+            type="checkbox"
+            checked={entity.active}
+            onChange={() => useEditorStore.getState().toggleEntityActive(selectedEntityId)}
+          />
+        </div>
+      </div>
+
+      {/* Components */}
+      <div className="inspector-components">
+        {entity.components.Transform && (
+          <TransformInspector entityId={selectedEntityId} />
+        )}
+        {entity.components.MeshRenderer && (
+          <MeshRendererInspector entityId={selectedEntityId} />
+        )}
+        {entity.components.Light && (
+          <LightInspector entityId={selectedEntityId} />
+        )}
+      </div>
+    </div>
+  );
+}

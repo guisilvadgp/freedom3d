@@ -1,0 +1,179 @@
+import { useRef } from 'react';
+import { useThree } from '@react-three/fiber';
+import { TransformControls } from '@react-three/drei';
+import * as THREE from 'three';
+import { useEditorStore } from '../store/editorStore';
+import type { Entity } from '../../engine/ecs/types';
+
+function EntityMesh({ entity }: { entity: Entity }) {
+  const meshRef = useRef<THREE.Mesh>(null!);
+  const { selectedEntityId, selectEntity, editorMode, isPlaying, updateComponent, snapEnabled, snapValue } = useEditorStore();
+  const transform = entity.components.Transform;
+  const mesh = entity.components.MeshRenderer;
+  const light = entity.components.Light;
+
+  if (!transform) return null;
+  if (!entity.active) return null;
+
+  const isSelected = selectedEntityId === entity.id;
+  const pos = transform.position as [number, number, number];
+  const rot = (transform.rotation as [number, number, number]).map((d) => (d * Math.PI) / 180) as [number, number, number];
+  const scale = transform.scale as [number, number, number];
+
+  const handleChange = (e: THREE.Event | undefined) => {
+    if (!e?.target || isPlaying) return;
+    const ctrl = e.target as any;
+    const obj = ctrl.object as THREE.Object3D;
+    updateComponent(entity.id, 'Transform', {
+      position: [
+        parseFloat(obj.position.x.toFixed(3)),
+        parseFloat(obj.position.y.toFixed(3)),
+        parseFloat(obj.position.z.toFixed(3)),
+      ],
+      rotation: [
+        parseFloat(((obj.rotation.x * 180) / Math.PI).toFixed(2)),
+        parseFloat(((obj.rotation.y * 180) / Math.PI).toFixed(2)),
+        parseFloat(((obj.rotation.z * 180) / Math.PI).toFixed(2)),
+      ],
+      scale: [
+        parseFloat(obj.scale.x.toFixed(3)),
+        parseFloat(obj.scale.y.toFixed(3)),
+        parseFloat(obj.scale.z.toFixed(3)),
+      ],
+    });
+  };
+
+  const renderGeometry = () => {
+    if (!mesh) return null;
+    switch (mesh.geometry) {
+      case 'box': return <boxGeometry args={[1, 1, 1]} />;
+      case 'sphere': return <sphereGeometry args={[0.5, 32, 32]} />;
+      case 'plane': return <planeGeometry args={[1, 1]} />;
+      case 'cylinder': return <cylinderGeometry args={[0.5, 0.5, 1, 32]} />;
+      case 'torus': return <torusGeometry args={[0.5, 0.2, 16, 64]} />;
+      case 'cone': return <coneGeometry args={[0.5, 1, 32]} />;
+      default: return <boxGeometry args={[1, 1, 1]} />;
+    }
+  };
+
+  const renderMaterial = () => {
+    if (!mesh) return null;
+    const color = mesh.color;
+    switch (mesh.material) {
+      case 'basic': return <meshBasicMaterial color={color} />;
+      case 'phong': return <meshPhongMaterial color={color} />;
+      case 'wireframe': return <meshBasicMaterial color={color} wireframe />;
+      default: return <meshStandardMaterial color={color} roughness={0.6} metalness={0.1} />;
+    }
+  };
+
+  const renderLight = () => {
+    if (!light) return null;
+    const lp = transform.position as [number, number, number];
+    switch (light.lightType) {
+      case 'directional':
+        return (
+          <directionalLight
+            position={lp}
+            color={light.color}
+            intensity={light.intensity}
+            castShadow={light.castShadow}
+          />
+        );
+      case 'point':
+        return (
+          <pointLight
+            position={lp}
+            color={light.color}
+            intensity={light.intensity}
+            castShadow={light.castShadow}
+          />
+        );
+      case 'spot':
+        return (
+          <spotLight
+            position={lp}
+            color={light.color}
+            intensity={light.intensity}
+            castShadow={light.castShadow}
+          />
+        );
+      default:
+        return null;
+    }
+  };
+
+  if (light && !mesh) {
+    return (
+      <group>
+        {renderLight()}
+        {/* Light gizmo marker */}
+        <mesh
+          position={pos}
+          onClick={(e) => { e.stopPropagation(); selectEntity(entity.id); }}
+        >
+          <sphereGeometry args={[0.15, 8, 8]} />
+          <meshBasicMaterial color={light.color} />
+        </mesh>
+        {isSelected && !isPlaying && (
+          <TransformControls
+            object={meshRef}
+            mode={editorMode as any}
+            translationSnap={snapEnabled ? snapValue : null}
+            rotationSnap={snapEnabled ? (Math.PI / 12) : null}
+            scaleSnap={snapEnabled ? snapValue : null}
+            onChange={handleChange}
+          />
+        )}
+      </group>
+    );
+  }
+
+  if (!mesh) return null;
+
+  return (
+    <>
+      <mesh
+        ref={meshRef}
+        position={pos}
+        rotation={rot}
+        scale={scale}
+        castShadow={mesh.castShadow}
+        receiveShadow={mesh.receiveShadow}
+        onClick={(e) => { e.stopPropagation(); selectEntity(entity.id); }}
+      >
+        {renderGeometry()}
+        {renderMaterial()}
+        {/* Selection outline */}
+        {isSelected && (
+          <meshBasicMaterial color="#44aaff" wireframe />
+        )}
+      </mesh>
+      {isSelected && !isPlaying && (
+        <TransformControls
+          object={meshRef}
+          mode={editorMode as any}
+          translationSnap={snapEnabled ? snapValue : null}
+          rotationSnap={snapEnabled ? (Math.PI / 12) : null}
+          scaleSnap={snapEnabled ? snapValue : null}
+          onChange={handleChange}
+        />
+      )}
+    </>
+  );
+}
+
+export function SceneEntities() {
+  const { activeScene } = useEditorStore();
+  const scene = activeScene();
+
+  return (
+    <>
+      {scene.rootEntityIds.map((id) => {
+        const entity = scene.entities[id];
+        if (!entity) return null;
+        return <EntityMesh key={id} entity={entity} />;
+      })}
+    </>
+  );
+}
