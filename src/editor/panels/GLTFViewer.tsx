@@ -6,14 +6,14 @@ import { RigidBody, MeshCollider } from '@react-three/rapier';
 import * as THREE from 'three';
 import { useEditorStore } from '../store/editorStore';
 import type { Entity } from '../../engine/ecs/types';
-import { xrStore, attemptTeleport } from './SceneView';
+import { xrStore } from './SceneView';
 
 // ── Um modelo GLTF carregado ─────────────────────────────────
 
 // Habilitar cache global do Three.js para evitar requisições redundantes de rede
 THREE.Cache.enabled = true;
 
-function shrinkTexture(texture: THREE.Texture, maxSize = 2048) {
+function shrinkTexture(texture: THREE.Texture, maxSize = 4096) {
   if (!texture || !texture.image) return;
 
   const img = texture.image as any;
@@ -93,38 +93,6 @@ function GLTFMesh({ entity }: { entity: Entity }) {
     }
   };
 
-  const handleStandaloneClick = (e: any) => {
-    if (!isStandalone) return;
-    if (!attemptTeleport()) return;
-    if (entity.tags?.includes('player') || entity.components.Camera?.isMain || entity.tags?.includes('teleport')) return;
-
-    e.stopPropagation();
-
-    xrStore.setState(state => ({
-      ...state,
-      originReferenceSpace: undefined,
-    }));
-
-    const clickPoint = e.point;
-    const storeState = useEditorStore.getState();
-    const scene = storeState.activeScene();
-    Object.values(scene.entities).forEach(playerEnt => {
-      if (playerEnt.tags?.includes('player') || playerEnt.components.Camera?.isMain) {
-        const targetY = clickPoint.y + 1.05;
-        storeState.updateComponent(playerEnt.id, 'Transform', {
-          position: [clickPoint.x, targetY, clickPoint.z],
-        });
-
-        // Se houver um RigidBody físico ativo, teleporta e zera a velocidade dele
-        const rb = storeState.rigidBodyRefs[playerEnt.id];
-        if (rb) {
-          rb.setTranslation({ x: clickPoint.x, y: targetY, z: clickPoint.z }, true);
-          rb.setLinvel({ x: 0, y: 0, z: 0 }, true);
-          rb.setAngvel({ x: 0, y: 0, z: 0 }, true);
-        }
-      }
-    });
-  };
 
   const gltf = useLoader(GLTFLoader, model.src);
   const clonedScene = useMemo(() => {
@@ -218,7 +186,6 @@ function GLTFMesh({ entity }: { entity: Entity }) {
       scale={scale}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
-      onClick={handleStandaloneClick}
     >
       <primitive object={clonedScene} />
 
@@ -243,12 +210,12 @@ function GLTFMesh({ entity }: { entity: Entity }) {
           gravityScale={rigidBody.useGravity ? 1 : 0}
           colliders={rigidBody.collider === 'none' || rigidBody.collider === 'trimesh' ? false : (rigidBody.collider || 'cuboid')}
         >
-          <group scale={scale} onClick={handleStandaloneClick}>
+          <group scale={scale}>
             <primitive object={clonedScene} />
           </group>
           {rigidBody.collider === 'trimesh' && (
             <MeshCollider type="trimesh">
-              <group scale={scale} onClick={handleStandaloneClick}>
+              <group scale={scale}>
                 <primitive object={clonedScene} />
               </group>
             </MeshCollider>

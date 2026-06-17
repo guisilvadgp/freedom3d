@@ -283,40 +283,6 @@ function EntityMesh({ entity }: { entity: Entity }) {
     }
   };
 
-  const handleStandaloneClick = (e: any) => {
-    if (!isStandalone) return;
-    if (!attemptTeleport()) return;
-    
-    // Evita teleporte ao clicar em si mesmo, no teleport ring ou em outras tags de teleport
-    if (entity.tags?.includes('player') || entity.components.Camera?.isMain || entity.tags?.includes('teleport')) return;
-
-    e.stopPropagation();
-
-    xrStore.setState(state => ({
-      ...state,
-      originReferenceSpace: undefined,
-    }));
-    
-    const clickPoint = e.point;
-    const storeState = useEditorStore.getState();
-    const scene = storeState.activeScene();
-    Object.values(scene.entities).forEach(playerEnt => {
-      if (playerEnt.tags?.includes('player') || playerEnt.components.Camera?.isMain) {
-        const targetY = clickPoint.y + 1.05;
-        storeState.updateComponent(playerEnt.id, 'Transform', {
-          position: [clickPoint.x, targetY, clickPoint.z],
-        });
-
-        // Se houver um RigidBody físico ativo, teleporta e zera a velocidade dele
-        const rb = storeState.rigidBodyRefs[playerEnt.id];
-        if (rb) {
-          rb.setTranslation({ x: clickPoint.x, y: targetY, z: clickPoint.z }, true);
-          rb.setLinvel({ x: 0, y: 0, z: 0 }, true);
-          rb.setAngvel({ x: 0, y: 0, z: 0 }, true);
-        }
-      }
-    });
-  };
 
   const handleChange = () => {
     if (isPlaying) return;
@@ -556,7 +522,6 @@ function EntityMesh({ entity }: { entity: Entity }) {
       receiveShadow={mesh.receiveShadow}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
-      onClick={handleStandaloneClick}
     >
       {renderGeometry()}
       {renderMaterial()}
