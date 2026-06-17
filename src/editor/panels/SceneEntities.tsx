@@ -291,6 +291,7 @@ function EntityMesh({ entity }: { entity: Entity }) {
       case 'basic': return <meshBasicMaterial color={color} />;
       case 'phong': return <meshPhongMaterial color={color} />;
       case 'wireframe': return <meshBasicMaterial color={color} wireframe />;
+      case 'invisible': return <meshBasicMaterial color={color} transparent opacity={0.3} wireframe visible={!isGameView && !isStandalone} />;
       default: return <meshStandardMaterial color={color} roughness={0.6} metalness={0.1} />;
     }
   };

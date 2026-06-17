@@ -14,7 +14,7 @@ export interface TransformComponent {
 export interface MeshRendererComponent {
   type: 'MeshRenderer';
   geometry: 'box' | 'sphere' | 'plane' | 'cylinder' | 'torus' | 'cone';
-  material: 'standard' | 'basic' | 'phong' | 'wireframe';
+  material: 'standard' | 'basic' | 'phong' | 'wireframe' | 'invisible';
   color: string;
   castShadow: boolean;
   receiveShadow: boolean;

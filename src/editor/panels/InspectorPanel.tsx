@@ -118,6 +118,7 @@ function MeshRendererInspector({ entityId }: { entityId: string }) {
           <option value="basic">Basic</option>
           <option value="phong">Phong</option>
           <option value="wireframe">Wireframe</option>
+          <option value="invisible">Invisible</option>
         </select>
       </div>
       <div className="field-row">
