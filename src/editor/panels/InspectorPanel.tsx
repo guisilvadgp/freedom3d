@@ -1,5 +1,5 @@
 import { useEditorStore } from '../store/editorStore';
-import type { TransformComponent, MeshRendererComponent, LightComponent, GLTFModelComponent } from '../../engine/ecs/types';
+import type { TransformComponent, MeshRendererComponent, LightComponent, GLTFModelComponent, RigidBodyComponent } from '../../engine/ecs/types';
 
 function Vec3Field({
   label, value, onChange,
@@ -238,6 +238,48 @@ function GLTFModelInspector({ entityId }: { entityId: string }) {
   );
 }
 
+function RigidBodyInspector({ entityId }: { entityId: string }) {
+  const { selectedEntity, updateComponent } = useEditorStore();
+  const entity = selectedEntity();
+  if (!entity) return null;
+  const rb = entity.components.RigidBody as RigidBodyComponent;
+
+  return (
+    <div className="component-block">
+      <div className="component-header">
+        <span className="component-icon">🎳</span>
+        <span className="component-title">Rigid Body</span>
+      </div>
+      <div className="field-row">
+        <label className="field-label">Mass</label>
+        <input
+          type="number"
+          className="field-input"
+          value={rb.mass}
+          step={0.1}
+          onChange={(e) => updateComponent(entityId, 'RigidBody', { mass: parseFloat(e.target.value) || 1 })}
+        />
+      </div>
+      <div className="field-row">
+        <label className="field-label">Is Static</label>
+        <input
+          type="checkbox"
+          checked={rb.isStatic}
+          onChange={(e) => updateComponent(entityId, 'RigidBody', { isStatic: e.target.checked })}
+        />
+      </div>
+      <div className="field-row">
+        <label className="field-label">Use Gravity</label>
+        <input
+          type="checkbox"
+          checked={rb.useGravity}
+          onChange={(e) => updateComponent(entityId, 'RigidBody', { useGravity: e.target.checked })}
+        />
+      </div>
+    </div>
+  );
+}
+
 export function InspectorPanel() {
   const { selectedEntity, selectedEntityId, activeScene, updateSceneSettings, createPrefab } = useEditorStore();
   const entity = selectedEntity();
@@ -347,6 +389,28 @@ export function InspectorPanel() {
         {entity.components.Light && (
           <LightInspector entityId={selectedEntityId} />
         )}
+        {entity.components.RigidBody && (
+          <RigidBodyInspector entityId={selectedEntityId} />
+        )}
+
+        <div className="add-component-wrapper" style={{ marginTop: '16px', display: 'flex', gap: '8px', justifyContent: 'center' }}>
+          {!entity.components.RigidBody && (
+            <button 
+              className="panel-btn" 
+              onClick={() => useEditorStore.getState().addComponent(selectedEntityId, { type: 'RigidBody', mass: 1, isStatic: false, useGravity: true })}
+            >
+              ➕ Add RigidBody
+            </button>
+          )}
+          {!entity.components.Script && (
+            <button 
+              className="panel-btn" 
+              onClick={() => useEditorStore.getState().addComponent(selectedEntityId, { type: 'Script', scriptName: 'NewScript', code: '' })}
+            >
+              ➕ Add Script
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

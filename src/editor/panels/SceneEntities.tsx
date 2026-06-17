@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import { useThree } from '@react-three/fiber';
 import { TransformControls } from '@react-three/drei';
+import { RigidBody } from '@react-three/rapier';
 import * as THREE from 'three';
 import { useEditorStore } from '../store/editorStore';
 import type { Entity } from '../../engine/ecs/types';
@@ -11,6 +12,7 @@ function EntityMesh({ entity }: { entity: Entity }) {
   const transform = entity.components.Transform;
   const mesh = entity.components.MeshRenderer;
   const light = entity.components.Light;
+  const rigidBody = entity.components.RigidBody;
 
   if (!transform) return null;
   if (!entity.active) return null;
@@ -131,24 +133,38 @@ function EntityMesh({ entity }: { entity: Entity }) {
 
   if (!mesh) return null;
 
+  const innerMesh = (
+    <mesh
+      ref={meshRef}
+      position={!rigidBody ? pos : undefined}
+      rotation={!rigidBody ? rot : undefined}
+      castShadow={mesh.castShadow}
+      receiveShadow={mesh.receiveShadow}
+      onClick={(e) => { e.stopPropagation(); selectEntity(entity.id); }}
+    >
+      {renderGeometry()}
+      {renderMaterial()}
+      {/* Selection outline */}
+      {isSelected && (
+        <meshBasicMaterial color="#44aaff" wireframe />
+      )}
+    </mesh>
+  );
+
   return (
     <>
-      <mesh
-        ref={meshRef}
-        position={pos}
-        rotation={rot}
-        scale={scale}
-        castShadow={mesh.castShadow}
-        receiveShadow={mesh.receiveShadow}
-        onClick={(e) => { e.stopPropagation(); selectEntity(entity.id); }}
-      >
-        {renderGeometry()}
-        {renderMaterial()}
-        {/* Selection outline */}
-        {isSelected && (
-          <meshBasicMaterial color="#44aaff" wireframe />
-        )}
-      </mesh>
+      <group position={pos} rotation={rot} scale={scale}>
+        {rigidBody ? (
+          <RigidBody 
+            type={rigidBody.isStatic ? 'fixed' : 'dynamic'} 
+            mass={rigidBody.mass}
+            gravityScale={rigidBody.useGravity ? 1 : 0}
+          >
+            {innerMesh}
+          </RigidBody>
+        ) : innerMesh}
+      </group>
+      
       {isSelected && !isPlaying && (
         <TransformControls
           object={meshRef}

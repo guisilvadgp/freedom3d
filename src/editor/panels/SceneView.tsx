@@ -5,6 +5,7 @@ import { useEditorStore } from '../store/editorStore';
 import { SceneEntities } from './SceneEntities';
 import { GLTFViewers } from './GLTFViewer';
 import { GameLoop } from '../../engine/systems/GameLoop';
+import { Physics } from '@react-three/rapier';
 import * as THREE from 'three';
 
 export function SceneView() {
@@ -29,10 +30,12 @@ export function SceneView() {
         {/* Ambient */}
         <ambientLight color={scene.ambientColor} intensity={scene.ambientIntensity} />
 
-        {/* Entities */}
+        {/* Entities and Physics */}
         <Suspense fallback={null}>
-          <SceneEntities />
-          <GLTFViewers />
+          <Physics paused={!isPlaying} debug={showGizmos}>
+            <SceneEntities />
+            <GLTFViewers />
+          </Physics>
         </Suspense>
 
         {/* Systems */}
