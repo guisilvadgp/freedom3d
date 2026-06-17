@@ -54,7 +54,7 @@ export function GameLoop() {
         const code = entity.components.Script.code;
         try {
           const cleanCode = code.replace(/export function/g, 'function');
-          compiledScripts.current[entity.id] = new Function('entity', 'delta', 'updateComponent', 'Input', 'rigidBody', 'rapierContext', 'Math', 'THREE', 'properties', `
+          compiledScripts.current[entity.id] = new Function('entity', 'delta', 'updateComponent', 'Input', 'rigidBody', 'rapierContext', 'Math', 'THREE', `
             ${cleanCode}
             if (typeof onUpdate === "function") {
               onUpdate(delta);
@@ -80,8 +80,7 @@ export function GameLoop() {
       if (fn) {
         try {
           const rb = rigidBodyRefs[entity.id];
-          const props = entity.components.Script?.properties || {};
-          fn(entity, delta, useEditorStore.getState().updateComponent, Input, rb, rapierContext, Math, THREE, props);
+          fn(entity, delta, useEditorStore.getState().updateComponent, Input, rb, rapierContext, Math, THREE);
         } catch(err) {
           console.error(`Runtime script error on ${entity.name}:`, err);
         }
@@ -98,4 +97,5 @@ export function GameLoop() {
 
   return null;
 }
+
 
