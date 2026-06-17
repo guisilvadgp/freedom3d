@@ -20,15 +20,37 @@ export function attemptTeleport(): boolean {
   return true;
 }
 
-function GlobalCameraCorrector() {
-  const { size, camera } = useThree();
+function CameraCorrector() {
+  const { gl, camera, size } = useThree();
 
-  useEffect(() => {
+  useFrame(() => {
+    // ======== MODO VR (ESTEREOSCÓPICO) ========
+    if (gl.xr.isPresenting) {
+      const xrCamera = gl.xr.getCamera();
+      if (xrCamera && xrCamera.cameras.length > 0) {
+        // No modo VR Mobile (Cardboard), a tela é dividida na metade
+        const halfWidth = window.innerWidth / 2;
+        const height = window.innerHeight;
+        const targetAspect = halfWidth / height;
+
+        // Fator de distorção vertical na VR
+        // Aumente para esticar a imagem mais verticalmente (elevar o teto virtual)
+        const vrStretchFactor = 1.6; 
+        const finalVrAspect = targetAspect * vrStretchFactor;
+
+        xrCamera.cameras.forEach((subCam: any) => {
+          if (subCam.isPerspectiveCamera && Math.abs(subCam.aspect - finalVrAspect) > 0.001) {
+            subCam.aspect = finalVrAspect;
+            subCam.updateProjectionMatrix();
+          }
+        });
+      }
+      return;
+    }
+
+    // ======== MODO 2D (PORTRAIT/LANDSCAPE) ========
     const cam = camera as THREE.PerspectiveCamera;
     if (!cam || !cam.isPerspectiveCamera) return;
-
-    // Se estiver em VR (WebXR), o aspecto é gerenciado nativamente pelo headset
-    if ((camera as any).isStereoCamera) return;
 
     let aspect = size.width / size.height;
     if (isNaN(aspect) || aspect === 0) return;
@@ -37,7 +59,7 @@ function GlobalCameraCorrector() {
     let stretchFactor = 1.0; 
     
     if (aspect < 1) {
-      stretchFactor = 2.5; // Distorção radical para forçar paredes/teto mais altos
+      stretchFactor = 1.0; // Voltando ao normal no 2D, já que o problema relatado era na VR
       
       const fovRad = (baseFov * Math.PI) / 180;
       const h = 2 * Math.tan(fovRad / 2);
@@ -45,20 +67,17 @@ function GlobalCameraCorrector() {
       const newH = w / aspect; 
       const newFovRad = 2 * Math.atan(newH / 2);
       
-      cam.fov = ((newFovRad * 180) / Math.PI) * 1.3; // Zoom out extra para afastar a câmera
+      cam.fov = (newFovRad * 180) / Math.PI;
     } else {
       cam.fov = baseFov;
     }
 
-    // Aplica a distorção forçando a câmera a ter um aspect ratio diferente da tela real
     const finalAspect = aspect * stretchFactor;
-
     if (Math.abs(cam.aspect - finalAspect) > 0.001) {
       cam.aspect = finalAspect;
+      cam.updateProjectionMatrix();
     }
-    
-    cam.updateProjectionMatrix();
-  }, [size, camera]);
+  });
 
   return null;
 }
@@ -146,7 +165,7 @@ export function SceneView({
 
   const content = (
     <>
-      <GlobalCameraCorrector />
+      <CameraCorrector />
       <LoadingTracker sceneLoaded={sceneLoaded} onProgress={onProgress} onLoaded={onLoaded} />
       {/* Background */}
       <color attach="background" args={[scene.backgroundColor]} />
