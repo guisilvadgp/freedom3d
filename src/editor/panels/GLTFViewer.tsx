@@ -13,17 +13,17 @@ import { xrStore, attemptTeleport } from './SceneView';
 // Habilitar cache global do Three.js para evitar requisições redundantes de rede
 THREE.Cache.enabled = true;
 
-function shrinkTexture(texture: THREE.Texture, maxSize = 1024) {
+function shrinkTexture(texture: THREE.Texture, maxSize = 2048) {
   if (!texture || !texture.image) return;
-  
-  const img = texture.image;
+
+  const img = texture.image as any;
   // Obter dimensões originais da imagem da textura
-  const width = img.width || (img as any).naturalWidth || 0;
-  const height = img.height || (img as any).naturalHeight || 0;
-  
+  const width = img.width || img.naturalWidth || 0;
+  const height = img.height || img.naturalHeight || 0;
+
   if (width === 0 || height === 0) return;
   if (width <= maxSize && height <= maxSize) return;
-  
+
   try {
     let newWidth = width;
     let newHeight = height;
@@ -38,14 +38,14 @@ function shrinkTexture(texture: THREE.Texture, maxSize = 1024) {
         newHeight = maxSize;
       }
     }
-    
+
     const canvas = document.createElement('canvas');
     canvas.width = newWidth;
     canvas.height = newHeight;
     const ctx = canvas.getContext('2d');
     if (ctx) {
       ctx.drawImage(img, 0, 0, newWidth, newHeight);
-      
+
       texture.image = canvas;
       texture.generateMipmaps = false;
       texture.minFilter = THREE.LinearFilter;
@@ -59,7 +59,7 @@ function shrinkTexture(texture: THREE.Texture, maxSize = 1024) {
 
 function GLTFMesh({ entity }: { entity: Entity }) {
   const groupRef = useRef<THREE.Group>(null!);
-  
+
   const selectedEntityId = useEditorStore(s => s.selectedEntityId);
   const selectEntity = useEditorStore(s => s.selectEntity);
   const editorMode = useEditorStore(s => s.editorMode);
@@ -68,7 +68,7 @@ function GLTFMesh({ entity }: { entity: Entity }) {
   const snapEnabled = useEditorStore(s => s.snapEnabled);
   const snapValue = useEditorStore(s => s.snapValue);
   const activeViewport = useEditorStore(s => s.activeViewport);
-  
+
   const isGameView = activeViewport === 'game';
   const isStandalone = typeof window !== 'undefined' && window.location.pathname === '/preview';
 
@@ -78,7 +78,7 @@ function GLTFMesh({ entity }: { entity: Entity }) {
   const isSelected = selectedEntityId === entity.id;
 
   // Drag detection: evita seleção acidental ao arrastar a câmera
-  const mouseDownPos = useRef<{x: number; y: number} | null>(null);
+  const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
   const handlePointerDown = (e: any) => {
     mouseDownPos.current = { x: e.clientX, y: e.clientY };
   };
@@ -104,7 +104,7 @@ function GLTFMesh({ entity }: { entity: Entity }) {
       ...state,
       originReferenceSpace: undefined,
     }));
-    
+
     const clickPoint = e.point;
     const storeState = useEditorStore.getState();
     const scene = storeState.activeScene();
@@ -194,7 +194,7 @@ function GLTFMesh({ entity }: { entity: Entity }) {
   useEffect(() => {
     if (!animator || !actions) return;
     const action = actions[animator.currentAnimation];
-    
+
     // Stop all other actions
     Object.values(actions).forEach(a => {
       if (a && a !== action) a.stop();
