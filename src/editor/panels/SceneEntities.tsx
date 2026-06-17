@@ -13,8 +13,9 @@ import { xrStore, attemptTeleport } from './SceneView';
 // avoiding React re-renders while keeping script mutations synchronized.
 function PerspectiveCameraWrapper({ camera, isGameView, isStandalone }: { camera: any; isGameView: boolean; isStandalone: boolean }) {
   const ref = useRef<THREE.PerspectiveCamera>(null);
+  const [initialHeadsetHeight, setInitialHeadsetHeight] = useState<number | null>(null);
 
-  useFrame(() => {
+  useFrame((state) => {
     if (ref.current && camera) {
       if (camera.offset) {
         ref.current.position.set(camera.offset[0], camera.offset[1], camera.offset[2]);
@@ -23,11 +24,32 @@ function PerspectiveCameraWrapper({ camera, isGameView, isStandalone }: { camera
         ref.current.rotation.set(camera.rotation[0], camera.rotation[1], camera.rotation[2]);
       }
     }
+
+    if (state.gl.xr.isPresenting) {
+      const xrCamera = state.gl.xr.getCamera();
+      if (xrCamera && initialHeadsetHeight === null) {
+        const y = xrCamera.position.y;
+        if (y > 0.1) {
+          setInitialHeadsetHeight(y);
+        }
+      }
+    } else {
+      if (initialHeadsetHeight !== null) {
+        setInitialHeadsetHeight(null);
+      }
+    }
   });
+
+  const offset = camera.offset || [0, 0, 0];
+  const xrOriginPos: [number, number, number] = [
+    offset[0],
+    offset[1] - (initialHeadsetHeight ?? 1.6),
+    offset[2]
+  ];
 
   return (
     <>
-      {isStandalone && <XROrigin position={camera.offset || [0, 0, 0]} />}
+      {isStandalone && <XROrigin position={xrOriginPos} />}
       <PerspectiveCamera 
         ref={ref}
         makeDefault={isGameView && camera.isMain} 
