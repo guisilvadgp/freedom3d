@@ -6,11 +6,34 @@ import { SceneEntities } from './SceneEntities';
 import { GLTFViewers } from './GLTFViewer';
 import { GameLoop } from '../../engine/systems/GameLoop';
 import { Physics } from '@react-three/rapier';
-import { XR, createXRStore } from '@react-three/xr';
+import { XR, createXRStore, DefaultXRInputSourceRayPointer } from '@react-three/xr';
 import * as THREE from 'three';
 import { Eye, Gamepad } from 'lucide-react';
 
-export const xrStore = createXRStore();
+function CustomGaze(props: any) {
+  return (
+    <DefaultXRInputSourceRayPointer
+      {...props}
+      rayModel={{
+        color: '#ffffff',
+        opacity: 1.0,
+        size: 0.015,
+      }}
+      cursorModel={{
+        color: '#ffffff',
+        opacity: 1.0,
+        size: 0.15,
+      }}
+    />
+  );
+}
+
+export const xrStore = createXRStore({
+  controller: false,
+  hand: false,
+  transientPointer: false,
+  gaze: CustomGaze,
+});
 
 let lastTeleportTime = 0;
 export function attemptTeleport(): boolean {
