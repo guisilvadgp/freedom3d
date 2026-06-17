@@ -106,17 +106,6 @@ export function StandalonePlayer() {
         setSceneLoaded(true);
       });
 
-    // Open Server-Sent Events stream for push notifications when "Publish" is clicked
-    const eventSource = new EventSource('/api/sync-stream');
-    eventSource.onmessage = (event) => {
-      try {
-        const scene = JSON.parse(event.data);
-        handleSceneUpdate(scene);
-      } catch (err) {
-        // Parse error or keep-alive ping
-      }
-    };
-
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'F2' || (e.ctrlKey && e.shiftKey && e.key === 'D')) {
         setShowDebug(prev => !prev);
@@ -125,7 +114,6 @@ export function StandalonePlayer() {
     window.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      eventSource.close();
       window.removeEventListener('error', handleError);
       window.removeEventListener('keydown', handleKeyDown);
       console.error = origError;
