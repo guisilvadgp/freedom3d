@@ -26,12 +26,21 @@ function VRTeleportRing({ entity }: { entity: Entity }) {
       originReferenceSpace: undefined, // reseta para forçar re-posicionamento
     }));
     // Move a câmera via atualização da entidade que tem Camera principal
-    const scene = useEditorStore.getState().activeScene();
+    const storeState = useEditorStore.getState();
+    const scene = storeState.activeScene();
     Object.values(scene.entities).forEach(e => {
       if (e.tags?.includes('player') || e.components.Camera?.isMain) {
-        useEditorStore.getState().updateComponent(e.id, 'Transform', {
+        storeState.updateComponent(e.id, 'Transform', {
           position: [pos[0], pos[1], pos[2]],
         });
+        
+        // Se houver um RigidBody físico ativo, teleporta e zera a velocidade dele
+        const rb = storeState.rigidBodyRefs[e.id];
+        if (rb) {
+          rb.setTranslation({ x: pos[0], y: pos[1], z: pos[2] }, true);
+          rb.setLinvel({ x: 0, y: 0, z: 0 }, true);
+          rb.setAngvel({ x: 0, y: 0, z: 0 }, true);
+        }
       }
     });
   };
@@ -126,12 +135,21 @@ function EntityMesh({ entity }: { entity: Entity }) {
     }));
     
     const clickPoint = e.point;
-    const scene = useEditorStore.getState().activeScene();
+    const storeState = useEditorStore.getState();
+    const scene = storeState.activeScene();
     Object.values(scene.entities).forEach(playerEnt => {
       if (playerEnt.tags?.includes('player') || playerEnt.components.Camera?.isMain) {
-        useEditorStore.getState().updateComponent(playerEnt.id, 'Transform', {
+        storeState.updateComponent(playerEnt.id, 'Transform', {
           position: [clickPoint.x, clickPoint.y, clickPoint.z],
         });
+
+        // Se houver um RigidBody físico ativo, teleporta e zera a velocidade dele
+        const rb = storeState.rigidBodyRefs[playerEnt.id];
+        if (rb) {
+          rb.setTranslation({ x: clickPoint.x, y: clickPoint.y, z: clickPoint.z }, true);
+          rb.setLinvel({ x: 0, y: 0, z: 0 }, true);
+          rb.setAngvel({ x: 0, y: 0, z: 0 }, true);
+        }
       }
     });
   };
