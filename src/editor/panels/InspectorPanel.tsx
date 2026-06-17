@@ -1,5 +1,21 @@
 import { useEditorStore } from '../store/editorStore';
 import type { TransformComponent, MeshRendererComponent, LightComponent, GLTFModelComponent, RigidBodyComponent, AudioComponent, ParticleSystemComponent, ScriptComponent, CameraComponent } from '../../engine/ecs/types';
+import { 
+  Move, 
+  Box, 
+  Sun, 
+  Layers, 
+  Activity, 
+  Volume2, 
+  Sparkles, 
+  Film, 
+  Wifi, 
+  Video, 
+  Code, 
+  Plus, 
+  Package,
+  Settings
+} from 'lucide-react';
 
 function Vec3Field({
   label, value, onChange,
@@ -42,7 +58,7 @@ function TransformInspector({ entityId }: { entityId: string }) {
   return (
     <div className="component-block">
       <div className="component-header">
-        <span className="component-icon">⟳</span>
+        <span className="component-icon"><Move size={14} /></span>
         <span className="component-title">Transform</span>
       </div>
       <Vec3Field
@@ -73,7 +89,7 @@ function MeshRendererInspector({ entityId }: { entityId: string }) {
   return (
     <div className="component-block">
       <div className="component-header">
-        <span className="component-icon">🔷</span>
+        <span className="component-icon"><Box size={14} /></span>
         <span className="component-title">Mesh Renderer</span>
       </div>
       <div className="field-row">
@@ -142,7 +158,7 @@ function LightInspector({ entityId }: { entityId: string }) {
   return (
     <div className="component-block">
       <div className="component-header">
-        <span className="component-icon">💡</span>
+        <span className="component-icon"><Sun size={14} /></span>
         <span className="component-title">Light</span>
       </div>
       <div className="field-row">
@@ -169,16 +185,27 @@ function LightInspector({ entityId }: { entityId: string }) {
       </div>
       <div className="field-row">
         <label className="field-label">Intensity</label>
-        <input
-          type="range"
-          min={0}
-          max={10}
-          step={0.1}
-          value={l.intensity}
-          onChange={(e) => updateComponent(entityId, 'Light', { intensity: parseFloat(e.target.value) })}
-          className="field-range"
-        />
-        <span className="range-value">{l.intensity.toFixed(1)}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={0.1}
+            value={l.intensity}
+            onChange={(e) => updateComponent(entityId, 'Light', { intensity: parseFloat(e.target.value) })}
+            className="field-range"
+            style={{ flex: 1 }}
+          />
+          <input
+            type="number"
+            min={0}
+            step={0.1}
+            value={l.intensity}
+            onChange={(e) => updateComponent(entityId, 'Light', { intensity: parseFloat(e.target.value) || 0 })}
+            className="field-input"
+            style={{ width: '60px', padding: '2px 4px', fontSize: '12px' }}
+          />
+        </div>
       </div>
       <div className="field-row">
         <label className="field-label">Cast Shadow</label>
@@ -201,7 +228,7 @@ function GLTFModelInspector({ entityId }: { entityId: string }) {
   return (
     <div className="component-block">
       <div className="component-header">
-        <span className="component-icon">📦</span>
+        <span className="component-icon"><Layers size={14} /></span>
         <span className="component-title">GLTF Model</span>
       </div>
       <div className="field-row">
@@ -247,7 +274,7 @@ function RigidBodyInspector({ entityId }: { entityId: string }) {
   return (
     <div className="component-block">
       <div className="component-header">
-        <span className="component-icon">🎳</span>
+        <span className="component-icon"><Activity size={14} /></span>
         <span className="component-title">Rigid Body</span>
       </div>
       <div className="field-row">
@@ -303,7 +330,7 @@ function AudioInspector({ entityId }: { entityId: string }) {
   return (
     <div className="component-block">
       <div className="component-header">
-        <span className="component-icon">🔊</span>
+        <span className="component-icon"><Volume2 size={14} /></span>
         <span className="component-title">Audio Source</span>
       </div>
       <div className="field-row">
@@ -345,7 +372,7 @@ function ParticleSystemInspector({ entityId }: { entityId: string }) {
   return (
     <div className="component-block">
       <div className="component-header">
-        <span className="component-icon">✨</span>
+        <span className="component-icon"><Sparkles size={14} /></span>
         <span className="component-title">Particle System</span>
       </div>
       <div className="field-row">
@@ -398,7 +425,7 @@ function AnimatorInspector({ entityId }: { entityId: string }) {
   return (
     <div className="component-block">
       <div className="component-header">
-        <span className="component-icon">🏃</span>
+        <span className="component-icon"><Film size={14} /></span>
         <span className="component-title">Animator</span>
       </div>
       <div className="field-row">
@@ -441,7 +468,7 @@ function NetworkInspector({ entityId }: { entityId: string }) {
   return (
     <div className="component-block">
       <div className="component-header">
-        <span className="component-icon">??</span>
+        <span className="component-icon"><Wifi size={14} /></span>
         <span className="component-title">Network Identity</span>
       </div>
       <div className="field-row">
@@ -473,7 +500,7 @@ function CameraInspector({ entityId }: { entityId: string }) {
   return (
     <div className="component-block">
       <div className="component-header">
-        <span className="component-icon">🎥</span>
+        <span className="component-icon"><Video size={14} /></span>
         <span className="component-title">Camera</span>
       </div>
       <div className="field-row">
@@ -532,7 +559,7 @@ function ScriptInspector({ entityId }: { entityId: string }) {
   const { selectedEntity, updateComponent } = useEditorStore();
   const entity = selectedEntity();
   if (!entity) return null;
-  const s = entity.components.Script as any;
+  const s = entity.components.Script as ScriptComponent;
 
   // Extract variables (let name = value)
   const vars: Record<string, { type: 'number' | 'string' | 'boolean', value: any }> = {};
@@ -561,7 +588,7 @@ function ScriptInspector({ entityId }: { entityId: string }) {
   return (
     <div className="component-block">
       <div className="component-header">
-        <span className="component-icon">📜</span>
+        <span className="component-icon"><Code size={14} /></span>
         <span className="component-title">Script</span>
       </div>
       <div className="field-row">
@@ -635,7 +662,9 @@ export function InspectorPanel() {
           <span className="panel-title">Inspector</span>
         </div>
         <div className="inspector-scene-settings">
-          <div className="scene-settings-title">⚙ Scene Settings</div>
+          <div className="scene-settings-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Settings size={14} /> Scene Settings
+          </div>
           <div className="field-row">
             <label className="field-label">BG Color</label>
             <input type="color" className="field-color" value={scene.backgroundColor}
@@ -648,9 +677,12 @@ export function InspectorPanel() {
           </div>
           <div className="field-row">
             <label className="field-label">Ambient Intensity</label>
-            <input type="range" min={0} max={5} step={0.1} className="field-range" value={scene.ambientIntensity}
-              onChange={(e) => updateSceneSettings({ ambientIntensity: parseFloat(e.target.value) })} />
-            <span className="range-value">{scene.ambientIntensity.toFixed(1)}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+              <input type="range" min={0} max={20} step={0.1} className="field-range" value={scene.ambientIntensity}
+                onChange={(e) => updateSceneSettings({ ambientIntensity: parseFloat(e.target.value) })} style={{ flex: 1 }} />
+              <input type="number" min={0} step={0.1} className="field-input" value={scene.ambientIntensity}
+                onChange={(e) => updateSceneSettings({ ambientIntensity: parseFloat(e.target.value) || 0 })} style={{ width: '60px', padding: '2px 4px', fontSize: '12px' }} />
+            </div>
           </div>
           <div className="field-row">
             <label className="field-label">Fog</label>
@@ -710,9 +742,9 @@ export function InspectorPanel() {
               className="panel-btn small" 
               onClick={() => createPrefab(selectedEntityId)}
               title="Salvar como Prefab"
-              style={{ padding: '2px 8px', fontSize: '10px' }}
+              style={{ padding: '2px 8px', fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px' }}
             >
-              🎯 To Prefab
+              <Package size={11} /> To Prefab
             </button>
           </div>
         </div>
@@ -760,7 +792,7 @@ export function InspectorPanel() {
               className="panel-btn" 
               onClick={() => useEditorStore.getState().addComponent(selectedEntityId, { type: 'RigidBody', mass: 1, isStatic: false, useGravity: true, collider: 'cuboid' })}
             >
-              ➕ Add RigidBody
+              <Plus size={12} /> Add RigidBody
             </button>
           )}
           {!entity.components.Script && (
@@ -768,7 +800,7 @@ export function InspectorPanel() {
               className="panel-btn" 
               onClick={() => useEditorStore.getState().addComponent(selectedEntityId, { type: 'Script', scriptName: 'NewScript', code: '' })}
             >
-              ➕ Add Script
+              <Plus size={12} /> Add Script
             </button>
           )}
           {!entity.components.Audio && (
@@ -776,7 +808,7 @@ export function InspectorPanel() {
               className="panel-btn" 
               onClick={() => useEditorStore.getState().addComponent(selectedEntityId, { type: 'Audio', src: '', loop: true, playOnStart: true, volume: 1 })}
             >
-              ➕ Add Audio
+              <Plus size={12} /> Add Audio
             </button>
           )}
           {!entity.components.ParticleSystem && (
@@ -784,7 +816,7 @@ export function InspectorPanel() {
               className="panel-btn" 
               onClick={() => useEditorStore.getState().addComponent(selectedEntityId, { type: 'ParticleSystem', count: 100, color: '#ffffff', size: 10, speed: 1 })}
             >
-              ➕ Add Particles
+              <Plus size={12} /> Add Particles
             </button>
           )}
           {!entity.components.Animator && (
@@ -792,7 +824,7 @@ export function InspectorPanel() {
               className="panel-btn" 
               onClick={() => useEditorStore.getState().addComponent(selectedEntityId, { type: 'Animator', currentAnimation: '', loop: true, timeScale: 1 })}
             >
-              ➕ Add Animator
+              <Plus size={12} /> Add Animator
             </button>
           )}
           {!entity.components.Camera && (
@@ -800,7 +832,7 @@ export function InspectorPanel() {
               className="panel-btn" 
               onClick={() => useEditorStore.getState().addComponent(selectedEntityId, { type: 'Camera', fov: 75, near: 0.1, far: 1000, isMain: true, offset: [0, 0.4, 0], rotation: [0, 0, 0] })}
             >
-              ➕ Add Camera
+              <Plus size={12} /> Add Camera
             </button>
           )}
         </div>
@@ -808,4 +840,3 @@ export function InspectorPanel() {
     </div>
   );
 }
-
