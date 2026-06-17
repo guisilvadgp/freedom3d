@@ -45,6 +45,7 @@ export function StandalonePlayer() {
   const [progressVal, setProgressVal] = useState(0);
   const [gameStarted, setGameStarted] = useState(false);
   const [showOverlay, setShowOverlay] = useState(true);
+  const [sceneLoaded, setSceneLoaded] = useState(false);
 
   const handlePlay = () => {
     setGameStarted(true);
@@ -95,8 +96,11 @@ export function StandalonePlayer() {
       .then(res => res.json())
       .then(scene => {
         handleSceneUpdate(scene);
+        setSceneLoaded(true);
       })
-      .catch(() => {});
+      .catch(() => {
+        setSceneLoaded(true);
+      });
 
     // Open Server-Sent Events stream for push notifications when "Publish" is clicked
     const eventSource = new EventSource('/api/sync-stream');
@@ -128,6 +132,7 @@ export function StandalonePlayer() {
     <div style={{ width: '100vw', height: '100vh', margin: 0, padding: 0, overflow: 'hidden', position: 'relative' }}>
       <SceneView 
         isStandalone={true} 
+        sceneLoaded={sceneLoaded}
         onProgress={(p) => setProgressVal(p)} 
         onLoaded={() => setLoading(false)} 
       />

@@ -48,9 +48,11 @@ function XRAspectCorrector() {
 }
 
 function LoadingTracker({ 
+  sceneLoaded,
   onProgress, 
   onLoaded 
 }: { 
+  sceneLoaded: boolean;
   onProgress?: (progress: number) => void;
   onLoaded?: () => void;
 }) {
@@ -63,22 +65,29 @@ function LoadingTracker({
   }, [progress, onProgress]);
 
   useEffect(() => {
-    if (!active || progress === 100) {
+    // Só considera carregado se a estrutura da cena do servidor já foi injetada no Zustand,
+    // e os loaders de assets terminaram (ou a fila está vazia após a injeção).
+    if (sceneLoaded && (!active || progress === 100)) {
       if (onLoaded) {
-        onLoaded();
+        const timer = setTimeout(() => {
+          onLoaded();
+        }, 300);
+        return () => clearTimeout(timer);
       }
     }
-  }, [active, progress, onLoaded]);
+  }, [active, progress, sceneLoaded, onLoaded]);
 
   return null;
 }
 
 export function SceneView({ 
   isStandalone,
+  sceneLoaded = true,
   onProgress,
   onLoaded
 }: { 
   isStandalone?: boolean;
+  sceneLoaded?: boolean;
   onProgress?: (progress: number) => void;
   onLoaded?: () => void;
 }) {
@@ -118,7 +127,7 @@ export function SceneView({
   const content = (
     <>
       <XRAspectCorrector />
-      <LoadingTracker onProgress={onProgress} onLoaded={onLoaded} />
+      <LoadingTracker sceneLoaded={sceneLoaded} onProgress={onProgress} onLoaded={onLoaded} />
       {/* Background */}
       <color attach="background" args={[scene.backgroundColor]} />
 
