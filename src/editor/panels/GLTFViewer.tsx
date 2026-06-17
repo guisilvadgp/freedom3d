@@ -1,7 +1,7 @@
-import { Suspense, useMemo, useRef } from 'react';
+import { Suspense, useMemo, useRef, useEffect } from 'react';
 import { useLoader } from '@react-three/fiber';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { TransformControls } from '@react-three/drei';
+import { TransformControls, useAnimations } from '@react-three/drei';
 import * as THREE from 'three';
 import { useEditorStore } from '../store/editorStore';
 import type { Entity } from '../../engine/ecs/types';
@@ -52,6 +52,28 @@ function GLTFMesh({ entity }: { entity: Entity }) {
       scale: transform.scale, // scale é controlada via modelScale no inspector
     });
   };
+
+  const animator = entity.components.Animator;
+  const { actions } = useAnimations(gltf.animations, groupRef);
+
+  // Lógica do Animator
+  useEffect(() => {
+    if (!animator || !actions) return;
+    const action = actions[animator.currentAnimation];
+    
+    // Stop all other actions
+    Object.values(actions).forEach(a => {
+      if (a && a !== action) a.stop();
+    });
+
+    if (action) {
+      if (!action.isRunning()) {
+        action.reset().play();
+      }
+      action.setLoop(animator.loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity);
+      action.timeScale = isPlaying ? animator.timeScale : 0; // Pausa se não tiver isPlaying
+    }
+  }, [animator?.currentAnimation, animator?.loop, animator?.timeScale, actions, isPlaying]);
 
   return (
     <>
@@ -119,3 +141,4 @@ export function GLTFViewers() {
     </>
   );
 }
+

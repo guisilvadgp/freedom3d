@@ -389,6 +389,49 @@ function ParticleSystemInspector({ entityId }: { entityId: string }) {
   );
 }
 
+function AnimatorInspector({ entityId }: { entityId: string }) {
+  const { selectedEntity, updateComponent } = useEditorStore();
+  const entity = selectedEntity();
+  if (!entity) return null;
+  const anim = entity.components.Animator as any;
+
+  return (
+    <div className="component-block">
+      <div className="component-header">
+        <span className="component-icon">🏃</span>
+        <span className="component-title">Animator</span>
+      </div>
+      <div className="field-row">
+        <label className="field-label">Current Anim</label>
+        <input
+          type="text"
+          className="field-input"
+          value={anim.currentAnimation}
+          onChange={(e) => updateComponent(entityId, 'Animator', { currentAnimation: e.target.value })}
+        />
+      </div>
+      <div className="field-row">
+        <label className="field-label">Time Scale</label>
+        <input
+          type="number"
+          className="field-input"
+          value={anim.timeScale}
+          step={0.1}
+          onChange={(e) => updateComponent(entityId, 'Animator', { timeScale: parseFloat(e.target.value) || 1 })}
+        />
+      </div>
+      <div className="field-row">
+        <label className="field-label">Loop</label>
+        <input
+          type="checkbox"
+          checked={anim.loop}
+          onChange={(e) => updateComponent(entityId, 'Animator', { loop: e.target.checked })}
+        />
+      </div>
+    </div>
+  );
+}
+
 function ScriptInspector({ entityId }: { entityId: string }) {
   const { selectedEntity, updateComponent } = useEditorStore();
   const entity = selectedEntity();
@@ -541,6 +584,9 @@ export function InspectorPanel() {
         {entity.components.ParticleSystem && (
           <ParticleSystemInspector entityId={selectedEntityId} />
         )}
+        {entity.components.Animator && (
+          <AnimatorInspector entityId={selectedEntityId} />
+        )}
         {entity.components.Script && (
           <ScriptInspector entityId={selectedEntityId} />
         )}
@@ -576,6 +622,14 @@ export function InspectorPanel() {
               onClick={() => useEditorStore.getState().addComponent(selectedEntityId, { type: 'ParticleSystem', count: 100, color: '#ffffff', size: 10, speed: 1 })}
             >
               ➕ Add Particles
+            </button>
+          )}
+          {!entity.components.Animator && (
+            <button 
+              className="panel-btn" 
+              onClick={() => useEditorStore.getState().addComponent(selectedEntityId, { type: 'Animator', currentAnimation: '', loop: true, timeScale: 1 })}
+            >
+              ➕ Add Animator
             </button>
           )}
         </div>

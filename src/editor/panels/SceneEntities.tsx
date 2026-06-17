@@ -144,6 +144,11 @@ function EntityMesh({ entity }: { entity: Entity }) {
             far={camera.far} 
           />
         )}
+        {entity.childrenIds && entity.childrenIds.map(id => {
+          const childEntity = useEditorStore.getState().activeScene().entities[id];
+          if (!childEntity) return null;
+          return <EntityMesh key={id} entity={childEntity} />;
+        })}
       </mesh>
     );
 
@@ -217,6 +222,11 @@ function EntityMesh({ entity }: { entity: Entity }) {
       {isSelected && (
         <Edges scale={1.01} color="#44aaff" />
       )}
+      {entity.childrenIds && entity.childrenIds.map(id => {
+        const childEntity = useEditorStore.getState().activeScene().entities[id];
+        if (!childEntity) return null;
+        return <EntityMesh key={id} entity={childEntity} />;
+      })}
     </mesh>
   );
 

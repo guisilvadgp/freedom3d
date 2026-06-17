@@ -76,6 +76,13 @@ export interface GLTFModelComponent {
   receiveShadow: boolean;
 }
 
+export interface AnimatorComponent {
+  type: 'Animator';
+  currentAnimation: string;
+  loop: boolean;
+  timeScale: number;
+}
+
 export type AnyComponent =
   | TransformComponent
   | MeshRendererComponent
@@ -85,7 +92,8 @@ export type AnyComponent =
   | RigidBodyComponent
   | AudioComponent
   | ParticleSystemComponent
-  | GLTFModelComponent;
+  | GLTFModelComponent
+  | AnimatorComponent;
 
 export type ComponentType = AnyComponent['type'];
 

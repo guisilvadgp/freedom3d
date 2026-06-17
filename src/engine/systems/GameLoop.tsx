@@ -2,6 +2,7 @@ import { useFrame } from '@react-three/fiber';
 import { useRef } from 'react';
 import { useEditorStore } from '../../editor/store/editorStore';
 import { Input } from './InputManager';
+import { useRapier } from '@react-three/rapier';
 import * as THREE from 'three';
 
 // ============================================================
@@ -13,6 +14,7 @@ const FIXED_STEP = 1 / 60; // 60Hz para FixedUpdate
 
 export function GameLoop() {
   const { isPlaying, activeScene, addLog } = useEditorStore();
+  const rapierContext = useRapier();
 
   const accumulated = useRef(0);
   const frame = useRef(0);
@@ -46,14 +48,13 @@ export function GameLoop() {
       // Compila todos os scripts ativos na cena
       const scene = activeScene();
       compiledScripts.current = {};
-      for (const id of scene.rootEntityIds) { // TODO: iterar recursivamente para filhos
-        const entity = scene.entities[id];
+      for (const entity of Object.values(scene.entities)) {
         if (!entity?.active || !entity.components.Script) continue;
         
         const code = entity.components.Script.code;
         try {
           const cleanCode = code.replace(/export function/g, 'function');
-          compiledScripts.current[entity.id] = new Function('entity', 'delta', 'updateComponent', 'Input', 'rigidBody', 'Math', 'THREE', `
+          compiledScripts.current[entity.id] = new Function('entity', 'delta', 'updateComponent', 'Input', 'rigidBody', 'rapierContext', 'Math', 'THREE', `
             ${cleanCode}
             if (typeof onUpdate === "function") {
               onUpdate(delta);
@@ -72,15 +73,14 @@ export function GameLoop() {
 
     // ── Update (todo frame) ──────────────────────────────────
     const rigidBodyRefs = useEditorStore.getState().rigidBodyRefs || {};
-    for (const id of scene.rootEntityIds) {
-      const entity = scene.entities[id];
+    for (const entity of Object.values(scene.entities)) {
       if (!entity?.active) continue;
       
       const fn = compiledScripts.current[entity.id];
       if (fn) {
         try {
-          const rb = rigidBodyRefs[id];
-          fn(entity, delta, useEditorStore.getState().updateComponent, Input, rb, Math, THREE);
+          const rb = rigidBodyRefs[entity.id];
+          fn(entity, delta, useEditorStore.getState().updateComponent, Input, rb, rapierContext, Math, THREE);
         } catch(err) {
           console.error(`Runtime script error on ${entity.name}:`, err);
         }

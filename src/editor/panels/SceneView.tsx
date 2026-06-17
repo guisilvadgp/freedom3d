@@ -59,11 +59,10 @@ export function SceneView() {
           <Physics paused={!isPlaying} debug={showGizmos}>
             <SceneEntities />
             <GLTFViewers />
+            {/* Systems */}
+            <GameLoop />
           </Physics>
         </Suspense>
-
-        {/* Systems */}
-        <GameLoop />
 
         {/* Grid */}
         {showGrid && (
