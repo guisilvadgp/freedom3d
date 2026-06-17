@@ -79,6 +79,47 @@ function LoadingTracker({
   return null;
 }
 
+function TeleportCursor() {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const { raycaster, pointer, camera, scene } = useThree();
+
+  useFrame(() => {
+    if (!meshRef.current) return;
+
+    raycaster.setFromCamera(pointer, camera);
+    const intersects = raycaster.intersectObjects(scene.children, true);
+    
+    const valid = intersects.find(intersect => {
+      let obj: THREE.Object3D | null = intersect.object;
+      if (obj === meshRef.current || obj.name === 'teleport-cursor') return false;
+      while (obj) {
+        if (obj.name.toLowerCase().includes('player') || 
+            obj.name.toLowerCase().includes('camera') || 
+            obj.name.toLowerCase().includes('teleport-cursor')) {
+          return false;
+        }
+        obj = obj.parent;
+      }
+      return true;
+    });
+
+    if (valid) {
+      meshRef.current.position.copy(valid.point);
+      meshRef.current.position.y += 0.05;
+      meshRef.current.visible = true;
+    } else {
+      meshRef.current.visible = false;
+    }
+  });
+
+  return (
+    <mesh ref={meshRef} name="teleport-cursor" rotation={[-Math.PI / 2, 0, 0]} visible={false}>
+      <ringGeometry args={[0.3, 0.35, 32]} />
+      <meshBasicMaterial color="#00ffff" transparent opacity={0.8} depthWrite={false} />
+    </mesh>
+  );
+}
+
 export function SceneView({ 
   isStandalone,
   sceneLoaded = true,
@@ -191,6 +232,9 @@ export function SceneView({
 
       {/* Performance stats in play mode */}
       {isPlaying && <Stats />}
+
+      {/* Teleport Cursor Indicator for Standalone / Preview Mode */}
+      {isStandalone && <TeleportCursor />}
     </>
   );
 
