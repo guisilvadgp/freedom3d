@@ -33,12 +33,11 @@ function XRAspectCorrector() {
 
       const xrCamera = gl.xr.getCamera();
       if (xrCamera) {
-        if (xrCamera.aspect !== aspect) {
-          xrCamera.aspect = aspect;
-          xrCamera.updateProjectionMatrix();
-        }
         xrCamera.cameras.forEach((subCam) => {
-          subCam.updateProjectionMatrix();
+          if (subCam.aspect !== 1) {
+            subCam.aspect = 1;
+            subCam.updateProjectionMatrix();
+          }
         });
       }
     }
