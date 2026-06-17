@@ -8,7 +8,8 @@ import type { Entity } from '../../engine/ecs/types';
 
 function EntityMesh({ entity }: { entity: Entity }) {
   const meshRef = useRef<THREE.Mesh>(null!);
-  const { selectedEntityId, selectEntity, editorMode, isPlaying, updateComponent, snapEnabled, snapValue, setRigidBodyRef } = useEditorStore();
+  const { selectedEntityId, selectEntity, editorMode, isPlaying, updateComponent, snapEnabled, snapValue, setRigidBodyRef, activeViewport } = useEditorStore();
+  const isGameView = activeViewport === 'game';
   const transform = entity.components.Transform;
   const mesh = entity.components.MeshRenderer;
   const light = entity.components.Light;
@@ -119,7 +120,7 @@ function EntityMesh({ entity }: { entity: Entity }) {
         onClick={(e) => { e.stopPropagation(); selectEntity(entity.id); }}
       >
         <sphereGeometry args={[0.2, 8, 8]} />
-        <meshBasicMaterial color={light ? light.color : "#ffffff"} wireframe opacity={0.3} transparent />
+        <meshBasicMaterial color={light ? light.color : "#ffffff"} wireframe opacity={0.3} transparent visible={!isGameView} />
         
         {renderLight()}
         {audio && audio.src && (
@@ -137,7 +138,7 @@ function EntityMesh({ entity }: { entity: Entity }) {
         {/* Camera */}
         {camera && (
           <PerspectiveCamera 
-            makeDefault={isPlaying && camera.isMain} 
+            makeDefault={isGameView && camera.isMain} 
             position={camera.offset || [0, 0, 0]}
             fov={camera.fov} 
             near={camera.near} 
@@ -168,7 +169,7 @@ function EntityMesh({ entity }: { entity: Entity }) {
           </RigidBody>
         ) : emptyMesh}
         
-        {isSelected && !isPlaying && (
+        {isSelected && !isGameView && (
           <TransformControls
             object={meshRef}
             mode={editorMode as any}
@@ -211,7 +212,7 @@ function EntityMesh({ entity }: { entity: Entity }) {
       {/* Camera */}
       {camera && (
         <PerspectiveCamera 
-          makeDefault={isPlaying && camera.isMain} 
+          makeDefault={isGameView && camera.isMain} 
           position={camera.offset || [0, 0, 0]}
           fov={camera.fov} 
           near={camera.near} 
@@ -219,7 +220,7 @@ function EntityMesh({ entity }: { entity: Entity }) {
         />
       )}
       {/* Selection outline */}
-      {isSelected && (
+      {isSelected && !isGameView && (
         <Edges scale={1.01} color="#44aaff" />
       )}
       {entity.childrenIds && entity.childrenIds.map(id => {
@@ -246,7 +247,7 @@ function EntityMesh({ entity }: { entity: Entity }) {
         </RigidBody>
       ) : innerMesh}
       
-      {isSelected && !isPlaying && (
+      {isSelected && !isGameView && (
         <TransformControls
           object={meshRef}
           mode={editorMode as any}
@@ -274,3 +275,4 @@ export function SceneEntities() {
     </>
   );
 }
+

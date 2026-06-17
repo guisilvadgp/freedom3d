@@ -83,6 +83,8 @@ interface EditorStore {
   setEditorMode: (mode: EditorMode) => void;
   viewMode: ViewMode;
   setViewMode: (mode: ViewMode) => void;
+  activeViewport: 'scene' | 'game';
+  setActiveViewport: (viewport: 'scene' | 'game') => void;
   isPlaying: boolean;
   togglePlay: () => void;
   showGrid: boolean;
@@ -651,5 +653,6 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     },
   };
 });
+
 
 

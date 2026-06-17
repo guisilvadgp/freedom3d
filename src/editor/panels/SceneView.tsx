@@ -12,7 +12,8 @@ import * as THREE from 'three';
 const store = createXRStore();
 
 export function SceneView() {
-  const { showGrid, isPlaying, activeScene, showGizmos } = useEditorStore();
+  const { showGrid, isPlaying, activeScene, showGizmos, activeViewport, setActiveViewport } = useEditorStore();
+  const isGameView = activeViewport === 'game';
   const scene = activeScene();
 
   const handleDrop = (e: React.DragEvent) => {
@@ -41,6 +42,10 @@ export function SceneView() {
 
   return (
     <div className="scene-view" onDrop={handleDrop} onDragOver={handleDragOver}>
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, background: '#1e293b', display: 'flex', padding: '4px 8px', gap: '8px', borderBottom: '1px solid #334155' }}>
+        <button className={ "panel-btn"  } style={{ background: activeViewport === 'scene' ? '#3b82f6' : 'transparent' }} onClick={() => setActiveViewport('scene')}>?? Scene</button>
+        <button className={ "panel-btn"  } style={{ background: activeViewport === 'game' ? '#3b82f6' : 'transparent' }} onClick={() => setActiveViewport('game')}>?? Game</button>
+      </div>
       {/* XR Buttons */}
       <div style={{ position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)', zIndex: 10, display: 'flex', gap: '10px' }}>
         <button className="panel-btn" onClick={() => store.enterVR()}>Enter VR</button>
@@ -75,7 +80,7 @@ export function SceneView() {
         </Suspense>
 
         {/* Grid */}
-        {showGrid && (
+        {showGrid && !isGameView && (
           <Grid
             position={[0, -0.001, 0]}
             args={[40, 40]}
@@ -93,7 +98,7 @@ export function SceneView() {
         )}
 
         {/* Controls */}
-        {!isPlaying && (
+        {!isGameView && (
           <OrbitControls
             makeDefault
             enableDamping
@@ -104,7 +109,7 @@ export function SceneView() {
         )}
 
         {/* Gizmos */}
-        {showGizmos && (
+        {showGizmos && !isGameView && (
           <GizmoHelper alignment="bottom-right" margin={[80, 80]}>
             <GizmoViewport
               axisColors={['#f55', '#5f5', '#55f']}
@@ -120,3 +125,4 @@ export function SceneView() {
     </div>
   );
 }
+

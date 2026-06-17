@@ -13,8 +13,9 @@ function GLTFMesh({ entity }: { entity: Entity }) {
   const {
     selectedEntityId, selectEntity,
     editorMode, isPlaying,
-    updateComponent, snapEnabled, snapValue,
+    updateComponent, snapEnabled, snapValue, activeViewport
   } = useEditorStore();
+  const isGameView = activeViewport === 'game';
 
   const transform = entity.components.Transform!;
   const model = entity.components.GLTFModel!;
@@ -95,7 +96,7 @@ function GLTFMesh({ entity }: { entity: Entity }) {
         )}
       </group>
 
-      {isSelected && !isPlaying && (
+      {isSelected && !isGameView && (
         <TransformControls
           object={groupRef}
           mode={editorMode as any}
@@ -141,4 +142,5 @@ export function GLTFViewers() {
     </>
   );
 }
+
 
