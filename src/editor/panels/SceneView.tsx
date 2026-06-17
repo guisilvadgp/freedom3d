@@ -21,18 +21,47 @@ export function attemptTeleport(): boolean {
 }
 
 function CameraCorrector() {
-  const { gl, camera, size } = useThree();
+  const { gl, camera, size, scene } = useThree();
+
+  useEffect(() => {
+    // ======== MODO VR (ESTEREOSCÓPICO) ========
+    // O WebXRManager do Three.js sobrescreve a projectionMatrix de cada olho todo frame.
+    // Para distorcer (esticar) a imagem verticalmente na VR sem quebrar a calibração de IPD,
+    // interceptamos o evento onBeforeRender da cena, que roda logo após o WebXR setar as matrizes.
+    const originalBeforeRender = scene.onBeforeRender;
+
+    scene.onBeforeRender = (renderer, scene, camera, renderTarget) => {
+      if (originalBeforeRender) {
+        originalBeforeRender(renderer, scene, camera, renderTarget);
+      }
+
+      if (gl.xr.isPresenting) {
+        const xrCamera = gl.xr.getCamera();
+        if (xrCamera && xrCamera.cameras.length > 0) {
+          // FATOR DE DISTORÇÃO VERTICAL NA VR
+          // 1.0 = Normal. Maior que 1.0 = Estica verticalmente (paredes parecem mais altas).
+          const vrStretchFactor = 1.35; 
+
+          xrCamera.cameras.forEach((subCam: any) => {
+            // A posição 5 do array da matriz de projeção controla a escala no eixo Y.
+            // Garantimos que não multiplicamos várias vezes no mesmo frame checando um frameId ou 
+            // recalculando a partir do original fornecido pelo WebXR (que é sempre limpo a cada frame).
+            if (vrStretchFactor !== 1.0) {
+              subCam.projectionMatrix.elements[5] *= vrStretchFactor;
+              subCam.projectionMatrixInverse.copy(subCam.projectionMatrix).invert();
+            }
+          });
+        }
+      }
+    };
+
+    return () => {
+      scene.onBeforeRender = originalBeforeRender;
+    };
+  }, [gl, scene]);
 
   useFrame(() => {
-    // ======== MODO VR (ESTEREOSCÓPICO) ========
-    if (gl.xr.isPresenting) {
-      // IMPORTANTE: Em WebXR, as matrizes de projeção e FOV para cada olho 
-      // são fornecidas DIRETAMENTE pelo hardware/polyfill (ex: Cardboard).
-      // Se tentarmos alterar o subCam.aspect ou subCam.updateProjectionMatrix()
-      // nós quebraremos a calibração óptica e causaremos distorções (esmagamento).
-      // Portanto, o correto é NÃO FAZER NADA aqui e deixar a API WebXR trabalhar.
-      return;
-    }
+    if (gl.xr.isPresenting) return;
 
     // ======== MODO 2D (PORTRAIT/LANDSCAPE) ========
     const cam = camera as THREE.PerspectiveCamera;
