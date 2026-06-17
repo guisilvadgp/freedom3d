@@ -208,7 +208,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     addLog: (type, message) =>
       set((s) => ({
         consoleLogs: [
-          ...s.consoleLogs,
+          ...s.consoleLogs.slice(-99),
           { id: uuidv4(), type, message, timestamp: Date.now() },
         ],
       })),

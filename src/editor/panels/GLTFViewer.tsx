@@ -13,7 +13,7 @@ import { xrStore } from './SceneView';
 // Habilitar cache global do Three.js para evitar requisições redundantes de rede
 THREE.Cache.enabled = true;
 
-function shrinkTexture(texture: THREE.Texture, maxSize = 4096) {
+function shrinkTexture(texture: THREE.Texture, maxSize = 512) {
   if (!texture || !texture.image) return;
 
   const img = texture.image as any;
@@ -114,9 +114,8 @@ function GLTFMesh({ entity }: { entity: Entity }) {
             textureKeys.forEach((key) => {
               if (mat[key] && mat[key].isTexture) {
                 const tex = mat[key];
-                // Limita texturas a 512px no mobile (economia agressiva) e 2048px no desktop (prevenção contra estouro de VRAM)
-                const maxSize = isMobile ? 512 : 2048;
-                shrinkTexture(tex, maxSize);
+                // Limita texturas agressivamente em todas as plataformas (desktop e mobile) para evitar lag
+                shrinkTexture(tex, 512);
               }
             });
           });
@@ -208,17 +207,18 @@ function GLTFMesh({ entity }: { entity: Entity }) {
           type={rigidBody.isStatic ? 'fixed' : 'dynamic'}
           mass={rigidBody.mass}
           gravityScale={rigidBody.useGravity ? 1 : 0}
-          colliders={rigidBody.collider === 'none' || rigidBody.collider === 'trimesh' ? false : (rigidBody.collider || 'cuboid')}
+          colliders={rigidBody.collider === 'trimesh' || rigidBody.collider === 'none' ? false : (rigidBody.collider || 'cuboid')}
         >
-          <group scale={scale}>
-            <primitive object={clonedScene} />
-          </group>
-          {rigidBody.collider === 'trimesh' && (
+          {rigidBody.collider === 'trimesh' ? (
             <MeshCollider type="trimesh">
               <group scale={scale}>
                 <primitive object={clonedScene} />
               </group>
             </MeshCollider>
+          ) : (
+            <group scale={scale}>
+              <primitive object={clonedScene} />
+            </group>
           )}
         </RigidBody>
       ) : group}

@@ -72,9 +72,15 @@ export function StandalonePlayer() {
   useEffect(() => {
     // Forçar modo Jogo
     setActiveViewport('game');
-    // Garante que inicia pausado enquanto carrega os recursos
-    if (useEditorStore.getState().isPlaying) {
-      togglePlay();
+    
+    // Só força o pause se for o carregamento inicial real da página
+    // e não um HMR (Hot Module Replacement) do Vite
+    const isFirstLoad = !window.sessionStorage.getItem('firstLoadDone');
+    if (isFirstLoad) {
+      window.sessionStorage.setItem('firstLoadDone', 'true');
+      if (useEditorStore.getState().isPlaying) {
+        togglePlay();
+      }
     }
 
     // Capture global errors
@@ -83,8 +89,17 @@ export function StandalonePlayer() {
     };
     window.addEventListener('error', handleError);
     const origError = console.error;
+    
+    // Evitar loop infinito e lag limitando erros repetidos no console
+    const loggedErrors = new Map<string, number>();
     console.error = (...args) => {
-      addLog('error', args.join(' '));
+      const msg = args.join(' ');
+      const now = Date.now();
+      const lastLogged = loggedErrors.get(msg) || 0;
+      if (now - lastLogged > 1000) { // Limita o log a no máximo 1 por segundo para a mesma mensagem
+        loggedErrors.set(msg, now);
+        addLog('error', msg);
+      }
       origError.apply(console, args);
     };
 
@@ -125,8 +140,9 @@ export function StandalonePlayer() {
         if (scene && scene.publishedAt) {
           const lastPublishedAt = window.sessionStorage.getItem('lastPublishedAt');
           if (lastPublishedAt && lastPublishedAt !== scene.publishedAt.toString()) {
-            console.log('Nova cena detectada! Recarregando...');
-            window.location.reload();
+            console.log('Nova cena detectada! Atualizando o cenário sem recarregar a página...');
+            window.sessionStorage.setItem('lastPublishedAt', scene.publishedAt.toString());
+            handleSceneUpdate(scene);
           }
         }
       } catch (err) {}

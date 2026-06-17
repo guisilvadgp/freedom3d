@@ -14,7 +14,7 @@ import { xrStore, attemptTeleport } from './SceneView';
 function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: { entity: Entity; camera: any; isGameView: boolean; isStandalone: boolean }) {
   const ref = useRef<THREE.PerspectiveCamera>(null);
   const [initialHeadsetHeight, setInitialHeadsetHeight] = useState<number | null>(null);
-  
+
   const { gl, scene, camera: defaultCamera } = useThree();
   const raycaster = useRef(new THREE.Raycaster());
   const hoveredRing = useRef<any>(null);
@@ -31,11 +31,11 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
       const xrCam = gl.xr.isPresenting ? gl.xr.getCamera() : defaultCamera;
       raycaster.current.ray.origin.setFromMatrixPosition(xrCam.matrixWorld);
       xrCam.getWorldDirection(raycaster.current.ray.direction);
-      
+
       const intersects = raycaster.current.intersectObjects(scene.children, true);
       const hit = intersects.find(i => i.object.userData?.isTeleportRing);
       if (hit && hit.object.userData.onClick) {
-        hit.object.userData.onClick({ stopPropagation: () => {} });
+        hit.object.userData.onClick({ stopPropagation: () => { } });
       }
     };
 
@@ -82,27 +82,38 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
         }
       }
 
-      // VR Gaze (Hovering) - raycast a cada frame
+      // VR Gaze (Hovering) - raycast otimizado (apenas anéis e rodando a 10fps para não lagar)
       if (isStandalone) {
         const xrCam = state.gl.xr.getCamera();
-        raycaster.current.ray.origin.setFromMatrixPosition(xrCam.matrixWorld);
-        xrCam.getWorldDirection(raycaster.current.ray.direction);
-        
-        const intersects = raycaster.current.intersectObjects(scene.children, true);
-        const hit = intersects.find(i => i.object.userData?.isTeleportRing);
-        if (hit) {
-          if (hoveredRing.current !== hit.object) {
-            if (hoveredRing.current?.userData.setHovered) hoveredRing.current.userData.setHovered(false);
-            hoveredRing.current = hit.object;
-            if (hoveredRing.current?.userData.setHovered) hoveredRing.current.userData.setHovered(true);
-          }
-        } else {
-          if (hoveredRing.current) {
-            if (hoveredRing.current.userData.setHovered) hoveredRing.current.userData.setHovered(false);
-            hoveredRing.current = null;
+        const now = performance.now();
+        const lastRaycast = (raycaster.current as any).lastTime || 0;
+
+        if (now - lastRaycast > 10) {
+          (raycaster.current as any).lastTime = now;
+          raycaster.current.ray.origin.setFromMatrixPosition(xrCam.matrixWorld);
+          xrCam.getWorldDirection(raycaster.current.ray.direction);
+
+          const rings: THREE.Object3D[] = [];
+          scene.traverse((o) => {
+            if (o.userData?.isTeleportRing) rings.push(o);
+          });
+
+          const intersects = raycaster.current.intersectObjects(rings, false);
+          const hit = intersects[0];
+          if (hit) {
+            if (hoveredRing.current !== hit.object) {
+              if (hoveredRing.current?.userData.setHovered) hoveredRing.current.userData.setHovered(false);
+              hoveredRing.current = hit.object;
+              if (hoveredRing.current?.userData.setHovered) hoveredRing.current.userData.setHovered(true);
+            }
+          } else {
+            if (hoveredRing.current) {
+              if (hoveredRing.current.userData.setHovered) hoveredRing.current.userData.setHovered(false);
+              hoveredRing.current = null;
+            }
           }
         }
-        
+
         // Atualizar a posicao do crosshair para grudar no rosto do jogador
         if (crosshairRef.current && xrCam) {
           crosshairRef.current.position.copy(xrCam.position);
@@ -242,7 +253,7 @@ function VRTeleportRing({ entity }: { entity: Entity }) {
   const handleClick = (e: any) => {
     if (e && e.stopPropagation) e.stopPropagation();
     if (!attemptTeleport()) return;
-    
+
     // Move a câmera via atualização da entidade que tem Camera principal
     const storeState = useEditorStore.getState();
     const scene = storeState.activeScene();
@@ -338,10 +349,15 @@ function EntityMesh({ entity }: { entity: Entity }) {
 
   // ── Drag detection: evita seleção acidental ao arrastar a câmera ──
   const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
+  const isPlayer = entity.tags?.includes('player') || !!entity.components.Camera?.isMain;
+
   const handlePointerDown = (e: any) => {
     mouseDownPos.current = { x: e.clientX, y: e.clientY };
   };
+
   const handlePointerUp = (e: any) => {
+    if (isStandalone) return;
+
     if (!mouseDownPos.current) return;
     const dx = Math.abs(e.clientX - mouseDownPos.current.x);
     const dy = Math.abs(e.clientY - mouseDownPos.current.y);
@@ -591,6 +607,7 @@ function EntityMesh({ entity }: { entity: Entity }) {
       receiveShadow={mesh.receiveShadow}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
+      userData={{ isPlayer }}
     >
       {renderGeometry()}
       {renderMaterial()}
@@ -664,33 +681,56 @@ function EntityMesh({ entity }: { entity: Entity }) {
   );
 }
 
+function XRSync() {
+  const groupRef = useRef<THREE.Group>(null);
+
+  useFrame(() => {
+    if (!groupRef.current) return;
+    const storeState = useEditorStore.getState();
+    const scene = storeState.activeScene();
+    const player = Object.values(scene.entities).find(e => e.tags?.includes('player') || e.components.Camera?.isMain);
+    if (!player) return;
+
+    const rb = storeState.rigidBodyRefs[player.id];
+    let ePos = player.components.Transform?.position || [0, 0, 0];
+    let eRot = player.components.Transform?.rotation || [0, 0, 0];
+
+    if (rb) {
+      const trans = rb.translation();
+      ePos = [trans.x, trans.y, trans.z];
+
+      const rot = rb.rotation();
+      const euler = new THREE.Euler().setFromQuaternion(new THREE.Quaternion(rot.x, rot.y, rot.z, rot.w));
+      eRot = [euler.x * 180 / Math.PI, euler.y * 180 / Math.PI, euler.z * 180 / Math.PI];
+    }
+
+    const offset = player.components.Camera?.offset || [0, 0, 0];
+
+    // Smoothly update position to avoid jitter, or direct set for snap teleport
+    groupRef.current.position.set(
+      ePos[0] + offset[0],
+      ePos[1] + offset[1] - 1.6, // Compensate for typical headset height
+      ePos[2] + offset[2]
+    );
+
+    // Apply only yaw (Y rotation) to prevent tilting the playspace
+    groupRef.current.rotation.set(0, eRot[1] * Math.PI / 180, 0);
+  });
+
+  return (
+    <group ref={groupRef}>
+      <XROrigin />
+    </group>
+  );
+}
+
 export function SceneEntities() {
   const scene = useEditorStore(s => s.activeScene());
   const isStandalone = typeof window !== 'undefined' && window.location.pathname === '/preview';
 
-  // Buscar a entidade player/camera para ancorar o XROrigin globalmente sem interferencia da fisica
-  let xrOriginPos: [number, number, number] = [0, 0, 0];
-  let xrOriginScale: [number, number, number] = [1, 1, 1];
-  if (isStandalone) {
-    const player = Object.values(scene.entities).find(e => e.tags?.includes('player') || e.components.Camera?.isMain);
-    if (player) {
-      const ePos = player.components.Transform?.position || [0, 0, 0];
-      const offset = player.components.Camera?.offset || [0, 0, 0];
-      // Altura aproximada do Headset se nao conseguirmos ler, senao usamos o padrao 1.6
-      // Como movi pro root, não temos initialHeadsetHeight aqui com facilidade.
-      // Vou usar 1.6 fixo pro offset e deixar o RoomScale cuidar do resto.
-      xrOriginPos = [
-        ePos[0] + offset[0],
-        ePos[1] + offset[1] - 1.6,
-        ePos[2] + offset[2]
-      ];
-      xrOriginScale = player.components.Transform?.scale || [1, 1, 1];
-    }
-  }
-
   return (
     <>
-      {isStandalone && <XROrigin position={xrOriginPos} scale={xrOriginScale} />}
+      {isStandalone && <XRSync />}
       {scene.rootEntityIds.map(id => {
         const entity = scene.entities[id];
         if (!entity) return null;
