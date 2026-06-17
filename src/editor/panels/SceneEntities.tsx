@@ -209,7 +209,7 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
         {isStandalone && (
           <mesh position={[0, 0, -1.5]}>
             <ringGeometry args={[0.02, 0.03, 32]} />
-            <meshBasicMaterial color="#ffffff" opacity={0.6} transparent depthTest={false} />
+            <meshBasicMaterial color="#ff0000" opacity={0.6} transparent depthTest={false} />
           </mesh>
         )}
       </PerspectiveCamera>
