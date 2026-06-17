@@ -54,10 +54,16 @@ export function StandalonePlayer() {
       togglePlay(); // Inicia física e scripts
     }
 
-    // Entrar no modo VR diretamente ao iniciar
-    xrStore.enterVR().catch(err => {
-      console.warn('Não foi possível entrar no modo VR automaticamente:', err);
-    });
+    // Entrar no modo VR diretamente ao iniciar apenas se for suportado
+    if (navigator.xr) {
+      navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+        if (supported) {
+          xrStore.enterVR().catch(() => {}); // silencia falhas de permissão
+        } else {
+          console.log('ℹ️ Dispositivo não suporta WebXR imersivo. Rodando apenas em tela cheia.');
+        }
+      });
+    }
     setTimeout(() => {
       setShowOverlay(false);
     }, 650);
