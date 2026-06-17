@@ -26,25 +26,11 @@ function CameraCorrector() {
   useFrame(() => {
     // ======== MODO VR (ESTEREOSCÓPICO) ========
     if (gl.xr.isPresenting) {
-      const xrCamera = gl.xr.getCamera();
-      if (xrCamera && xrCamera.cameras.length > 0) {
-        // No modo VR Mobile (Cardboard), a tela é dividida na metade
-        const halfWidth = window.innerWidth / 2;
-        const height = window.innerHeight;
-        const targetAspect = halfWidth / height;
-
-        // Fator de distorção vertical na VR
-        // Aumente para esticar a imagem mais verticalmente (elevar o teto virtual)
-        const vrStretchFactor = 1.6; 
-        const finalVrAspect = targetAspect * vrStretchFactor;
-
-        xrCamera.cameras.forEach((subCam: any) => {
-          if (subCam.isPerspectiveCamera && Math.abs(subCam.aspect - finalVrAspect) > 0.001) {
-            subCam.aspect = finalVrAspect;
-            subCam.updateProjectionMatrix();
-          }
-        });
-      }
+      // IMPORTANTE: Em WebXR, as matrizes de projeção e FOV para cada olho 
+      // são fornecidas DIRETAMENTE pelo hardware/polyfill (ex: Cardboard).
+      // Se tentarmos alterar o subCam.aspect ou subCam.updateProjectionMatrix()
+      // nós quebraremos a calibração óptica e causaremos distorções (esmagamento).
+      // Portanto, o correto é NÃO FAZER NADA aqui e deixar a API WebXR trabalhar.
       return;
     }
 
