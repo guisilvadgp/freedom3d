@@ -1,3 +1,4 @@
+import { StandalonePlayer } from './engine/StandalonePlayer';
 import { Toolbar } from './editor/panels/Toolbar';
 import { HierarchyPanel } from './editor/panels/HierarchyPanel';
 import { SceneView } from './editor/panels/SceneView';
@@ -9,8 +10,23 @@ import { SaveLoadModal } from './editor/panels/SaveLoadModal';
 import { useEditorStore } from './editor/store/editorStore';
 import './index.css';
 
+import { useEffect } from 'react';
 export default function App() {
+  if (window.location.pathname.startsWith('/preview')) {
+    return <StandalonePlayer />;
+  }
   const { bottomTab, setBottomTab } = useEditorStore();
+
+  useEffect(() => {
+    const state = useEditorStore.getState();
+    fetch('/api/sync', { method: 'POST', body: JSON.stringify(state.scenes[state.activeSceneId]) }).catch(() => {});
+    const unsub = useEditorStore.subscribe((state, prevState) => {
+      if (state.scenes[state.activeSceneId] !== prevState.scenes[prevState.activeSceneId]) {
+        fetch('/api/sync', { method: 'POST', body: JSON.stringify(state.scenes[state.activeSceneId]) }).catch(() => {});
+      }
+    });
+    return unsub;
+  }, []);
 
   return (
     <div className="editor-root">
@@ -44,3 +60,7 @@ export default function App() {
     </div>
   );
 }
+
+
+
+

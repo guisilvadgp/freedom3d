@@ -154,3 +154,4 @@ export async function listAssets(): Promise<Omit<StoredAsset, 'buffer'>[]> {
   });
 }
 
+
