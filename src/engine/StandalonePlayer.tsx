@@ -79,7 +79,7 @@ export function StandalonePlayer() {
       .then(scene => {
         handleSceneUpdate(scene);
       })
-      .catch(e => {});
+      .catch(() => {});
 
     // Open Server-Sent Events stream for push notifications when "Publish" is clicked
     const eventSource = new EventSource('/api/sync-stream');
@@ -92,9 +92,17 @@ export function StandalonePlayer() {
       }
     };
 
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'F2' || (e.ctrlKey && e.shiftKey && e.key === 'D')) {
+        setShowDebug(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
     return () => {
       eventSource.close();
       window.removeEventListener('error', handleError);
+      window.removeEventListener('keydown', handleKeyDown);
       console.error = origError;
     };
   }, []);
@@ -102,17 +110,6 @@ export function StandalonePlayer() {
   return (
     <div style={{ width: '100vw', height: '100vh', margin: 0, padding: 0, overflow: 'hidden' }}>
       <SceneView isStandalone={true} />
-      
-      {/* Debug UI */}
-      <div style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 9999 }}>
-        <button 
-          onClick={() => setShowDebug(!showDebug)}
-          style={{ background: '#333', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer' }}
-        >
-          {showDebug ? 'Hide Debug' : 'Show Debug'}
-        </button>
-      </div>
-
       {showDebug && <DebugUI />}
     </div>
   );

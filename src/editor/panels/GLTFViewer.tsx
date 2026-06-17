@@ -10,6 +10,9 @@ import { xrStore, attemptTeleport } from './SceneView';
 
 // ── Um modelo GLTF carregado ─────────────────────────────────
 
+// Habilitar cache global do Three.js para evitar requisições redundantes de rede
+THREE.Cache.enabled = true;
+
 function GLTFMesh({ entity }: { entity: Entity }) {
   const groupRef = useRef<THREE.Group>(null!);
   
@@ -91,6 +94,25 @@ function GLTFMesh({ entity }: { entity: Entity }) {
     });
     return clone;
   }, [gltf.scene, model.castShadow, model.receiveShadow]);
+
+  // Limpeza de recursos na GPU para evitar crashes por estouro de memória no mobile
+  useEffect(() => {
+    return () => {
+      clonedScene.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh) {
+          const mesh = child as THREE.Mesh;
+          if (mesh.geometry) mesh.geometry.dispose();
+          if (mesh.material) {
+            if (Array.isArray(mesh.material)) {
+              mesh.material.forEach((m) => m.dispose());
+            } else {
+              mesh.material.dispose();
+            }
+          }
+        }
+      });
+    };
+  }, [clonedScene]);
 
   const pos = transform.position as [number, number, number];
   const rot = (transform.rotation as [number, number, number]).map(
@@ -205,7 +227,7 @@ function GLTFMesh({ entity }: { entity: Entity }) {
 
 // ── Error boundary simples ───────────────────────────────────
 
-function GLTFErrorFallback({ fileName }: { fileName: string }) {
+export function GLTFErrorFallback({ fileName }: { fileName: string }) {
   return (
     <mesh>
       <boxGeometry args={[1, 1, 1]} />
