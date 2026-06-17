@@ -1,6 +1,6 @@
 import { XROrigin } from '@react-three/xr';
 import { useRef, useState } from 'react';
-import { useThree, useFrame } from '@react-three/fiber';
+import { useFrame } from '@react-three/fiber';
 import { TransformControls, Edges, PositionalAudio, Sparkles, PerspectiveCamera } from '@react-three/drei';
 import { RigidBody, MeshCollider } from '@react-three/rapier';
 import * as THREE from 'three';
@@ -297,12 +297,14 @@ function EntityMesh({ entity }: { entity: Entity }) {
 
   const renderLight = () => {
     if (!light) return null;
-    const lp = transform.position as [number, number, number];
+    // Como esta função é renderizada dentro do container <mesh> que já possui a posição global definida em `pos`,
+    // as luzes locais (point e spot) devem ter posição local [0, 0, 0] para coincidir com a posição visual da entidade no editor.
+    // Também adicionamos decay={1} para melhorar a visibilidade em intensidades mais baixas.
     switch (light.lightType) {
       case 'directional':
         return (
           <directionalLight
-            position={lp}
+            position={[0, 0, 0]}
             color={light.color}
             intensity={light.intensity}
             castShadow={light.castShadow}
@@ -311,19 +313,21 @@ function EntityMesh({ entity }: { entity: Entity }) {
       case 'point':
         return (
           <pointLight
-            position={lp}
+            position={[0, 0, 0]}
             color={light.color}
             intensity={light.intensity}
             castShadow={light.castShadow}
+            decay={1}
           />
         );
       case 'spot':
         return (
           <spotLight
-            position={lp}
+            position={[0, 0, 0]}
             color={light.color}
             intensity={light.intensity}
             castShadow={light.castShadow}
+            decay={1}
           />
         );
       default:
