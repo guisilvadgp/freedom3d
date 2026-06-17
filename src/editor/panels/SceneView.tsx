@@ -1,4 +1,4 @@
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Grid, GizmoHelper, GizmoViewport, Stats, useProgress } from '@react-three/drei';
 import { useRef, Suspense, useEffect } from 'react';
 import { useEditorStore } from '../store/editorStore';
@@ -7,7 +7,6 @@ import { GLTFViewers } from './GLTFViewer';
 import { GameLoop } from '../../engine/systems/GameLoop';
 import { Physics } from '@react-three/rapier';
 import { XR, createXRStore } from '@react-three/xr';
-import * as THREE from 'three';
 import { Eye, Gamepad } from 'lucide-react';
 
 export const xrStore = createXRStore();
@@ -79,52 +78,7 @@ function LoadingTracker({
   return null;
 }
 
-function TeleportCursor() {
-  const meshRef = useRef<THREE.Mesh>(null);
-  const { raycaster, pointer, camera, scene } = useThree();
-  const lastUpdate = useRef(0);
 
-  useFrame((state) => {
-    if (!meshRef.current) return;
-
-    // Throttling: atualiza apenas a cada 60ms (~16 FPS) para economizar processamento
-    const elapsed = state.clock.getElapsedTime();
-    if (elapsed - lastUpdate.current < 0.06) return;
-    lastUpdate.current = elapsed;
-
-    raycaster.setFromCamera(pointer, camera);
-    const intersects = raycaster.intersectObjects(scene.children, true);
-    
-    const valid = intersects.find(intersect => {
-      let obj: THREE.Object3D | null = intersect.object;
-      if (obj === meshRef.current || obj.name === 'teleport-cursor') return false;
-      while (obj) {
-        if (obj.name.toLowerCase().includes('player') || 
-            obj.name.toLowerCase().includes('camera') || 
-            obj.name.toLowerCase().includes('teleport-cursor')) {
-          return false;
-        }
-        obj = obj.parent;
-      }
-      return true;
-    });
-
-    if (valid) {
-      meshRef.current.position.copy(valid.point);
-      meshRef.current.position.y += 0.05;
-      meshRef.current.visible = true;
-    } else {
-      meshRef.current.visible = false;
-    }
-  });
-
-  return (
-    <mesh ref={meshRef} name="teleport-cursor" rotation={[-Math.PI / 2, 0, 0]} visible={false}>
-      <ringGeometry args={[0.3, 0.35, 32]} />
-      <meshBasicMaterial color="#00ffff" transparent opacity={0.8} depthWrite={false} />
-    </mesh>
-  );
-}
 
 export function SceneView({ 
   isStandalone,
@@ -238,9 +192,6 @@ export function SceneView({
 
       {/* Performance stats in play mode */}
       {isPlaying && <Stats />}
-
-      {/* Teleport Cursor Indicator for Standalone / Preview Mode */}
-      {isStandalone && <TeleportCursor />}
     </>
   );
 
@@ -271,6 +222,30 @@ export function SceneView({
         <div style={{ position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)', zIndex: 10, display: 'flex', gap: '10px' }}>
           <button className="panel-btn" onClick={() => xrStore.enterVR()}>Enter VR</button>
           <button className="panel-btn" onClick={() => xrStore.enterAR()}>Enter AR</button>
+        </div>
+      )}
+
+      {/* Cursor de mira HTML puro — zero custo de processamento no game loop */}
+      {isStandalone && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            zIndex: 20,
+            pointerEvents: 'none',
+            width: 32,
+            height: 32,
+          }}
+        >
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="16" cy="16" r="7" stroke="#00ffff" strokeWidth="2" fill="none" opacity="0.9" />
+            <line x1="16" y1="2" x2="16" y2="10" stroke="#00ffff" strokeWidth="2" strokeLinecap="round" opacity="0.9" />
+            <line x1="16" y1="22" x2="16" y2="30" stroke="#00ffff" strokeWidth="2" strokeLinecap="round" opacity="0.9" />
+            <line x1="2" y1="16" x2="10" y2="16" stroke="#00ffff" strokeWidth="2" strokeLinecap="round" opacity="0.9" />
+            <line x1="22" y1="16" x2="30" y2="16" stroke="#00ffff" strokeWidth="2" strokeLinecap="round" opacity="0.9" />
+          </svg>
         </div>
       )}
 
