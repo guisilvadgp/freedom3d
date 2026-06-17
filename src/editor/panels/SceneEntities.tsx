@@ -195,11 +195,12 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
     }
   });
 
+  const entityPos = entity.components.Transform?.position || [0, 0, 0];
   const offset = camera.offset || [0, 0, 0];
   const xrOriginPos: [number, number, number] = [
-    offset[0],
-    offset[1] - (initialHeadsetHeight ?? 1.6),
-    offset[2]
+    entityPos[0] + offset[0],
+    entityPos[1] + offset[1] - (initialHeadsetHeight ?? 1.6),
+    entityPos[2] + offset[2]
   ];
   const xrOriginScale = entity.components.Transform?.scale || [1, 1, 1];
 
@@ -237,13 +238,9 @@ function VRTeleportRing({ entity }: { entity: Entity }) {
   const scale = transform.scale as [number, number, number];
 
   const handleClick = (e: any) => {
-    e.stopPropagation();
+    if (e && e.stopPropagation) e.stopPropagation();
     if (!attemptTeleport()) return;
-    // Teleporta o jogador para a posição do anel
-    xrStore.setState(state => ({
-      ...state,
-      originReferenceSpace: undefined, // reseta para forçar re-posicionamento
-    }));
+    
     // Move a câmera via atualização da entidade que tem Camera principal
     const storeState = useEditorStore.getState();
     const scene = storeState.activeScene();
