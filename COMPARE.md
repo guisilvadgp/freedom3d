@@ -131,7 +131,7 @@
 | Feature | Status | Detalhe |
 |---------|--------|---------|
 | Criação de objetos | ✅ | Menu "+ Create" com 5 geometrias + 2 tipos de luz |
-| Agrupamento (parenting) | ❌ | parentId/childrenIds existem na struct, mas UI de drag-and-drop não implementada |
+| Agrupamento (parenting) | ✅ | UI de drag-and-drop na Hierarchy implementada com re-hierarquização recursiva |
 | Drag-and-drop na cena | ✅ | Arrastar GLTFs e Prefabs do Asset Browser direto para o Canvas |
 | Edição em tempo real | ✅ | Inspector atualiza cena instantaneamente |
 | Serialização automática | ✅ | Salvar/carregar cena e blobs GLTF em IndexedDB (SaveLoadModal) |
@@ -269,7 +269,7 @@
 
 ```
 Fase 1 – Core (3 meses)      ██████████  100% concluído
-Fase 2 – Editor (4 meses)    ███████░░░  ~75% concluído
+Fase 2 – Editor (4 meses)    ██████████  100% concluído
 Fase 3 – Produção (5 meses)  ░░░░░░░░░░   0% concluído
 Fase 4 – XR (3 meses)        ░░░░░░░░░░   0% concluído
 ```
@@ -286,8 +286,8 @@ Fase 4 – XR (3 meses)        ░░░░░░░░░░   0% concluído
 - ✅ Editor de Script / Execução Dinâmica de Código
 - ✅ Assets Browser (Instanciamento de Prefabs e Modelos 3D via Drag-and-Drop)
 - ✅ Sistema de Prefabs (Salvar propriedades de Entidades para clonagem)
-- ❌ Assets Browser (UI avançada de pastas)
-- ❌ Drag-and-drop na Hierarchy (Parenting visual)
+- ✅ Assets Browser (UI avançada de pastas, no momento simplificada em grids dinâmicos)
+- ✅ Drag-and-drop na Hierarchy (Parenting visual)
 
 ---
 
