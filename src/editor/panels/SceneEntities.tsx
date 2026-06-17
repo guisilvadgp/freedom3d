@@ -300,6 +300,7 @@ function EntityMesh({ entity }: { entity: Entity }) {
     // Como esta função é renderizada dentro do container <mesh> que já possui a posição global definida em `pos`,
     // as luzes locais (point e spot) devem ter posição local [0, 0, 0] para coincidir com a posição visual da entidade no editor.
     // Também adicionamos decay={1} para melhorar a visibilidade em intensidades mais baixas.
+    // Adicionamos shadow-bias e shadow-normalBias para evitar o efeito "shadow acne" (listras indesejadas no modelo 3D).
     switch (light.lightType) {
       case 'directional':
         return (
@@ -308,6 +309,8 @@ function EntityMesh({ entity }: { entity: Entity }) {
             color={light.color}
             intensity={light.intensity}
             castShadow={light.castShadow}
+            shadow-bias={-0.0005}
+            shadow-normalBias={0.02}
           />
         );
       case 'point':
@@ -318,6 +321,8 @@ function EntityMesh({ entity }: { entity: Entity }) {
             intensity={light.intensity}
             castShadow={light.castShadow}
             decay={1}
+            shadow-bias={-0.0005}
+            shadow-normalBias={0.02}
           />
         );
       case 'spot':
@@ -328,6 +333,8 @@ function EntityMesh({ entity }: { entity: Entity }) {
             intensity={light.intensity}
             castShadow={light.castShadow}
             decay={1}
+            shadow-bias={-0.0005}
+            shadow-normalBias={0.02}
           />
         );
       default:
