@@ -19,7 +19,8 @@ function VRTeleportRing({ entity }: { entity: Entity }) {
   const rot = (transform.rotation as [number, number, number]).map((d) => (d * Math.PI) / 180) as [number, number, number];
   const scale = transform.scale as [number, number, number];
 
-  const handleClick = () => {
+  const handleClick = (e: any) => {
+    e.stopPropagation();
     if (!attemptTeleport()) return;
     // Teleporta o jogador para a posição do anel
     xrStore.setState(state => ({
