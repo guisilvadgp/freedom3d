@@ -23,36 +23,6 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
       if (camera.rotation) {
         ref.current.rotation.set(camera.rotation[0], camera.rotation[1], camera.rotation[2]);
       }
-
-      // Update aspect ratio dynamically to prevent any stretching/distortion
-      let aspect = state.size.width / state.size.height;
-      const baseFov = camera.fov || 60;
-
-      // Fator de distorção vertical para mobile (portrait)
-      // Um valor maior que 1 vai esticar a cena verticalmente (deixar tudo mais "alto")
-      let stretchFactor = 1.0;
-
-      if (aspect < 1) {
-        stretchFactor = 2.5; // Distorção radical para forçar paredes/teto mais altos
-        
-        const fovRad = (baseFov * Math.PI) / 180;
-        const h = 2 * Math.tan(fovRad / 2);
-        const w = h * (16 / 9); 
-        const newH = w / aspect; 
-        const newFovRad = 2 * Math.atan(newH / 2);
-        
-        ref.current.fov = ((newFovRad * 180) / Math.PI) * 1.3; // Aumentado significativamente o FOV para afastar mais a câmera
-      } else {
-        ref.current.fov = baseFov;
-      }
-
-      // Aplica a distorção forçando a câmera a ter um aspect ratio diferente da tela real
-      const finalAspect = aspect * stretchFactor;
-
-      if (Math.abs(ref.current.aspect - finalAspect) > 0.001) {
-        ref.current.aspect = finalAspect;
-        ref.current.updateProjectionMatrix();
-      }
     }
 
     if (state.gl.xr.isPresenting) {
@@ -169,7 +139,6 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
       {isStandalone && <XROrigin position={xrOriginPos} />}
       <PerspectiveCamera
         ref={ref}
-        manual={true}
         makeDefault={isGameView && camera.isMain}
         position={camera.offset || [0, 0, 0]}
         rotation={camera.rotation || [0, 0, 0]}

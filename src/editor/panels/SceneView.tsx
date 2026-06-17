@@ -20,41 +20,50 @@ export function attemptTeleport(): boolean {
   return true;
 }
 
-function AspectCorrector() {
-  const { gl, camera } = useThree();
+function GlobalCameraCorrector() {
+  const { size, camera } = useThree();
 
   useEffect(() => {
     const cam = camera as THREE.PerspectiveCamera;
+    if (!cam || !cam.isPerspectiveCamera) return;
 
-    // Corrige imediatamente e a cada resize do canvas (inclui rotação do mobile)
-    const update = () => {
-      if (gl.xr.isPresenting) return; // XR gerencia o próprio aspect
-      const { width, height } = gl.domElement.getBoundingClientRect();
-      if (height === 0) return;
-      const aspect = width / height;
-      if (Math.abs(cam.aspect - aspect) > 0.001) {
-        cam.aspect = aspect;
-        cam.updateProjectionMatrix();
-        gl.setSize(width, height, false); // false = não altera o CSS
-      }
-    };
+    // Se estiver em VR (WebXR), o aspecto é gerenciado nativamente pelo headset
+    if ((camera as any).isStereoCamera) return;
 
-    update(); // Corrige já no primeiro render
+    let aspect = size.width / size.height;
+    if (isNaN(aspect) || aspect === 0) return;
 
-    const ro = new ResizeObserver(update);
-    ro.observe(gl.domElement.parentElement ?? gl.domElement);
-    window.addEventListener('orientationchange', update);
-    window.addEventListener('resize', update);
+    const baseFov = 60;
+    let stretchFactor = 1.0; 
+    
+    if (aspect < 1) {
+      stretchFactor = 2.5; // Distorção radical para forçar paredes/teto mais altos
+      
+      const fovRad = (baseFov * Math.PI) / 180;
+      const h = 2 * Math.tan(fovRad / 2);
+      const w = h * (16 / 9); 
+      const newH = w / aspect; 
+      const newFovRad = 2 * Math.atan(newH / 2);
+      
+      cam.fov = ((newFovRad * 180) / Math.PI) * 1.3; // Zoom out extra para afastar a câmera
+    } else {
+      cam.fov = baseFov;
+    }
 
-    return () => {
-      ro.disconnect();
-      window.removeEventListener('orientationchange', update);
-      window.removeEventListener('resize', update);
-    };
-  }, [gl, camera]);
+    // Aplica a distorção forçando a câmera a ter um aspect ratio diferente da tela real
+    const finalAspect = aspect * stretchFactor;
+
+    if (Math.abs(cam.aspect - finalAspect) > 0.001) {
+      cam.aspect = finalAspect;
+    }
+    
+    cam.updateProjectionMatrix();
+  }, [size, camera]);
 
   return null;
 }
+
+
 
 function LoadingTracker({ 
   sceneLoaded,
@@ -137,6 +146,7 @@ export function SceneView({
 
   const content = (
     <>
+      <GlobalCameraCorrector />
       <LoadingTracker sceneLoaded={sceneLoaded} onProgress={onProgress} onLoaded={onLoaded} />
       {/* Background */}
       <color attach="background" args={[scene.backgroundColor]} />
