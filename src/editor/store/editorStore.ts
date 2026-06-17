@@ -35,24 +35,28 @@ export interface ConsoleLog {
 }
 
 function makeDefaultScene(): Scene {
-  const camera = createCamera();
   const light = createDirectionalLight();
   const plane = createPlane();
-  const cube = createCube();
-  cube.components.Transform!.position = [0, 0.5, 0];
+  plane.components.RigidBody = {
+    type: 'RigidBody',
+    mass: 0,
+    isStatic: true,
+    useGravity: false,
+    collider: 'cuboid'
+  };
+  const player = createFirstPersonPlayer();
 
   const entities: Record<EntityId, Entity> = {
-    [camera.id]: camera,
     [light.id]: light,
     [plane.id]: plane,
-    [cube.id]: cube,
+    [player.id]: player,
   };
 
   return {
     id: uuidv4(),
     name: 'Main Scene',
     entities,
-    rootEntityIds: [camera.id, light.id, plane.id, cube.id],
+    rootEntityIds: [light.id, plane.id, player.id],
     backgroundColor: '#1a1a2e',
     ambientColor: '#334466',
     ambientIntensity: 0.4,
