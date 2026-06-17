@@ -23,7 +23,7 @@ import {
 
 export type EditorMode = 'select' | 'translate' | 'rotate' | 'scale';
 export type ViewMode = 'perspective' | 'top' | 'front' | 'right';
-export type PanelTab = 'hierarchy' | 'assets' | 'console';
+export type PanelTab = 'hierarchy' | 'assets' | 'console' | 'script';
 
 export interface ConsoleLog {
   id: string;

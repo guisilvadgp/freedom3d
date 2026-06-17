@@ -16,6 +16,9 @@ export function GameLoop() {
   const frame = useRef(0);
   const started = useRef(false);
   const stopped = useRef(false);
+  
+  // Cache de funções compiladas: entityId -> Function
+  const compiledScripts = useRef<Record<string, Function>>({});
 
   useFrame((_state, delta) => {
     if (!isPlaying) {
@@ -34,6 +37,27 @@ export function GameLoop() {
       started.current = true;
       stopped.current = false;
       addLog('info', '▶ Game loop iniciado (Update @ requestAnimationFrame, FixedUpdate @ 60Hz)');
+      
+      // Compila todos os scripts ativos na cena
+      const scene = activeScene();
+      compiledScripts.current = {};
+      for (const id of scene.rootEntityIds) { // TODO: iterar recursivamente para filhos
+        const entity = scene.entities[id];
+        if (!entity?.active || !entity.components.Script) continue;
+        
+        const code = entity.components.Script.code;
+        try {
+          const cleanCode = code.replace(/export function/g, 'function');
+          compiledScripts.current[entity.id] = new Function('entity', 'delta', 'updateComponent', `
+            ${cleanCode}
+            if (typeof onUpdate === "function") {
+              onUpdate(delta);
+            }
+          `);
+        } catch(err) {
+          addLog('error', `Erro ao compilar script "${entity.name}": ${String(err)}`);
+        }
+      }
     }
 
     frame.current++;
@@ -45,9 +69,14 @@ export function GameLoop() {
     for (const id of scene.rootEntityIds) {
       const entity = scene.entities[id];
       if (!entity?.active) continue;
-      if (entity.components.Script) {
-        // TODO: executar ScriptComponent.code via Function() sandboxed
-        // engine.emit('update', entity.id, delta);
+      
+      const fn = compiledScripts.current[entity.id];
+      if (fn) {
+        try {
+          fn(entity, delta, useEditorStore.getState().updateComponent);
+        } catch(err) {
+          console.error(`Runtime script error on ${entity.name}:`, err);
+        }
       }
     }
 
