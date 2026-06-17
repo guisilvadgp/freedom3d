@@ -19,6 +19,8 @@ import {
   createCylinder,
   createTorus,
   createPointLight,
+  createFirstPersonPlayer,
+  createThirdPersonPlayer,
 } from '../../engine/ecs/EntityFactory';
 
 export type EditorMode = 'select' | 'translate' | 'rotate' | 'scale';
@@ -190,6 +192,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         case 'torus': entity = createTorus(); break;
         case 'directional': entity = createDirectionalLight(); break;
         case 'point': entity = createPointLight(); break;
+        case 'first-person': entity = createFirstPersonPlayer(); break;
+        case 'third-person': entity = createThirdPersonPlayer(); break;
         default: entity = createCube();
       }
       get().addLog('log', `Entidade criada: "${entity.name}"`);

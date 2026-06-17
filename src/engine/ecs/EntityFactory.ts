@@ -125,3 +125,67 @@ export function createTorus(name = 'Torus'): Entity {
   };
   return e;
 }
+
+export function createFirstPersonPlayer(name = 'First Person Player'): Entity {
+  const e = createEntity(name);
+  e.components.Transform!.position = [0, 2, 0];
+  e.components.MeshRenderer = {
+    type: 'MeshRenderer',
+    geometry: 'cylinder',
+    material: 'standard',
+    color: '#3498db',
+    castShadow: true,
+    receiveShadow: true,
+  };
+  e.components.RigidBody = {
+    type: 'RigidBody',
+    mass: 1,
+    isStatic: false,
+    useGravity: true,
+  };
+  e.components.Camera = {
+    type: 'Camera',
+    fov: 75,
+    near: 0.1,
+    far: 1000,
+    isMain: true,
+  };
+  e.components.Script = {
+    type: 'Script',
+    scriptName: 'FPSController',
+    code: \// Controle em 1a Pessoa
+export function onUpdate(delta) {
+  // A Camera é anexada a esta entidade e herda o transform.
+  // Logica simples de giro. No futuro, adicione listeners de mouse/teclado.
+}\
+  };
+  return e;
+}
+
+export function createThirdPersonPlayer(name = 'Third Person Player'): Entity {
+  const e = createEntity(name);
+  e.components.Transform!.position = [0, 2, 0];
+  e.components.MeshRenderer = {
+    type: 'MeshRenderer',
+    geometry: 'cylinder',
+    material: 'standard',
+    color: '#e74c3c',
+    castShadow: true,
+    receiveShadow: true,
+  };
+  e.components.RigidBody = {
+    type: 'RigidBody',
+    mass: 1,
+    isStatic: false,
+    useGravity: true,
+  };
+  e.components.Script = {
+    type: 'Script',
+    scriptName: 'TPSController',
+    code: \// Controle em 3a Pessoa
+export function onUpdate(delta) {
+  // Lógica de WASD e controle de RigidBody.
+}\
+  };
+  return e;
+}

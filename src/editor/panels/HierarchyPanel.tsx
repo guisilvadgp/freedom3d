@@ -14,6 +14,11 @@ const LIGHT_TYPES = [
   { id: 'point', label: '💡 Point Light' },
 ];
 
+const PLAYER_TYPES = [
+  { id: 'first-person', label: '🚶 First Person Player' },
+  { id: 'third-person', label: '🏃 Third Person Player' },
+];
+
 export function HierarchyPanel() {
   const {
     activeScene, selectedEntityId, selectEntity,
@@ -65,6 +70,12 @@ export function HierarchyPanel() {
           ))}
           <div className="create-menu-section">Lights</div>
           {LIGHT_TYPES.map((t) => (
+            <button key={t.id} className="create-menu-item" onClick={() => handleCreate(t.id)}>
+              {t.label}
+            </button>
+          ))}
+          <div className="create-menu-section">Players</div>
+          {PLAYER_TYPES.map((t) => (
             <button key={t.id} className="create-menu-item" onClick={() => handleCreate(t.id)}>
               {t.label}
             </button>
