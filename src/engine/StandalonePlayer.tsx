@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { SceneView } from '../editor/panels/SceneView';
+import { SceneView, xrStore } from '../editor/panels/SceneView';
 import { useEditorStore } from '../editor/store/editorStore';
 
 function DebugUI() {
@@ -52,6 +52,10 @@ export function StandalonePlayer() {
     if (!useEditorStore.getState().isPlaying) {
       togglePlay(); // Inicia física e scripts
     }
+    // Entrar no modo VR diretamente ao iniciar
+    xrStore.enterVR().catch(err => {
+      console.warn('Não foi possível entrar no modo VR automaticamente:', err);
+    });
     setTimeout(() => {
       setShowOverlay(false);
     }, 650);
