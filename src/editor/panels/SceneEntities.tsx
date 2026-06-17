@@ -30,10 +30,10 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
 
       // Fator de distorção vertical para mobile (portrait)
       // Um valor maior que 1 vai esticar a cena verticalmente (deixar tudo mais "alto")
-      let stretchFactor = 1.0; 
-      
+      let stretchFactor = 1.0;
+
       if (aspect < 1) {
-        stretchFactor = 1.8; // Aumentado agressivamente para dar mais distorção
+        stretchFactor = 2.5; // Distorção radical para forçar paredes/teto mais altos
         
         const fovRad = (baseFov * Math.PI) / 180;
         const h = 2 * Math.tan(fovRad / 2);
@@ -41,7 +41,7 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
         const newH = w / aspect; 
         const newFovRad = 2 * Math.atan(newH / 2);
         
-        ref.current.fov = (newFovRad * 180) / Math.PI;
+        ref.current.fov = ((newFovRad * 180) / Math.PI) * 1.3; // Aumentado significativamente o FOV para afastar mais a câmera
       } else {
         ref.current.fov = baseFov;
       }
@@ -167,14 +167,15 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
   return (
     <>
       {isStandalone && <XROrigin position={xrOriginPos} />}
-      <PerspectiveCamera 
+      <PerspectiveCamera
         ref={ref}
-        makeDefault={isGameView && camera.isMain} 
+        manual={true}
+        makeDefault={isGameView && camera.isMain}
         position={camera.offset || [0, 0, 0]}
         rotation={camera.rotation || [0, 0, 0]}
-        fov={camera.fov} 
-        near={camera.near} 
-        far={camera.far} 
+        fov={camera.fov}
+        near={camera.near}
+        far={camera.far}
       />
     </>
   );
@@ -208,7 +209,7 @@ function VRTeleportRing({ entity }: { entity: Entity }) {
         storeState.updateComponent(e.id, 'Transform', {
           position: targetPos,
         });
-        
+
         // Se houver um RigidBody físico ativo, teleporta e zera a velocidade dele
         const rb = storeState.rigidBodyRefs[e.id];
         if (rb) {
@@ -248,11 +249,11 @@ function VRTeleportRing({ entity }: { entity: Entity }) {
         onPointerOut={() => setHovered(false)}
       >
         <circleGeometry args={[0.58, 64]} />
-        <meshBasicMaterial 
-          color={hovered ? '#ffffff' : '#00ffff'} 
-          transparent 
-          opacity={0.25} 
-          side={THREE.DoubleSide} 
+        <meshBasicMaterial
+          color={hovered ? '#ffffff' : '#00ffff'}
+          transparent
+          opacity={0.25}
+          side={THREE.DoubleSide}
         />
       </mesh>
     </group>
@@ -261,7 +262,7 @@ function VRTeleportRing({ entity }: { entity: Entity }) {
 
 function EntityMesh({ entity }: { entity: Entity }) {
   const meshRef = useRef<THREE.Mesh>(null!);
-  
+
   const selectedEntityId = useEditorStore(s => s.selectedEntityId);
   const selectEntity = useEditorStore(s => s.selectEntity);
   const editorMode = useEditorStore(s => s.editorMode);
@@ -271,7 +272,7 @@ function EntityMesh({ entity }: { entity: Entity }) {
   const snapValue = useEditorStore(s => s.snapValue);
   const setRigidBodyRef = useEditorStore(s => s.setRigidBodyRef);
   const activeViewport = useEditorStore(s => s.activeViewport);
-  
+
   const isGameView = activeViewport === 'game';
   const isStandalone = typeof window !== 'undefined' && window.location.pathname === '/preview';
   const transform = entity.components.Transform;
@@ -291,7 +292,7 @@ function EntityMesh({ entity }: { entity: Entity }) {
   const scale = transform.scale as [number, number, number];
 
   // ── Drag detection: evita seleção acidental ao arrastar a câmera ──
-  const mouseDownPos = useRef<{x: number; y: number} | null>(null);
+  const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
   const handlePointerDown = (e: any) => {
     mouseDownPos.current = { x: e.clientX, y: e.clientY };
   };
@@ -467,27 +468,27 @@ function EntityMesh({ entity }: { entity: Entity }) {
       >
         <sphereGeometry args={[0.2, 8, 8]} />
         <meshBasicMaterial color={light ? light.color : "#ffffff"} wireframe opacity={0.3} transparent visible={!isGameView} />
-        
+
         {renderLight()}
         {audio && audio.src && (
           <PositionalAudio url={audio.src} loop={audio.loop} autoplay={audio.playOnStart} distance={10} />
         )}
         {particles && (
-          <Sparkles 
-            count={particles.count} 
-            scale={5} 
-            size={particles.size} 
-            speed={particles.speed} 
-            color={particles.color} 
+          <Sparkles
+            count={particles.count}
+            scale={5}
+            size={particles.size}
+            speed={particles.speed}
+            color={particles.color}
           />
         )}
         {/* Camera */}
         {camera && (
-          <PerspectiveCameraWrapper 
+          <PerspectiveCameraWrapper
             entity={entity}
-            camera={camera} 
-            isGameView={isGameView} 
-            isStandalone={isStandalone} 
+            camera={camera}
+            isGameView={isGameView}
+            isStandalone={isStandalone}
           />
         )}
         {entity.childrenIds && entity.childrenIds.map(id => {
@@ -501,11 +502,11 @@ function EntityMesh({ entity }: { entity: Entity }) {
     return (
       <>
         {(rigidBody && isPlaying) ? (
-          <RigidBody 
+          <RigidBody
             ref={(rb) => { if (rb) setRigidBodyRef(entity.id, rb); }}
             position={pos}
             rotation={rot}
-            type={rigidBody.isStatic ? 'fixed' : 'dynamic'} 
+            type={rigidBody.isStatic ? 'fixed' : 'dynamic'}
             mass={rigidBody.mass}
             gravityScale={rigidBody.useGravity ? 1 : 0}
             colliders={rigidBody.collider === 'none' || rigidBody.collider === 'trimesh' ? false : (rigidBody.collider || 'cuboid')}
@@ -520,7 +521,7 @@ function EntityMesh({ entity }: { entity: Entity }) {
             )}
           </RigidBody>
         ) : emptyMesh}
-        
+
         {isSelected && !isGameView && (
           <TransformControls
             object={meshRef}
@@ -554,21 +555,21 @@ function EntityMesh({ entity }: { entity: Entity }) {
       )}
       {/* Particles */}
       {particles && (
-        <Sparkles 
-          count={particles.count} 
-          scale={5} 
-          size={particles.size} 
-          speed={particles.speed} 
-          color={particles.color} 
+        <Sparkles
+          count={particles.count}
+          scale={5}
+          size={particles.size}
+          speed={particles.speed}
+          color={particles.color}
         />
       )}
       {/* Camera */}
       {camera && (
-        <PerspectiveCameraWrapper 
+        <PerspectiveCameraWrapper
           entity={entity}
-          camera={camera} 
-          isGameView={isGameView} 
-          isStandalone={isStandalone} 
+          camera={camera}
+          isGameView={isGameView}
+          isStandalone={isStandalone}
         />
       )}
       {/* Selection outline */}
@@ -586,11 +587,11 @@ function EntityMesh({ entity }: { entity: Entity }) {
   return (
     <>
       {(rigidBody && isPlaying) ? (
-        <RigidBody 
+        <RigidBody
           ref={(rb) => { if (rb) setRigidBodyRef(entity.id, rb); }}
           position={pos}
           rotation={rot}
-          type={rigidBody.isStatic ? 'fixed' : 'dynamic'} 
+          type={rigidBody.isStatic ? 'fixed' : 'dynamic'}
           mass={rigidBody.mass}
           gravityScale={rigidBody.useGravity ? 1 : 0}
           colliders={rigidBody.collider === 'none' || rigidBody.collider === 'trimesh' ? false : (rigidBody.collider || 'cuboid')}
@@ -603,7 +604,7 @@ function EntityMesh({ entity }: { entity: Entity }) {
           )}
         </RigidBody>
       ) : innerMesh}
-      
+
       {isSelected && !isGameView && (
         <TransformControls
           object={meshRef}
