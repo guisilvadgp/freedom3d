@@ -37,28 +37,41 @@ function VRTeleportRing({ entity }: { entity: Entity }) {
   };
 
   return (
-    <mesh
+    <group
       position={pos}
       rotation={rot}
       scale={scale}
-      onClick={handleClick}
-      onPointerOver={() => setHovered(true)}
-      onPointerOut={() => setHovered(false)}
     >
-      <torusGeometry args={[0.6, 0.06, 16, 64]} />
-      <meshStandardMaterial
-        color={hovered ? '#ffffff' : '#00ffff'}
-        emissive={hovered ? '#00ffff' : '#007777'}
-        emissiveIntensity={hovered ? 2 : 1}
-        roughness={0.2}
-        metalness={0.8}
-      />
-      {/* Disco de chão translúcido */}
-      <mesh rotation={[0, 0, 0]}>
-        <circleGeometry args={[0.55, 64]} />
-        <meshBasicMaterial color={hovered ? '#00ffff' : '#004444'} transparent opacity={0.25} side={THREE.DoubleSide} />
+      {/* Torus */}
+      <mesh
+        onClick={handleClick}
+        onPointerOver={() => setHovered(true)}
+        onPointerOut={() => setHovered(false)}
+      >
+        <torusGeometry args={[0.6, 0.06, 16, 64]} />
+        <meshStandardMaterial
+          color={hovered ? '#ffffff' : '#00ffff'}
+          emissive={hovered ? '#00ffff' : '#007777'}
+          emissiveIntensity={hovered ? 2 : 1}
+          roughness={0.2}
+          metalness={0.8}
+        />
       </mesh>
-    </mesh>
+      {/* Disco de chão translúcido para capturar cliques de raycast de forma perfeita */}
+      <mesh
+        onClick={handleClick}
+        onPointerOver={() => setHovered(true)}
+        onPointerOut={() => setHovered(false)}
+      >
+        <circleGeometry args={[0.58, 64]} />
+        <meshBasicMaterial 
+          color={hovered ? '#ffffff' : '#00ffff'} 
+          transparent 
+          opacity={0.25} 
+          side={THREE.DoubleSide} 
+        />
+      </mesh>
+    </group>
   );
 }
 
@@ -143,18 +156,30 @@ function EntityMesh({ entity }: { entity: Entity }) {
     // No editor: anel com TransformControls para poder mover
     return (
       <>
-        <mesh
+        <group
           ref={meshRef}
           position={pos}
           rotation={rot}
           scale={scale}
-          onPointerDown={handlePointerDown}
-          onPointerUp={handlePointerUp}
         >
-          <torusGeometry args={[0.6, 0.06, 16, 64]} />
-          <meshStandardMaterial color="#00ffff" emissive={isSelected ? '#00ffff' : '#007777'} emissiveIntensity={isSelected ? 1.5 : 0.8} />
-          {isSelected && <Edges scale={1.05} color="#44aaff" />}
-        </mesh>
+          {/* Torus */}
+          <mesh
+            onPointerDown={handlePointerDown}
+            onPointerUp={handlePointerUp}
+          >
+            <torusGeometry args={[0.6, 0.06, 16, 64]} />
+            <meshStandardMaterial color="#00ffff" emissive={isSelected ? '#00ffff' : '#007777'} emissiveIntensity={isSelected ? 1.5 : 0.8} />
+            {isSelected && <Edges scale={1.05} color="#44aaff" />}
+          </mesh>
+          {/* Disco de chão translúcido para facilitar seleção no editor */}
+          <mesh
+            onPointerDown={handlePointerDown}
+            onPointerUp={handlePointerUp}
+          >
+            <circleGeometry args={[0.58, 64]} />
+            <meshBasicMaterial color="#00ffff" transparent opacity={0.15} side={THREE.DoubleSide} />
+          </mesh>
+        </group>
         {isSelected && !isGameView && (
           <TransformControls
             object={meshRef}
