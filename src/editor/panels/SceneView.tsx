@@ -252,25 +252,16 @@ export function SceneView({
 
       <div
         style={
-          isStandalone
+          isStandalone || isGameView
             ? {
-                // Preview: tela cheia sem restrição — câmera Three.js gerencia o aspecto
+                // Preview e Game View: letterbox 16:9 centralizado com barras pretas
                 width: '100%',
                 height: '100%',
-                position: 'relative',
-              }
-            : isGameView
-            ? {
-                // Editor Game View: letterbox 16:9
-                aspectRatio: '16 / 9',
-                width: '100%',
-                height: '100%',
-                maxWidth: '100%',
-                maxHeight: '100%',
-                position: 'relative',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                position: 'relative',
+                background: '#000',
               }
             : {
                 width: '100%',
@@ -279,6 +270,25 @@ export function SceneView({
               }
         }
       >
+        {/* Container 16:9 interno — faz o letterbox real */}
+        <div
+          style={
+            isStandalone || isGameView
+              ? {
+                  aspectRatio: '16 / 9',
+                  maxWidth: '100%',
+                  maxHeight: '100%',
+                  width: '100%',
+                  position: 'relative',
+                  overflow: 'hidden',
+                }
+              : {
+                  width: '100%',
+                  height: '100%',
+                  position: 'relative',
+                }
+          }
+        >
         <Canvas
           shadows
           dpr={[1, 2]}
@@ -296,6 +306,7 @@ export function SceneView({
         >
           {isStandalone ? <XR store={xrStore}>{content}</XR> : content}
         </Canvas>
+        </div>
       </div>
     </div>
   );
