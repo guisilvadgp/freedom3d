@@ -6,6 +6,7 @@ import { RigidBody, MeshCollider } from '@react-three/rapier';
 import * as THREE from 'three';
 import { useEditorStore } from '../store/editorStore';
 import type { Entity } from '../../engine/ecs/types';
+import { xrStore } from './SceneView';
 
 // ── Um modelo GLTF carregado ─────────────────────────────────
 
@@ -38,6 +39,28 @@ function GLTFMesh({ entity }: { entity: Entity }) {
       e.stopPropagation();
       selectEntity(entity.id);
     }
+  };
+
+  const handleStandaloneClick = (e: any) => {
+    if (!isStandalone) return;
+    if (entity.tags?.includes('player') || entity.components.Camera?.isMain || entity.tags?.includes('teleport')) return;
+
+    e.stopPropagation();
+
+    xrStore.setState(state => ({
+      ...state,
+      originReferenceSpace: undefined,
+    }));
+    
+    const clickPoint = e.point;
+    const scene = useEditorStore.getState().activeScene();
+    Object.values(scene.entities).forEach(playerEnt => {
+      if (playerEnt.tags?.includes('player') || playerEnt.components.Camera?.isMain) {
+        useEditorStore.getState().updateComponent(playerEnt.id, 'Transform', {
+          position: [clickPoint.x, clickPoint.y, clickPoint.z],
+        });
+      }
+    });
   };
 
   const gltf = useLoader(GLTFLoader, model.src);
@@ -113,6 +136,7 @@ function GLTFMesh({ entity }: { entity: Entity }) {
       scale={scale}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
+      onClick={handleStandaloneClick}
     >
       <primitive object={clonedScene} />
 
@@ -137,12 +161,12 @@ function GLTFMesh({ entity }: { entity: Entity }) {
           gravityScale={rigidBody.useGravity ? 1 : 0}
           colliders={rigidBody.collider === 'none' || rigidBody.collider === 'trimesh' ? false : (rigidBody.collider || 'cuboid')}
         >
-          <group scale={scale}>
+          <group scale={scale} onClick={handleStandaloneClick}>
             <primitive object={clonedScene} />
           </group>
           {rigidBody.collider === 'trimesh' && (
             <MeshCollider type="trimesh">
-              <group scale={scale}>
+              <group scale={scale} onClick={handleStandaloneClick}>
                 <primitive object={clonedScene} />
               </group>
             </MeshCollider>

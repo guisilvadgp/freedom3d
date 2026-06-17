@@ -9,7 +9,7 @@ import { Physics } from '@react-three/rapier';
 import { XR, createXRStore } from '@react-three/xr';
 import * as THREE from 'three';
 
-const store = createXRStore();
+export const xrStore = createXRStore();
 
 export function SceneView({ isStandalone }: { isStandalone?: boolean }) {
   const { showGrid, isPlaying, activeScene, showGizmos, activeViewport, setActiveViewport } = useEditorStore();
@@ -118,8 +118,8 @@ export function SceneView({ isStandalone }: { isStandalone?: boolean }) {
 
       {isStandalone && (
         <div style={{ position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)', zIndex: 10, display: 'flex', gap: '10px' }}>
-          <button className="panel-btn" onClick={() => store.enterVR()}>Enter VR</button>
-          <button className="panel-btn" onClick={() => store.enterAR()}>Enter AR</button>
+          <button className="panel-btn" onClick={() => xrStore.enterVR()}>Enter VR</button>
+          <button className="panel-btn" onClick={() => xrStore.enterAR()}>Enter AR</button>
         </div>
       )}
 
@@ -128,7 +128,7 @@ export function SceneView({ isStandalone }: { isStandalone?: boolean }) {
         gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping }}
         camera={{ fov: 60, near: 0.1, far: 1000, position: [5, 5, 8] }}
       >
-        {isStandalone ? <XR store={store}>{content}</XR> : content}
+        {isStandalone ? <XR store={xrStore}>{content}</XR> : content}
       </Canvas>
     </div>
   );

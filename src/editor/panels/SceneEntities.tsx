@@ -1,4 +1,4 @@
-import { XROrigin, useXRStore } from '@react-three/xr';
+import { XROrigin } from '@react-three/xr';
 import { useRef, useState } from 'react';
 import { useThree } from '@react-three/fiber';
 import { TransformControls, Edges, PositionalAudio, Sparkles, PerspectiveCamera } from '@react-three/drei';
@@ -6,11 +6,11 @@ import { RigidBody, MeshCollider } from '@react-three/rapier';
 import * as THREE from 'three';
 import { useEditorStore } from '../store/editorStore';
 import type { Entity } from '../../engine/ecs/types';
+import { xrStore } from './SceneView';
 
 // ── VR Teleport Ring ──────────────────────────────────────────
 // Only rendered in /preview (StandalonePlayer), inside <XR>.
 function VRTeleportRing({ entity }: { entity: Entity }) {
-  const xrStore = useXRStore();
   const transform = entity.components.Transform;
   const [hovered, setHovered] = useState(false);
   if (!transform) return null;
@@ -110,6 +110,30 @@ function EntityMesh({ entity }: { entity: Entity }) {
       e.stopPropagation();
       selectEntity(entity.id);
     }
+  };
+
+  const handleStandaloneClick = (e: any) => {
+    if (!isStandalone) return;
+    
+    // Evita teleporte ao clicar em si mesmo, no teleport ring ou em outras tags de teleport
+    if (entity.tags?.includes('player') || entity.components.Camera?.isMain || entity.tags?.includes('teleport')) return;
+
+    e.stopPropagation();
+
+    xrStore.setState(state => ({
+      ...state,
+      originReferenceSpace: undefined,
+    }));
+    
+    const clickPoint = e.point;
+    const scene = useEditorStore.getState().activeScene();
+    Object.values(scene.entities).forEach(playerEnt => {
+      if (playerEnt.tags?.includes('player') || playerEnt.components.Camera?.isMain) {
+        useEditorStore.getState().updateComponent(playerEnt.id, 'Transform', {
+          position: [clickPoint.x, clickPoint.y, clickPoint.z],
+        });
+      }
+    });
   };
 
   const handleChange = () => {
@@ -337,6 +361,7 @@ function EntityMesh({ entity }: { entity: Entity }) {
       receiveShadow={mesh.receiveShadow}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
+      onClick={handleStandaloneClick}
     >
       {renderGeometry()}
       {renderMaterial()}
