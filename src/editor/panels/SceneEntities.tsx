@@ -133,10 +133,11 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
     offset[1] - (initialHeadsetHeight ?? 1.6),
     offset[2]
   ];
+  const xrOriginScale = entity.components.Transform?.scale || [1, 1, 1];
 
   return (
     <>
-      {isStandalone && <XROrigin position={xrOriginPos} />}
+      {isStandalone && <XROrigin position={xrOriginPos} scale={xrOriginScale as [number, number, number]} />}
       <PerspectiveCamera
         ref={ref}
         makeDefault={isGameView && camera.isMain}
