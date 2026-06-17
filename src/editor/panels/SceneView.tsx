@@ -7,6 +7,7 @@ import { GLTFViewers } from './GLTFViewer';
 import { GameLoop } from '../../engine/systems/GameLoop';
 import { Physics } from '@react-three/rapier';
 import { XR, createXRStore } from '@react-three/xr';
+import * as THREE from 'three';
 import { Eye, Gamepad } from 'lucide-react';
 
 export const xrStore = createXRStore();
