@@ -170,7 +170,14 @@ export function StandalonePlayer() {
         <div 
           onClick={() => {
             if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
-              document.documentElement.requestFullscreen().catch(() => {});
+              document.documentElement.requestFullscreen().then(() => {
+                // Tenta forçar o modo paisagem (landscape) automaticamente no mobile
+                if (window.screen && window.screen.orientation && window.screen.orientation.lock) {
+                  window.screen.orientation.lock('landscape').catch(err => {
+                    console.warn('Bloqueio de orientação falhou/não suportado:', err);
+                  });
+                }
+              }).catch(() => {});
             }
           }}
           style={{
