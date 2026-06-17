@@ -40,7 +40,7 @@ function CameraCorrector() {
         if (xrCamera && xrCamera.cameras.length > 0) {
           // FATOR DE DISTORÇÃO VERTICAL NA VR
           // 1.0 = Normal. Maior que 1.0 = Estica verticalmente (paredes parecem mais altas).
-          const vrStretchFactor = 1.35; 
+          const vrStretchFactor: number = 1.5;
 
           xrCamera.cameras.forEach((subCam: any) => {
             // A posição 5 do array da matriz de projeção controla a escala no eixo Y.
@@ -71,17 +71,17 @@ function CameraCorrector() {
     if (isNaN(aspect) || aspect === 0) return;
 
     const baseFov = 60;
-    let stretchFactor = 1.0; 
-    
+    let stretchFactor = 1.0;
+
     if (aspect < 1) {
       stretchFactor = 1.0; // Voltando ao normal no 2D, já que o problema relatado era na VR
-      
+
       const fovRad = (baseFov * Math.PI) / 180;
       const h = 2 * Math.tan(fovRad / 2);
-      const w = h * (16 / 9); 
-      const newH = w / aspect; 
+      const w = h * (16 / 9);
+      const newH = w / aspect;
       const newFovRad = 2 * Math.atan(newH / 2);
-      
+
       cam.fov = (newFovRad * 180) / Math.PI;
     } else {
       cam.fov = baseFov;
@@ -99,11 +99,11 @@ function CameraCorrector() {
 
 
 
-function LoadingTracker({ 
+function LoadingTracker({
   sceneLoaded,
-  onProgress, 
-  onLoaded 
-}: { 
+  onProgress,
+  onLoaded
+}: {
   sceneLoaded: boolean;
   onProgress?: (progress: number) => void;
   onLoaded?: () => void;
@@ -134,12 +134,12 @@ function LoadingTracker({
 
 
 
-export function SceneView({ 
+export function SceneView({
   isStandalone,
   sceneLoaded = true,
   onProgress,
   onLoaded
-}: { 
+}: {
   isStandalone?: boolean;
   sceneLoaded?: boolean;
   onProgress?: (progress: number) => void;
@@ -152,18 +152,18 @@ export function SceneView({
   const setActiveViewport = useEditorStore(s => s.setActiveViewport);
   const scene = useEditorStore(s => s.scenes[s.activeSceneId]);
   const isGameView = isStandalone || activeViewport === 'game';
-  
+
   const isDragging = useRef(false);
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     const dataStr = e.dataTransfer.getData('application/json');
     if (!dataStr) return;
-    
+
     try {
       const data = JSON.parse(dataStr);
       const store = useEditorStore.getState();
-      
+
       if (data.type === 'prefab') {
         store.instantiatePrefab(data.index);
       } else if (data.type === 'gltf') {
@@ -250,9 +250,9 @@ export function SceneView({
   );
 
   return (
-    <div 
-      className="scene-view" 
-      onDrop={handleDrop} 
+    <div
+      className="scene-view"
+      onDrop={handleDrop}
       onDragOver={handleDragOver}
       style={{
         display: 'flex',
