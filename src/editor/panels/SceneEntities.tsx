@@ -202,9 +202,11 @@ function EntityMesh({ entity }: { entity: Entity }) {
 
   return (
     <>
-      <group position={pos} rotation={rot} scale={scale}>
+      <group scale={scale}>
         {rigidBody ? (
           <RigidBody 
+            position={pos}
+            rotation={rot}
             type={rigidBody.isStatic ? 'fixed' : 'dynamic'} 
             mass={rigidBody.mass}
             gravityScale={rigidBody.useGravity ? 1 : 0}
