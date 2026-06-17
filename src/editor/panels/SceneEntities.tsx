@@ -16,6 +16,8 @@ function VRTeleportRing({ entity }: { entity: Entity }) {
   if (!transform) return null;
 
   const pos = transform.position as [number, number, number];
+  const rot = (transform.rotation as [number, number, number]).map((d) => (d * Math.PI) / 180) as [number, number, number];
+  const scale = transform.scale as [number, number, number];
 
   const handleClick = () => {
     // Teleporta o jogador para a posição do anel
@@ -37,7 +39,8 @@ function VRTeleportRing({ entity }: { entity: Entity }) {
   return (
     <mesh
       position={pos}
-      rotation={[Math.PI / 2, 0, 0]}
+      rotation={rot}
+      scale={scale}
       onClick={handleClick}
       onPointerOver={() => setHovered(true)}
       onPointerOut={() => setHovered(false)}
@@ -143,7 +146,8 @@ function EntityMesh({ entity }: { entity: Entity }) {
         <mesh
           ref={meshRef}
           position={pos}
-          rotation={[Math.PI / 2, 0, 0]}
+          rotation={rot}
+          scale={scale}
           onPointerDown={handlePointerDown}
           onPointerUp={handlePointerUp}
         >
