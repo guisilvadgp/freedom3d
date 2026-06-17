@@ -163,6 +163,7 @@ function EntityMesh({ entity }: { entity: Entity }) {
       ref={meshRef}
       position={!rigidBody ? pos : undefined}
       rotation={!rigidBody ? rot : undefined}
+      scale={scale}
       castShadow={mesh.castShadow}
       receiveShadow={mesh.receiveShadow}
       onClick={(e) => { e.stopPropagation(); selectEntity(entity.id); }}
@@ -202,20 +203,18 @@ function EntityMesh({ entity }: { entity: Entity }) {
 
   return (
     <>
-      <group scale={scale}>
-        {rigidBody ? (
-          <RigidBody 
-            position={pos}
-            rotation={rot}
-            type={rigidBody.isStatic ? 'fixed' : 'dynamic'} 
-            mass={rigidBody.mass}
-            gravityScale={rigidBody.useGravity ? 1 : 0}
-            colliders={rigidBody.collider === 'none' ? false : (rigidBody.collider || 'cuboid')}
-          >
-            {innerMesh}
-          </RigidBody>
-        ) : innerMesh}
-      </group>
+      {rigidBody ? (
+        <RigidBody 
+          position={pos}
+          rotation={rot}
+          type={rigidBody.isStatic ? 'fixed' : 'dynamic'} 
+          mass={rigidBody.mass}
+          gravityScale={rigidBody.useGravity ? 1 : 0}
+          colliders={rigidBody.collider === 'none' ? false : (rigidBody.collider || 'cuboid')}
+        >
+          {innerMesh}
+        </RigidBody>
+      ) : innerMesh}
       
       {isSelected && !isPlaying && (
         <TransformControls
