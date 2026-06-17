@@ -1,5 +1,5 @@
 import { useEditorStore } from '../store/editorStore';
-import type { TransformComponent, MeshRendererComponent, LightComponent, GLTFModelComponent, RigidBodyComponent, AudioComponent, ParticleSystemComponent, ScriptComponent } from '../../engine/ecs/types';
+import type { TransformComponent, MeshRendererComponent, LightComponent, GLTFModelComponent, RigidBodyComponent, AudioComponent, ParticleSystemComponent, ScriptComponent, CameraComponent } from '../../engine/ecs/types';
 
 function Vec3Field({
   label, value, onChange,
@@ -464,6 +464,70 @@ function NetworkInspector({ entityId }: { entityId: string }) {
   );
 }
 
+function CameraInspector({ entityId }: { entityId: string }) {
+  const { selectedEntity, updateComponent } = useEditorStore();
+  const entity = selectedEntity();
+  if (!entity) return null;
+  const c = entity.components.Camera as CameraComponent;
+
+  return (
+    <div className="component-block">
+      <div className="component-header">
+        <span className="component-icon">🎥</span>
+        <span className="component-title">Camera</span>
+      </div>
+      <div className="field-row">
+        <label className="field-label">Is Main Camera</label>
+        <input
+          type="checkbox"
+          checked={c.isMain}
+          onChange={(e) => updateComponent(entityId, 'Camera', { isMain: e.target.checked })}
+        />
+      </div>
+      <div className="field-row">
+        <label className="field-label">FOV</label>
+        <input
+          type="number"
+          className="field-input"
+          value={c.fov}
+          step={1}
+          onChange={(e) => updateComponent(entityId, 'Camera', { fov: parseFloat(e.target.value) || 60 })}
+        />
+      </div>
+      <div className="field-row">
+        <label className="field-label">Near</label>
+        <input
+          type="number"
+          className="field-input"
+          value={c.near}
+          step={0.1}
+          onChange={(e) => updateComponent(entityId, 'Camera', { near: parseFloat(e.target.value) || 0.1 })}
+        />
+      </div>
+      <div className="field-row">
+        <label className="field-label">Far</label>
+        <input
+          type="number"
+          className="field-input"
+          value={c.far}
+          step={10}
+          onChange={(e) => updateComponent(entityId, 'Camera', { far: parseFloat(e.target.value) || 1000 })}
+        />
+      </div>
+      <Vec3Field
+        label="Offset"
+        value={c.offset || [0, 0, 0]}
+        onChange={(v) => updateComponent(entityId, 'Camera', { offset: v })}
+      />
+      <Vec3Field
+        label="Rotation"
+        value={c.rotation || [0, 0, 0]}
+        onChange={(v) => updateComponent(entityId, 'Camera', { rotation: v })}
+      />
+    </div>
+  );
+}
+
 function ScriptInspector({ entityId }: { entityId: string }) {
   const { selectedEntity, updateComponent } = useEditorStore();
   const entity = selectedEntity();
@@ -686,6 +750,9 @@ export function InspectorPanel() {
         {entity.components.Script && (
           <ScriptInspector entityId={selectedEntityId} />
         )}
+        {entity.components.Camera && (
+          <CameraInspector entityId={selectedEntityId} />
+        )}
 
         <div className="add-component-wrapper" style={{ marginTop: '16px', display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
           {!entity.components.RigidBody && (
@@ -726,6 +793,14 @@ export function InspectorPanel() {
               onClick={() => useEditorStore.getState().addComponent(selectedEntityId, { type: 'Animator', currentAnimation: '', loop: true, timeScale: 1 })}
             >
               ➕ Add Animator
+            </button>
+          )}
+          {!entity.components.Camera && (
+            <button 
+              className="panel-btn" 
+              onClick={() => useEditorStore.getState().addComponent(selectedEntityId, { type: 'Camera', fov: 75, near: 0.1, far: 1000, isMain: true, offset: [0, 0.4, 0], rotation: [0, 0, 0] })}
+            >
+              ➕ Add Camera
             </button>
           )}
         </div>

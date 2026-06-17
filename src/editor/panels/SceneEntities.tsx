@@ -250,6 +250,7 @@ function EntityMesh({ entity }: { entity: Entity }) {
             <PerspectiveCamera 
               makeDefault={isGameView && camera.isMain} 
               position={camera.offset || [0, 0, 0]}
+              rotation={camera.rotation || [0, 0, 0]}
               fov={camera.fov} 
               near={camera.near} 
               far={camera.far} 
@@ -335,6 +336,7 @@ function EntityMesh({ entity }: { entity: Entity }) {
           <PerspectiveCamera 
             makeDefault={isGameView && camera.isMain} 
             position={camera.offset || [0, 0, 0]}
+            rotation={camera.rotation || [0, 0, 0]}
             fov={camera.fov} 
             near={camera.near} 
             far={camera.far} 
