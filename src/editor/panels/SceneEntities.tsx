@@ -6,7 +6,7 @@ import { RigidBody, MeshCollider } from '@react-three/rapier';
 import * as THREE from 'three';
 import { useEditorStore } from '../store/editorStore';
 import type { Entity } from '../../engine/ecs/types';
-import { xrStore } from './SceneView';
+import { xrStore, attemptTeleport } from './SceneView';
 
 // ── VR Teleport Ring ──────────────────────────────────────────
 // Only rendered in /preview (StandalonePlayer), inside <XR>.
@@ -20,6 +20,7 @@ function VRTeleportRing({ entity }: { entity: Entity }) {
   const scale = transform.scale as [number, number, number];
 
   const handleClick = () => {
+    if (!attemptTeleport()) return;
     // Teleporta o jogador para a posição do anel
     xrStore.setState(state => ({
       ...state,
@@ -124,6 +125,7 @@ function EntityMesh({ entity }: { entity: Entity }) {
 
   const handleStandaloneClick = (e: any) => {
     if (!isStandalone) return;
+    if (!attemptTeleport()) return;
     
     // Evita teleporte ao clicar em si mesmo, no teleport ring ou em outras tags de teleport
     if (entity.tags?.includes('player') || entity.components.Camera?.isMain || entity.tags?.includes('teleport')) return;

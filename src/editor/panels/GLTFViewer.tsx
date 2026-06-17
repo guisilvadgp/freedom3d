@@ -6,7 +6,7 @@ import { RigidBody, MeshCollider } from '@react-three/rapier';
 import * as THREE from 'three';
 import { useEditorStore } from '../store/editorStore';
 import type { Entity } from '../../engine/ecs/types';
-import { xrStore } from './SceneView';
+import { xrStore, attemptTeleport } from './SceneView';
 
 // ── Um modelo GLTF carregado ─────────────────────────────────
 
@@ -43,6 +43,7 @@ function GLTFMesh({ entity }: { entity: Entity }) {
 
   const handleStandaloneClick = (e: any) => {
     if (!isStandalone) return;
+    if (!attemptTeleport()) return;
     if (entity.tags?.includes('player') || entity.components.Camera?.isMain || entity.tags?.includes('teleport')) return;
 
     e.stopPropagation();

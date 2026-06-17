@@ -11,6 +11,14 @@ import * as THREE from 'three';
 
 export const xrStore = createXRStore();
 
+let lastTeleportTime = 0;
+export function attemptTeleport(): boolean {
+  const now = Date.now();
+  if (now - lastTeleportTime < 600) return false;
+  lastTeleportTime = now;
+  return true;
+}
+
 export function SceneView({ isStandalone }: { isStandalone?: boolean }) {
   const { showGrid, isPlaying, activeScene, showGizmos, activeViewport, setActiveViewport } = useEditorStore();
   const isGameView = isStandalone || activeViewport === 'game';
