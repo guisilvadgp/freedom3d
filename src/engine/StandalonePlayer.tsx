@@ -47,17 +47,11 @@ export function StandalonePlayer() {
   const [showOverlay, setShowOverlay] = useState(true);
   const [sceneLoaded, setSceneLoaded] = useState(false);
 
-  const handlePlay = () => {
+  const handlePlay = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Evita conflito com o clique de fullscreen do fundo
     setGameStarted(true);
     if (!useEditorStore.getState().isPlaying) {
       togglePlay(); // Inicia física e scripts
-    }
-
-    // Tenta entrar em tela cheia
-    if (document.documentElement.requestFullscreen) {
-      document.documentElement.requestFullscreen().catch(err => {
-        console.warn('Não foi possível entrar em tela cheia:', err);
-      });
     }
 
     // Entrar no modo VR diretamente ao iniciar
@@ -173,22 +167,29 @@ export function StandalonePlayer() {
 
       {/* Overlay de Carregamento e Botão PLAY */}
       {showOverlay && (
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100vw',
-          height: '100vh',
-          background: '#06080d',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 9999,
-          transition: 'opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
-          opacity: gameStarted ? 0 : 1,
-          pointerEvents: gameStarted ? 'none' : 'all',
-        }}>
+        <div 
+          onClick={() => {
+            if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+              document.documentElement.requestFullscreen().catch(() => {});
+            }
+          }}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            background: '#06080d',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            transition: 'opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+            opacity: gameStarted ? 0 : 1,
+            pointerEvents: gameStarted ? 'none' : 'all',
+          }}
+        >
           <div style={{ textAlign: 'center', padding: '20px' }}>
             <h1 style={{
               fontSize: '48px',
