@@ -251,21 +251,33 @@ export function SceneView({
       )}
 
       <div
-        style={isGameView ? {
-          aspectRatio: '16 / 9',
-          width: '100%',
-          height: '100%',
-          maxWidth: '100%',
-          maxHeight: '100%',
-          position: 'relative',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        } : {
-          width: '100%',
-          height: '100%',
-          position: 'relative'
-        }}
+        style={
+          isStandalone
+            ? {
+                // Preview: tela cheia sem restrição — câmera Three.js gerencia o aspecto
+                width: '100%',
+                height: '100%',
+                position: 'relative',
+              }
+            : isGameView
+            ? {
+                // Editor Game View: letterbox 16:9
+                aspectRatio: '16 / 9',
+                width: '100%',
+                height: '100%',
+                maxWidth: '100%',
+                maxHeight: '100%',
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }
+            : {
+                width: '100%',
+                height: '100%',
+                position: 'relative',
+              }
+        }
       >
         <Canvas
           shadows
