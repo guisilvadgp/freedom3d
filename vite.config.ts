@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react'
 const liveSyncPlugin = () => {
   let activeSceneState = "{}";
   const assets = new Map();
+  const clients: any[] = [];
 
   return {
     name: 'live-sync',
@@ -16,6 +17,13 @@ const liveSyncPlugin = () => {
           req.on('data', (chunk: any) => { body += chunk; });
           req.on('end', () => {
             activeSceneState = body;
+            clients.forEach(client => {
+              try {
+                client.write(`data: ${body}\n\n`);
+              } catch (e) {
+                // Ignore closed client
+              }
+            });
             res.setHeader('Access-Control-Allow-Origin', '*');
             res.end('ok');
           });
@@ -25,6 +33,21 @@ const liveSyncPlugin = () => {
           res.setHeader('Content-Type', 'application/json');
           res.setHeader('Access-Control-Allow-Origin', '*');
           res.end(activeSceneState);
+          return;
+        }
+        if (req.url === '/api/sync-stream' && req.method === 'GET') {
+          res.writeHead(200, {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'Access-Control-Allow-Origin': '*'
+          });
+          res.write(': ping\n\n');
+          clients.push(res);
+          req.on('close', () => {
+            const index = clients.indexOf(res);
+            if (index !== -1) clients.splice(index, 1);
+          });
           return;
         }
 

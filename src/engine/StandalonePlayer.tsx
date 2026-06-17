@@ -58,30 +58,42 @@ export function StandalonePlayer() {
       origError.apply(console, args);
     };
 
-    let lastPublishedAt = 0;
-    const interval = setInterval(() => {
-      fetch('/api/sync')
-        .then(res => res.json())
-        .then(scene => {
-          if (scene && scene.id && scene.publishedAt !== lastPublishedAt) {
-            lastPublishedAt = scene.publishedAt;
-            // Rewrite blob URLs to network URLs for mobile preview
-            Object.values(scene.entities).forEach((e: any) => {
-              if (e.components?.GLTFModel?.fileName) {
-                e.components.GLTFModel.src = '/api/asset/' + encodeURIComponent(e.components.GLTFModel.fileName);
-              }
-            });
-            useEditorStore.setState(state => ({
-              scenes: { ...state.scenes, [scene.id]: scene },
-              activeSceneId: scene.id
-            }));
+    const handleSceneUpdate = (scene: any) => {
+      if (scene && scene.id) {
+        // Rewrite blob URLs to network URLs for mobile preview
+        Object.values(scene.entities).forEach((e: any) => {
+          if (e.components?.GLTFModel?.fileName) {
+            e.components.GLTFModel.src = '/api/asset/' + encodeURIComponent(e.components.GLTFModel.fileName);
           }
-        })
-        .catch(e => {});
-    }, 500); // 500ms for sync to reduce network load
+        });
+        useEditorStore.setState(state => ({
+          scenes: { ...state.scenes, [scene.id]: scene },
+          activeSceneId: scene.id
+        }));
+      }
+    };
+
+    // Load initial scene state once
+    fetch('/api/sync')
+      .then(res => res.json())
+      .then(scene => {
+        handleSceneUpdate(scene);
+      })
+      .catch(e => {});
+
+    // Open Server-Sent Events stream for push notifications when "Publish" is clicked
+    const eventSource = new EventSource('/api/sync-stream');
+    eventSource.onmessage = (event) => {
+      try {
+        const scene = JSON.parse(event.data);
+        handleSceneUpdate(scene);
+      } catch (err) {
+        // Parse error or keep-alive ping
+      }
+    };
 
     return () => {
-      clearInterval(interval);
+      eventSource.close();
       window.removeEventListener('error', handleError);
       console.error = origError;
     };
