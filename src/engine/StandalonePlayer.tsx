@@ -2,8 +2,42 @@ import { useEffect, useState } from 'react';
 import { SceneView } from '../editor/panels/SceneView';
 import { useEditorStore } from '../editor/store/editorStore';
 
+function DebugUI() {
+  const consoleLogs = useEditorStore(state => state.consoleLogs);
+
+  const handleCopy = () => {
+    const text = consoleLogs.map(l => l.message).join('\n');
+    navigator.clipboard.writeText(text);
+    alert('Log copiado para a area de transferencia!');
+  };
+
+  return (
+    <div style={{
+      position: 'absolute', top: '50px', right: '10px', width: '300px', height: '400px',
+      background: 'rgba(0,0,0,0.8)', color: '#0f0', fontFamily: 'monospace', fontSize: '12px',
+      padding: '10px', borderRadius: '8px', zIndex: 9999, display: 'flex', flexDirection: 'column'
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+        <strong>Console Logs</strong>
+        <button onClick={handleCopy} style={{ background: '#555', color: '#fff', border: 'none', padding: '4px 8px', cursor: 'pointer', borderRadius: '4px' }}>
+          Copiar
+        </button>
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+        {consoleLogs.map(log => (
+          <div key={log.id} style={{ color: log.type === 'error' ? '#f44' : log.type === 'warn' ? '#fd4' : '#0f0' }}>
+            {log.message}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function StandalonePlayer() {
-  const { setActiveViewport, togglePlay, consoleLogs, addLog } = useEditorStore();
+  const setActiveViewport = useEditorStore(state => state.setActiveViewport);
+  const togglePlay = useEditorStore(state => state.togglePlay);
+  const addLog = useEditorStore(state => state.addLog);
   const [showDebug, setShowDebug] = useState(false);
 
   useEffect(() => {
@@ -44,7 +78,7 @@ export function StandalonePlayer() {
           }
         })
         .catch(e => {});
-    }, 200); // 200ms for fast live sync
+    }, 500); // 500ms for sync to reduce network load
 
     return () => {
       clearInterval(interval);
@@ -52,12 +86,6 @@ export function StandalonePlayer() {
       console.error = origError;
     };
   }, []);
-
-  const handleCopy = () => {
-    const text = consoleLogs.map(l => [] ).join('\n');
-    navigator.clipboard.writeText(text);
-    alert('Log copiado para a area de transferencia!');
-  };
 
   return (
     <div style={{ width: '100vw', height: '100vh', margin: 0, padding: 0, overflow: 'hidden' }}>
@@ -73,31 +101,7 @@ export function StandalonePlayer() {
         </button>
       </div>
 
-      {showDebug && (
-        <div style={{
-          position: 'absolute', top: '50px', right: '10px', width: '300px', height: '400px',
-          background: 'rgba(0,0,0,0.8)', color: '#0f0', fontFamily: 'monospace', fontSize: '12px',
-          padding: '10px', borderRadius: '8px', zIndex: 9999, display: 'flex', flexDirection: 'column'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-            <strong>Console Logs</strong>
-            <button onClick={handleCopy} style={{ background: '#555', color: '#fff', border: 'none', padding: '4px 8px', cursor: 'pointer', borderRadius: '4px' }}>
-              Copiar
-            </button>
-          </div>
-          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            {consoleLogs.map(log => (
-              <div key={log.id} style={{ color: log.type === 'error' ? '#f44' : log.type === 'warn' ? '#fd4' : '#0f0' }}>
-                {log.message}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {showDebug && <DebugUI />}
     </div>
   );
 }
-
-
-
-

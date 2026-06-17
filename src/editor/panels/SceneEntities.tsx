@@ -89,7 +89,17 @@ function VRTeleportRing({ entity }: { entity: Entity }) {
 
 function EntityMesh({ entity }: { entity: Entity }) {
   const meshRef = useRef<THREE.Mesh>(null!);
-  const { selectedEntityId, selectEntity, editorMode, isPlaying, updateComponent, snapEnabled, snapValue, setRigidBodyRef, activeViewport } = useEditorStore();
+  
+  const selectedEntityId = useEditorStore(s => s.selectedEntityId);
+  const selectEntity = useEditorStore(s => s.selectEntity);
+  const editorMode = useEditorStore(s => s.editorMode);
+  const isPlaying = useEditorStore(s => s.isPlaying);
+  const updateComponent = useEditorStore(s => s.updateComponent);
+  const snapEnabled = useEditorStore(s => s.snapEnabled);
+  const snapValue = useEditorStore(s => s.snapValue);
+  const setRigidBodyRef = useEditorStore(s => s.setRigidBodyRef);
+  const activeViewport = useEditorStore(s => s.activeViewport);
+  
   const isGameView = activeViewport === 'game';
   const isStandalone = typeof window !== 'undefined' && window.location.pathname === '/preview';
   const transform = entity.components.Transform;

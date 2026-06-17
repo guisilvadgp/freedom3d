@@ -12,11 +12,16 @@ import { xrStore, attemptTeleport } from './SceneView';
 
 function GLTFMesh({ entity }: { entity: Entity }) {
   const groupRef = useRef<THREE.Group>(null!);
-  const {
-    selectedEntityId, selectEntity,
-    editorMode, isPlaying,
-    updateComponent, snapEnabled, snapValue, activeViewport
-  } = useEditorStore();
+  
+  const selectedEntityId = useEditorStore(s => s.selectedEntityId);
+  const selectEntity = useEditorStore(s => s.selectEntity);
+  const editorMode = useEditorStore(s => s.editorMode);
+  const isPlaying = useEditorStore(s => s.isPlaying);
+  const updateComponent = useEditorStore(s => s.updateComponent);
+  const snapEnabled = useEditorStore(s => s.snapEnabled);
+  const snapValue = useEditorStore(s => s.snapValue);
+  const activeViewport = useEditorStore(s => s.activeViewport);
+  
   const isGameView = activeViewport === 'game';
   const isStandalone = typeof window !== 'undefined' && window.location.pathname === '/preview';
 
