@@ -1,4 +1,4 @@
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, Grid, GizmoHelper, GizmoViewport, Stats, useProgress } from '@react-three/drei';
 import { useRef, Suspense, useEffect } from 'react';
 import { useEditorStore } from '../store/editorStore';
@@ -21,30 +21,37 @@ export function attemptTeleport(): boolean {
 }
 
 function AspectCorrector() {
-  const { gl, camera, size } = useThree();
+  const { gl, camera } = useThree();
 
-  useFrame(() => {
-    if (gl.xr.isPresenting) {
-      // Dentro de uma sessão XR, corrige a câmera principal pelo viewport real
-      const xrCamera = gl.xr.getCamera();
-      if (xrCamera) {
-        xrCamera.cameras.forEach((subCam) => {
-          if (subCam.aspect !== 1) {
-            subCam.aspect = 1;
-            subCam.updateProjectionMatrix();
-          }
-        });
+  useEffect(() => {
+    const cam = camera as THREE.PerspectiveCamera;
+
+    // Corrige imediatamente e a cada resize do canvas (inclui rotação do mobile)
+    const update = () => {
+      if (gl.xr.isPresenting) return; // XR gerencia o próprio aspect
+      const { width, height } = gl.domElement.getBoundingClientRect();
+      if (height === 0) return;
+      const aspect = width / height;
+      if (Math.abs(cam.aspect - aspect) > 0.001) {
+        cam.aspect = aspect;
+        cam.updateProjectionMatrix();
+        gl.setSize(width, height, false); // false = não altera o CSS
       }
-    } else {
-      // Fora do XR (mobile/desktop), sincroniza o aspect ratio da câmera
-      // com as dimensões reais do canvas para evitar distorção
-      const aspect = size.width / size.height;
-      if ((camera as THREE.PerspectiveCamera).aspect !== aspect) {
-        (camera as THREE.PerspectiveCamera).aspect = aspect;
-        (camera as THREE.PerspectiveCamera).updateProjectionMatrix();
-      }
-    }
-  });
+    };
+
+    update(); // Corrige já no primeiro render
+
+    const ro = new ResizeObserver(update);
+    ro.observe(gl.domElement.parentElement ?? gl.domElement);
+    window.addEventListener('orientationchange', update);
+    window.addEventListener('resize', update);
+
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('orientationchange', update);
+      window.removeEventListener('resize', update);
+    };
+  }, [gl, camera]);
 
   return null;
 }
@@ -265,6 +272,15 @@ export function SceneView({
           dpr={[1, 2]}
           gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping }}
           camera={{ fov: 60, near: 0.1, far: 1000, position: [5, 5, 8] }}
+          onCreated={({ gl, camera }) => {
+            // Corrige o aspect ratio logo no primeiro frame, antes de qualquer render
+            const cam = camera as THREE.PerspectiveCamera;
+            const { width, height } = gl.domElement.getBoundingClientRect();
+            if (height > 0) {
+              cam.aspect = width / height;
+              cam.updateProjectionMatrix();
+            }
+          }}
           onPointerMissed={() => {
             if (!isGameView && !isDragging.current) {
               useEditorStore.getState().selectEntity(null);
