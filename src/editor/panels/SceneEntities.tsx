@@ -69,6 +69,8 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
   const lastPositionUpdate = useRef(0);
   const handleSelectRef = useRef<() => void>(null!);
   const lastTriggerPressed = useRef(false);
+  const gazeDirectionRef = useRef(new THREE.Vector3(0, 0, -1));
+  const gazeOriginRef = useRef(new THREE.Vector3(0, 0, 0));
 
   // Setup WebXR "Tap" Event
   useEffect(() => {
@@ -77,9 +79,9 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
     let session: any = null;
 
     const handleSelect = () => {
-      const xrCam = gl.xr.isPresenting ? (gl.xr.getCamera().cameras?.[0] || gl.xr.getCamera()) : defaultCamera;
-      raycaster.current.ray.origin.setFromMatrixPosition(xrCam.matrixWorld);
-      xrCam.getWorldDirection(raycaster.current.ray.direction);
+      // Usa a direção e origem sincronizadas no loop principal (useFrame)
+      raycaster.current.ray.origin.copy(gazeOriginRef.current);
+      raycaster.current.ray.direction.copy(gazeDirectionRef.current);
 
       // Usa cache de anéis para evitar intersectObjects em toda a cena
       const rings = getTeleportRings(scene as any, sceneActiveId);
@@ -91,8 +93,7 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
       }
 
       // Se não clicou em um anel, move o jogador para frente (apenas na horizontal XZ) na direção do olhar
-      const forward = new THREE.Vector3();
-      xrCam.getWorldDirection(forward);
+      const forward = gazeDirectionRef.current.clone();
       forward.y = 0; // Mantém no plano do chão (apenas movimento horizontal)
       forward.normalize();
 
@@ -166,7 +167,7 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
         (window as any).isVRActive = true;
       }
 
-      const xrCamera = state.gl.xr.getCamera();
+      const xrCamera = (state.gl.xr as any).getCamera(state.camera);
       if (xrCamera && initialHeadsetHeight === null) {
         const y = xrCamera.position.y;
         if (y > 0.1) {
@@ -174,16 +175,21 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
         }
       }
 
+      // Sincroniza a posição e direção do olhar a cada frame
+      if (xrCamera) {
+        gazeOriginRef.current.copy(xrCamera.position);
+        xrCamera.getWorldDirection(gazeDirectionRef.current);
+      }
+
       // VR Gaze (Hovering) — throttle a 10 frames/s e usa cache de rings
       if (isStandalone) {
-        const xrCam = state.gl.xr.getCamera().cameras?.[0] || state.gl.xr.getCamera();
         const now = performance.now();
         const lastRaycast = (raycaster.current as any).lastTime || 0;
 
         if (now - lastRaycast > 100) { // Throttle: 10fps é suficiente para hover de anéis
           (raycaster.current as any).lastTime = now;
-          raycaster.current.ray.origin.setFromMatrixPosition(xrCam.matrixWorld);
-          xrCam.getWorldDirection(raycaster.current.ray.direction);
+          raycaster.current.ray.origin.copy(gazeOriginRef.current);
+          raycaster.current.ray.direction.copy(gazeDirectionRef.current);
 
           // Cache de anéis — sem traverse toda frame!
           const rings = getTeleportRings(state.scene as any, sceneActiveId);
@@ -203,10 +209,10 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
           }
         }
 
-        // Atualizar a posicao do crosshair para grudar no rosto do jogador
-        if (crosshairRef.current && xrCam) {
-          crosshairRef.current.position.copy(xrCam.position);
-          crosshairRef.current.quaternion.copy(xrCam.quaternion);
+        // Atualizar a posicao do crosshair para grudar no rosto do jogador usando a pose sincronizada
+        if (crosshairRef.current && xrCamera) {
+          crosshairRef.current.position.copy(xrCamera.position);
+          crosshairRef.current.quaternion.copy(xrCamera.quaternion);
           crosshairRef.current.translateZ(-1.5);
         }
       }
@@ -309,9 +315,7 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
           }
         }
 
-        const headCamera = state.gl.xr.isPresenting ? (state.gl.xr.getCamera().cameras?.[0] || state.camera) : state.camera;
-        const forward = forwardVec.current;
-        headCamera.getWorldDirection(forward);
+        const forward = forwardVec.current.copy(gazeDirectionRef.current);
         forward.y = 0;
         forward.normalize();
 
@@ -855,7 +859,7 @@ function XRSync() {
 
     // Captura a altura física inicial do headset ao entrar no VR
     if (state.gl.xr.isPresenting) {
-      const xrCam = state.gl.xr.getCamera();
+      const xrCam = (state.gl.xr as any).getCamera(state.camera);
       if (xrCam && initialHeadsetHeight.current === null) {
         const y = xrCam.position.y;
         if (y > 0.1) {
