@@ -85,7 +85,41 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
       const hit = intersects.find(i => i.object.userData?.isTeleportRing);
       if (hit && hit.object.userData.onClick) {
         hit.object.userData.onClick({ stopPropagation: () => { } });
+        return;
       }
+
+      // Se não clicou em um anel, move o jogador para frente (apenas na horizontal XZ) na direção do olhar
+      const forward = new THREE.Vector3();
+      xrCam.getWorldDirection(forward);
+      forward.y = 0; // Mantém no plano do chão (apenas movimento horizontal)
+      forward.normalize();
+
+      const stepDistance = 1.5; // Distância do passo em metros
+      const moveStep = forward.multiplyScalar(stepDistance);
+
+      const storeState = useEditorStore.getState();
+      const currentScene = storeState.activeScene();
+      Object.values(currentScene.entities).forEach(e => {
+        if (e.tags?.includes('player') || e.components.Camera?.isMain) {
+          const currentPos = e.components.Transform?.position || [0, 0, 0];
+          const targetPos: [number, number, number] = [
+            currentPos[0] + moveStep.x,
+            currentPos[1],
+            currentPos[2] + moveStep.z
+          ];
+
+          storeState.updateComponent(e.id, 'Transform', {
+            position: targetPos,
+          });
+
+          const rb = storeState.rigidBodyRefs[e.id];
+          if (rb) {
+            rb.setTranslation({ x: targetPos[0], y: targetPos[1], z: targetPos[2] }, true);
+            rb.setLinvel({ x: 0, y: 0, z: 0 }, true);
+            rb.setAngvel({ x: 0, y: 0, z: 0 }, true);
+          }
+        }
+      });
     };
 
     const onSessionStart = () => {
