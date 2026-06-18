@@ -16,7 +16,7 @@ import { useEffect } from 'react';
 import { Terminal, FolderOpen, Code } from 'lucide-react';
 
 export default function App() {
-  if (window.location.pathname.startsWith('/preview')) {
+  if (window.location.pathname.startsWith('/preview') || (window as any).__freedom3d_standalone__) {
     return <StandalonePlayer />;
   }
   const { bottomTab, setBottomTab } = useEditorStore();

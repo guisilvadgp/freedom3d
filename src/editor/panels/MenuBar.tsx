@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useEditorStore } from '../store/editorStore';
 import { 
-  FolderOpen, Save, Play, Square, Wifi, 
+  FolderOpen, Save, Play, Square, Wifi, Download,
   RotateCcw, RotateCw, Copy, Trash2, Eye, EyeOff, Monitor,
   Compass, Keyboard, Info, CheckCircle
 } from 'lucide-react';
@@ -87,6 +87,17 @@ export function MenuBar() {
     }
   };
 
+  const handleExportProject = () => {
+    if (!activeScene) return;
+    const url = `/api/project/export?project=${encodeURIComponent(activeScene.name)}`;
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `${activeScene.name}_export.zip`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="native-menubar">
       <div className="menubar-items">
@@ -116,6 +127,10 @@ export function MenuBar() {
                 <Wifi size={13} />
                 <span>Publicar para Mobile Preview</span>
                 <span className="menu-shortcut">Ctrl + P</span>
+              </button>
+              <button onClick={handleExportProject}>
+                <Download size={13} />
+                <span>Exportar Projeto (.ZIP)</span>
               </button>
               <div className="menu-divider" />
               <button onClick={() => window.close()}>

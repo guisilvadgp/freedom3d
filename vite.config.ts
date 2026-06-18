@@ -380,6 +380,124 @@ const liveSyncPlugin = () => {
           return;
         }
 
+        // 9b. Export Project as Standalone Web App (ZIP)
+        if (req.url.startsWith('/api/project/export') && req.method === 'GET') {
+          const urlParams = new URL(req.url, 'http://localhost');
+          const projectName = urlParams.searchParams.get('project') || '';
+          const cleanProjectName = projectName.trim();
+          const projectPath = path.join(projectsDir, cleanProjectName);
+          const scenePath = path.join(projectPath, 'scene.json');
+
+          if (!projectName || !fs.existsSync(scenePath)) {
+            res.statusCode = 404;
+            res.end('Project scene not found');
+            return;
+          }
+
+          const distPath = path.join(process.cwd(), 'dist');
+          if (!fs.existsSync(distPath)) {
+            res.statusCode = 500;
+            res.end('Production build not found. Please run npm run build first.');
+            return;
+          }
+
+          const tempExportDir = path.join(projectPath, 'export_temp');
+          const zipPath = path.join(projectPath, `${cleanProjectName}_export.zip`);
+
+          try {
+            // Remove arquivos residuais
+            if (fs.existsSync(tempExportDir)) {
+              fs.rmSync(tempExportDir, { recursive: true, force: true });
+            }
+            if (fs.existsSync(zipPath)) {
+              fs.rmSync(zipPath, { force: true });
+            }
+
+            // Cria diretório temporário
+            fs.mkdirSync(tempExportDir, { recursive: true });
+
+            // 1. Copiar todos os arquivos de dist/ para export_temp/
+            const copyRecursiveSync = (src: string, dest: string) => {
+              const exists = fs.existsSync(src);
+              const stats = exists && fs.statSync(src);
+              const isDirectory = stats && stats.isDirectory();
+              if (isDirectory) {
+                if (!fs.existsSync(dest)) fs.mkdirSync(dest);
+                fs.readdirSync(src).forEach((childItemName) => {
+                  copyRecursiveSync(path.join(src, childItemName), path.join(dest, childItemName));
+                });
+              } else {
+                fs.copyFileSync(src, dest);
+              }
+            };
+            copyRecursiveSync(distPath, tempExportDir);
+
+            // 2. Copiar scene.json do projeto
+            fs.copyFileSync(scenePath, path.join(tempExportDir, 'scene.json'));
+
+            // 3. Copiar assets do projeto
+            const projectAssetsDir = path.join(projectPath, 'assets');
+            const exportAssetsDir = path.join(tempExportDir, 'assets');
+            if (fs.existsSync(projectAssetsDir)) {
+              if (!fs.existsSync(exportAssetsDir)) fs.mkdirSync(exportAssetsDir);
+              fs.readdirSync(projectAssetsDir).forEach((file) => {
+                fs.copyFileSync(path.join(projectAssetsDir, file), path.join(exportAssetsDir, file));
+              });
+            }
+
+            // 4. Injetar flag standalone no index.html
+            const indexHtmlPath = path.join(tempExportDir, 'index.html');
+            if (fs.existsSync(indexHtmlPath)) {
+              let html = fs.readFileSync(indexHtmlPath, 'utf8');
+              const scriptInject = `<script>window.__freedom3d_standalone__ = true;</script>`;
+              // Insere no início do head
+              if (html.includes('<head>')) {
+                html = html.replace('<head>', `<head>${scriptInject}`);
+              } else {
+                html = scriptInject + html;
+              }
+              fs.writeFileSync(indexHtmlPath, html, 'utf8');
+            }
+
+            // 5. Comprimir a pasta temporária usando Compress-Archive do PowerShell
+            const { exec } = require('child_process');
+            const cmd = `powershell -Command "Compress-Archive -Path '${tempExportDir}/*' -DestinationPath '${zipPath}' -Force"`;
+            
+            exec(cmd, (err: any, _stdout: any, _stderr: any) => {
+              // Limpa a pasta temporária export_temp após zipar
+              try { fs.rmSync(tempExportDir, { recursive: true, force: true }); } catch (e) {}
+
+              if (err) {
+                console.error('[Export Error] Compressing failed:', err, _stderr);
+                res.statusCode = 500;
+                res.end('Compression failed');
+                return;
+              }
+
+              if (fs.existsSync(zipPath)) {
+                res.setHeader('Content-Type', 'application/zip');
+                res.setHeader('Content-Disposition', `attachment; filename="${cleanProjectName}_export.zip"`);
+                res.setHeader('Access-Control-Allow-Origin', '*');
+                res.end(fs.readFileSync(zipPath));
+                
+                // Remove o ZIP gerado localmente após enviar
+                try { fs.rmSync(zipPath, { force: true }); } catch(e) {}
+              } else {
+                res.statusCode = 500;
+                res.end('Zip file not found');
+              }
+            });
+
+          } catch (error) {
+            console.error('[Export Error] Failed to export:', error);
+            try { fs.rmSync(tempExportDir, { recursive: true, force: true }); } catch (e) {}
+            try { fs.rmSync(zipPath, { force: true }); } catch (e) {}
+            res.statusCode = 500;
+            res.end('Failed to process export');
+          }
+          return;
+        }
+
         // Legacy / Sync Scene JSON
         if (req.url === '/api/sync' && req.method === 'POST') {
           let body = '';
@@ -487,6 +605,7 @@ const liveSyncPlugin = () => {
 };
 
 export default defineConfig({
+  base: './',
   plugins: [react(), liveSyncPlugin()],
   server: {
     host: true,

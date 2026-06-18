@@ -26,7 +26,7 @@
 | Sistema de scripts | ✅ | Editor de código integrado no Inspector com JIT execution no Game Loop |
 | Física | ✅ | Integrado via `@react-three/rapier` com RigidBody e MeshCollider ativos no Game View/Preview |
 | Multiplayer | ✅ | Canal WebSocket integrado no servidor Vite com replicação de Transforms locais e spawning de Ghosts remotos |
-| Exportação Web | 🟡 | Build do Vite funcional via `npm run build`, exportador de pacote único em planejamento |
+| Exportação Web | ✅ | Exportação em 1 clique de ZIP autônomo offline com HTML + scene.json + assets locais |
 | Suporte VR | ✅ | Suporte integrado via WebXR com movimentação suave (joystick), gaze teleport rings e calibração de altura |
 | Suporte AR | 🟡 | Botão Enter AR funcional no SceneView via WebXR Store |
 
@@ -230,7 +230,7 @@
 
 | Alvo | Status | Detalhe |
 |------|--------|---------|
-| Web (Vite build) | 🟡 | `npm run build` funciona, sem empacotamento de projeto de jogo completo |
+| Web (Vite build) | ✅ | Exportador de ZIP standalone com HTML, JS/CSS e assets locais embutidos em 1 clique |
 | PWA | ❌ | Fase 3 |
 | Electron | ❌ | Fase 3 |
 | Android WebView | ❌ | Fase 3 |
@@ -298,6 +298,7 @@ Fase 4 – XR (3 meses)        ████████░░   80% concluído (
 - ✅ Replicação em tempo real de Transforms locais e spawning de Ghosts remotos
 - ✅ Barra de Menus Superior (MenuBar) com dropdowns flutuantes e modais de Atalhos/Sobre
 - ✅ Sistema de Histórico (Undo / Redo) com atalhos de teclado globais
+- ✅ Exportação autônoma de projeto (.ZIP) com index.html, scene.json e assets 100% locais/offline
 
 ### Fase 4 – O que foi feito:
 - ✅ Suporte WebXR integrado ao canvas
@@ -320,12 +321,12 @@ Fase 4 – XR (3 meses)        ████████░░   80% concluído (
 | Audio | 4 | 2 | 50% |
 | VR/AR | 10 | 6 | 60% |
 | Multiplayer | 5 | 4 | 80% |
-| Build Targets | 5 | 1 | 20% |
-| **TOTAL** | **~68** | **~46** | **~68%** |
+| Build Targets | 5 | 2 | 40% |
+| **TOTAL** | **~68** | **~47** | **~69%** |
 
 > O MVP (Fase 1 e Fase 2) do editor foi concluído com sucesso.
 > A maior parte das funcionalidades de Produção (Física, Áudio, Multiplayer) e WebXR (VR imersivo) já foram integradas e validadas!
-> Próxima prioridade: Adicionar animações avançadas e exportação nativa empacotada.
+> Próxima prioridade: Adicionar animações avançadas, suporte a PWA e empacotamento nativo via Electron/Tauri.
 
 
 

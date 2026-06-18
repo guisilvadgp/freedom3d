@@ -274,12 +274,21 @@ export function StandalonePlayer() {
     (window as any).__updateFreedom3DCacheSize = updateCacheSize;
     updateCacheSize();
 
+    const isOffline = (window as any).__freedom3d_standalone__;
+
     const handleSceneUpdate = (scene: any) => {
       if (scene && scene.id) {
-        // Rewrite blob URLs to network URLs for mobile preview
+        // Rewrite GLTF and Audio paths
         Object.values(scene.entities).forEach((e: any) => {
           if (e.components?.GLTFModel?.fileName) {
-            e.components.GLTFModel.src = '/api/asset/' + encodeURIComponent(e.components.GLTFModel.fileName);
+            e.components.GLTFModel.src = isOffline 
+              ? './assets/' + e.components.GLTFModel.fileName
+              : '/api/asset/' + encodeURIComponent(e.components.GLTFModel.fileName);
+          }
+          if (e.components?.Audio?.fileName) {
+            e.components.Audio.src = isOffline 
+              ? './assets/' + e.components.Audio.fileName
+              : '/api/project/get-asset?project=' + encodeURIComponent(scene.name) + '&file=' + encodeURIComponent(e.components.Audio.fileName);
           }
         });
         useEditorStore.setState(state => ({
@@ -290,7 +299,8 @@ export function StandalonePlayer() {
     };
 
     // Load initial scene state once
-    fetch('/api/sync')
+    const syncUrl = isOffline ? './scene.json' : '/api/sync';
+    fetch(syncUrl)
       .then(res => res.json())
       .then(scene => {
         handleSceneUpdate(scene);
@@ -304,7 +314,9 @@ export function StandalonePlayer() {
           const gltfUrls: string[] = [];
           Object.values(scene.entities).forEach((e: any) => {
             if (e.components?.GLTFModel?.fileName) {
-              const url = '/api/asset/' + encodeURIComponent(e.components.GLTFModel.fileName);
+              const url = isOffline 
+                ? './assets/' + e.components.GLTFModel.fileName
+                : '/api/asset/' + encodeURIComponent(e.components.GLTFModel.fileName);
               if (!THREE.Cache.get(url)) {
                 gltfUrls.push(url);
               }
@@ -338,9 +350,8 @@ export function StandalonePlayer() {
         setSceneLoaded(true);
       });
 
-    // Polling para atualizações — apenas quando o editor está ativo
-    // (detectado pelo parâmetro ?editor na URL ou pelo header Referer)
-    const isEditorMode = window.location.search.includes('editor') || document.referrer.includes('editor');
+    // Polling para atualizações — apenas quando o editor está ativo e não está em modo offline standalone
+    const isEditorMode = !isOffline && (window.location.search.includes('editor') || document.referrer.includes('editor'));
     let pollInterval: ReturnType<typeof setInterval> | null = null;
 
     if (isEditorMode) {
