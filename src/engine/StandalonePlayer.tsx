@@ -213,8 +213,9 @@ export function StandalonePlayer() {
             if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
               document.documentElement.requestFullscreen().then(() => {
                 // Tenta forçar o modo paisagem (landscape) automaticamente no mobile
-                if (window.screen && window.screen.orientation && window.screen.orientation.lock) {
-                  window.screen.orientation.lock('landscape').catch(err => {
+                const orientation = window.screen && (window.screen.orientation as any);
+                if (orientation && orientation.lock) {
+                  orientation.lock('landscape').catch((err: any) => {
                     console.warn('Bloqueio de orientação falhou/não suportado:', err);
                   });
                 }
