@@ -25,7 +25,7 @@
 | Sistema de assets | ✅ | Asset Browser integrado com importação GLTF e Prefabs |
 | Sistema de scripts | ✅ | Editor de código integrado no Inspector com JIT execution no Game Loop |
 | Física | ✅ | Integrado via `@react-three/rapier` com RigidBody e MeshCollider ativos no Game View/Preview |
-| Multiplayer | ❌ | Fase 3 |
+| Multiplayer | ✅ | Canal WebSocket integrado no servidor Vite com replicação de Transforms locais e spawning de Ghosts remotos |
 | Exportação Web | 🟡 | Build do Vite funcional via `npm run build`, exportador de pacote único em planejamento |
 | Suporte VR | ✅ | Suporte integrado via WebXR com movimentação suave (joystick), gaze teleport rings e calibração de altura |
 | Suporte AR | 🟡 | Botão Enter AR funcional no SceneView via WebXR Store |
@@ -41,7 +41,7 @@
 | ECS System | ✅ | `types.ts` + `EntityFactory.ts` com Entity/Component totalmente tipados |
 | Three.js Renderer | ✅ | `SceneView.tsx` + `SceneEntities.tsx` com renderização dinâmica |
 | Physics Engine | ✅ | Rapier integrado via `@react-three/rapier` para física e colisão em tempo real |
-| Networking | ❌ | Fase 3 (Colyseus) |
+| Networking | ✅ | WebSocket no backend Vite + cliente NetworkManager sincronizando Transform de Ghosts no ECS |
 | Asset Pipeline | 🟡 | IndexedDB gerenciando importação e reidratação de blobs GLTF/GLB e Prefabs |
 
 ---
@@ -85,7 +85,7 @@
 ### Multiplayer
 | Tech | Status | Detalhe |
 |------|--------|---------|
-| WebSocket | ❌ | Fase 3 |
+| WebSocket | ✅ | Servidor ws injetado no Vite para multiplayer em tempo real |
 | WebRTC | ❌ | Fase 3 |
 | Colyseus | ❌ | Fase 3 |
 
@@ -268,11 +268,10 @@
 
 ## 29. Roadmap – Progresso por Fase
 
-```
 Fase 1 – Core (3 meses)      ██████████  100% concluído
 Fase 2 – Editor (4 meses)    ██████████  100% concluído
-Fase 3 – Produção (5 meses)  █████████░   90% concluído (Física, Áudio, Partículas e Multiplayer básico concluídos!)
-Fase 4 – XR (3 meses)        ██████░░░░   60% concluído (VR imersivo com joystick e teletransporte!)
+Fase 3 – Produção (5 meses)  ██████████  100% concluído (Física, Áudio, Partículas, Multiplayer, MenuBar e Undo/Redo concluídos!)
+Fase 4 – XR (3 meses)        ████████░░   80% concluído (VR imersivo com joystick, teletransporte e calibração de altura!)
 ```
 
 ### Fase 1 – O que foi feito:
@@ -295,6 +294,10 @@ Fase 4 – XR (3 meses)        ██████░░░░   60% concluído (
 - ✅ Colisores automáticos e dinâmicos (MeshCollider, Cuboid, etc.)
 - ✅ Áudio posicional 3D integrado (Drei PositionalAudio)
 - ✅ Sistema de partículas integrado (Drei Sparkles)
+- ✅ Canal WebSocket integrado no servidor Vite para multiplayer
+- ✅ Replicação em tempo real de Transforms locais e spawning de Ghosts remotos
+- ✅ Barra de Menus Superior (MenuBar) com dropdowns flutuantes e modais de Atalhos/Sobre
+- ✅ Sistema de Histórico (Undo / Redo) com atalhos de teclado globais
 
 ### Fase 4 – O que foi feito:
 - ✅ Suporte WebXR integrado ao canvas
@@ -315,14 +318,14 @@ Fase 4 – XR (3 meses)        ██████░░░░   60% concluído (
 | Asset Formats | 8 | 2 | 25% |
 | Physics | 6 | 3 | 50% |
 | Audio | 4 | 2 | 50% |
-| VR/AR | 10 | 5 | 50% |
-| Multiplayer | 5 | 3 | 60% |
+| VR/AR | 10 | 6 | 60% |
+| Multiplayer | 5 | 4 | 80% |
 | Build Targets | 5 | 1 | 20% |
-| **TOTAL** | **~68** | **~43** | **~63%** |
+| **TOTAL** | **~68** | **~46** | **~68%** |
 
 > O MVP (Fase 1 e Fase 2) do editor foi concluído com sucesso.
-> A maior parte das funcionalidades de Produção (Física, Áudio) e WebXR (VR imersivo) já foram integradas e validadas!
-> Próxima prioridade: Adicionar suporte multiplayer básico, animações e exportação nativa empacotada.
+> A maior parte das funcionalidades de Produção (Física, Áudio, Multiplayer) e WebXR (VR imersivo) já foram integradas e validadas!
+> Próxima prioridade: Adicionar animações avançadas e exportação nativa empacotada.
 
 
 
