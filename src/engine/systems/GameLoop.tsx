@@ -26,6 +26,15 @@ export function GameLoop() {
   // Cache de funções compiladas: entityId -> Function
   const compiledScripts = useRef<Record<string, Function>>({});
 
+  // Cache das fatias da store para evitar chamadas de getState por frame
+  const rigidBodyRefs = useEditorStore(s => s.rigidBodyRefs);
+  const rigidBodyRefsRef = useRef(rigidBodyRefs);
+  rigidBodyRefsRef.current = rigidBodyRefs;
+
+  const updateComponent = useEditorStore(s => s.updateComponent);
+  const updateComponentRef = useRef(updateComponent);
+  updateComponentRef.current = updateComponent;
+
   useFrame((_state, delta) => {
     if (!isPlaying) {
       if (started.current && !stopped.current) {
@@ -71,19 +80,16 @@ export function GameLoop() {
     accumulated.current += delta;
 
     // ── Update (todo frame) ──────────────────────────────────
-    const rigidBodyRefs = useEditorStore.getState().rigidBodyRefs || {};
-    // Itera diretamente sobre as chaves da cena sem alocar novo array
-    const entityIds = scene.rootEntityIds;
-    const entities = scene.entities;
-    for (let i = 0; i < entityIds.length; i++) {
-      const entity = entities[entityIds[i]];
+    const rbRefs = rigidBodyRefsRef.current || {};
+    const updComp = updateComponentRef.current;
+    for (const entity of Object.values(scene.entities)) {
       if (!entity?.active) continue;
-
+      
       const fn = compiledScripts.current[entity.id];
       if (fn) {
         try {
-          const rb = rigidBodyRefs[entity.id];
-          fn(entity, delta, useEditorStore.getState().updateComponent, Input, rb, entity.components.Camera, rapierContext, Math, THREE);
+          const rb = rbRefs[entity.id];
+          fn(entity, delta, updComp, Input, rb, entity.components.Camera, rapierContext, Math, THREE);
         } catch(err) {
           console.error(`Runtime script error on ${entity.name}:`, err);
         }

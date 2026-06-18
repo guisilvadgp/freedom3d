@@ -5,6 +5,7 @@ import { TransformControls, useAnimations } from '@react-three/drei';
 import { RigidBody, MeshCollider } from '@react-three/rapier';
 import * as THREE from 'three';
 import { useEditorStore } from '../store/editorStore';
+import { useShallow } from 'zustand/react/shallow';
 import type { Entity } from '../../engine/ecs/types';
 
 // ── Um modelo GLTF carregado ─────────────────────────────────
@@ -59,14 +60,25 @@ function shrinkTexture(texture: THREE.Texture, maxSize = 512) {
 function GLTFMesh({ entity }: { entity: Entity }) {
   const groupRef = useRef<THREE.Group>(null!);
 
-  const selectedEntityId = useEditorStore(s => s.selectedEntityId);
-  const selectEntity = useEditorStore(s => s.selectEntity);
-  const editorMode = useEditorStore(s => s.editorMode);
-  const isPlaying = useEditorStore(s => s.isPlaying);
-  const updateComponent = useEditorStore(s => s.updateComponent);
-  const snapEnabled = useEditorStore(s => s.snapEnabled);
-  const snapValue = useEditorStore(s => s.snapValue);
-  const activeViewport = useEditorStore(s => s.activeViewport);
+  const {
+    selectedEntityId,
+    selectEntity,
+    editorMode,
+    isPlaying,
+    updateComponent,
+    snapEnabled,
+    snapValue,
+    activeViewport
+  } = useEditorStore(useShallow(s => ({
+    selectedEntityId: s.selectedEntityId,
+    selectEntity: s.selectEntity,
+    editorMode: s.editorMode,
+    isPlaying: s.isPlaying,
+    updateComponent: s.updateComponent,
+    snapEnabled: s.snapEnabled,
+    snapValue: s.snapValue,
+    activeViewport: s.activeViewport
+  })));
 
   const isGameView = activeViewport === 'game';
   const isStandalone = typeof window !== 'undefined' && window.location.pathname === '/preview';
@@ -76,25 +88,13 @@ function GLTFMesh({ entity }: { entity: Entity }) {
   const rigidBody = entity.components.RigidBody;
   const isSelected = selectedEntityId === entity.id;
 
-  // Log de diagnóstico: qual src está sendo requisitado
-  useEffect(() => {
-    if (isStandalone) {
-      console.log(`[GLTF] Tentando carregar: "${entity.name || entity.id}" → ${model.src}`);
-      // Verifica se o src está definido
-      if (!model.src) {
-        console.error(`[GLTF] ❌ src está VAZIO/UNDEFINED para entidade "${entity.name || entity.id}"`);
-      } else if (model.src.startsWith('blob:')) {
-        console.error(`[GLTF] ❌ src ainda é um blob URL para "${entity.name || entity.id}": ${model.src}`);
-      }
-    }
-  }, [model.src, isStandalone, entity.id, entity.name]);
-
   // Drag detection: evita seleção acidental ao arrastar a câmera
   const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
   const handlePointerDown = (e: any) => {
     mouseDownPos.current = { x: e.clientX, y: e.clientY };
   };
   const handlePointerUp = (e: any) => {
+    if (isStandalone) return;
     if (!mouseDownPos.current) return;
     const dx = Math.abs(e.clientX - mouseDownPos.current.x);
     const dy = Math.abs(e.clientY - mouseDownPos.current.y);
@@ -107,26 +107,6 @@ function GLTFMesh({ entity }: { entity: Entity }) {
 
 
   const gltf = useLoader(GLTFLoader, model.src);
-
-  // Log de sucesso após carregamento
-  useEffect(() => {
-    if (!gltf || !isStandalone) return;
-    let meshCount = 0;
-    let texCount = 0;
-    gltf.scene.traverse(c => {
-      if ((c as THREE.Mesh).isMesh) {
-        meshCount++;
-        const mat = (c as THREE.Mesh).material;
-        const mats = Array.isArray(mat) ? mat : [mat];
-        mats.forEach((m: any) => {
-          ['map','normalMap','roughnessMap','metalnessMap','emissiveMap'].forEach(k => {
-            if (m[k]?.isTexture) texCount++;
-          });
-        });
-      }
-    });
-    console.log(`[GLTF] ✅ "${entity.name || entity.id}" carregado — ${meshCount} mesh(es), ${texCount} textura(s)`);
-  }, [gltf, isStandalone, entity.id, entity.name]);
   const clonedScene = useMemo(() => {
     const clone = gltf.scene.clone(true);
 

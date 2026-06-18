@@ -5,6 +5,7 @@ import { TransformControls, Edges, PositionalAudio, Sparkles, PerspectiveCamera 
 import { RigidBody, MeshCollider } from '@react-three/rapier';
 import * as THREE from 'three';
 import { useEditorStore } from '../store/editorStore';
+import { useShallow } from 'zustand/react/shallow';
 import type { Entity } from '../../engine/ecs/types';
 import { attemptTeleport } from './SceneView';
 
@@ -42,6 +43,30 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
   const hoveredRing = useRef<any>(null);
   const crosshairRef = useRef<THREE.Mesh>(null);
   const sceneActiveId = useEditorStore(s => s.activeSceneId);
+
+  // Seletores reativos via ref para evitar getState() por frame
+  const rigidBodyRefs = useEditorStore(s => s.rigidBodyRefs);
+  const rigidBodyRefsRef = useRef(rigidBodyRefs);
+  rigidBodyRefsRef.current = rigidBodyRefs;
+
+  const updateComponent = useEditorStore(s => s.updateComponent);
+  const updateComponentRef = useRef(updateComponent);
+  updateComponentRef.current = updateComponent;
+
+  // Cache de vetores para evitar garbage collection a 60fps
+  const forwardVec = useRef(new THREE.Vector3());
+  const rightVec = useRef(new THREE.Vector3());
+  const moveVec = useRef(new THREE.Vector3());
+
+  // Rastreamento local da rotação Y
+  const currentRotationY = useRef(entity.components.Transform?.rotation?.[1] || 0);
+  useEffect(() => {
+    currentRotationY.current = entity.components.Transform?.rotation?.[1] || 0;
+  }, [entity.id]);
+
+  // Timestamps para throttling
+  const lastRotationUpdate = useRef(0);
+  const lastPositionUpdate = useRef(0);
 
   // Setup WebXR "Tap" Event
   useEffect(() => {
@@ -166,50 +191,63 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
           }
         }
 
-        const storeState = useEditorStore.getState();
-        const rb = storeState.rigidBodyRefs[entity.id];
+        const rb = rigidBodyRefsRef.current[entity.id];
 
         const turnSpeed = 1.5;
         if (Math.abs(turnX) > 0.05) {
-          const currentRot = entity.components.Transform?.rotation || [0, 0, 0];
-          const newEulerY = currentRot[1] - turnX * turnSpeed * delta * (180 / Math.PI);
-          storeState.updateComponent(entity.id, 'Transform', {
-            rotation: [currentRot[0], newEulerY, currentRot[2]]
-          });
+          currentRotationY.current -= turnX * turnSpeed * delta * (180 / Math.PI);
+          const newEulerY = currentRotationY.current;
 
           if (rb) {
             const qRot = new THREE.Quaternion().setFromEuler(
               new THREE.Euler(0, (newEulerY * Math.PI) / 180, 0)
             );
             rb.setRotation(qRot, true);
+          } else {
+            // Se não houver RB, atualiza a store de forma throttlada (10Hz) para evitar lags no render
+            const now = performance.now();
+            if (now - lastRotationUpdate.current > 100) {
+              lastRotationUpdate.current = now;
+              const currentRot = entity.components.Transform?.rotation || [0, 0, 0];
+              updateComponentRef.current(entity.id, 'Transform', {
+                rotation: [currentRot[0], newEulerY, currentRot[2]]
+              });
+            }
           }
         }
 
         const headCamera = state.camera;
-        const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(headCamera.quaternion);
-        const right = new THREE.Vector3(1, 0, 0).applyQuaternion(headCamera.quaternion);
+        const forward = forwardVec.current.set(0, 0, -1).applyQuaternion(headCamera.quaternion);
+        const right = rightVec.current.set(1, 0, 0).applyQuaternion(headCamera.quaternion);
         forward.y = 0;
         right.y = 0;
         forward.normalize();
         right.normalize();
 
         const moveSpeed = 4.0;
-        const moveVec = new THREE.Vector3()
+        const move = moveVec.current
+          .set(0, 0, 0)
           .addScaledVector(forward, -moveZ)
           .addScaledVector(right, moveX)
           .multiplyScalar(moveSpeed);
 
         if (rb) {
           const currentVel = rb.linvel();
-          rb.setLinvel({ x: moveVec.x, y: currentVel.y, z: moveVec.z }, true);
+          rb.setLinvel({ x: move.x, y: currentVel.y, z: move.z }, true);
         } else {
           const currentPos = entity.components.Transform?.position || [0, 0, 0];
           const newPos: [number, number, number] = [
-            currentPos[0] + moveVec.x * delta,
+            currentPos[0] + move.x * delta,
             currentPos[1],
-            currentPos[2] + moveVec.z * delta
+            currentPos[2] + move.z * delta
           ];
-          storeState.updateComponent(entity.id, 'Transform', { position: newPos });
+          
+          // Atualiza a store de forma throttlada (10Hz) se não tiver física ativa
+          const now = performance.now();
+          if (now - lastPositionUpdate.current > 100) {
+            lastPositionUpdate.current = now;
+            updateComponentRef.current(entity.id, 'Transform', { position: newPos });
+          }
         }
       }
     } else {
@@ -235,7 +273,7 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
       />
       {isStandalone && (
         <mesh ref={crosshairRef} position={[0, 0, -1.5]} renderOrder={999}>
-          <ringGeometry args={[0.02, 0.03, 32]} />
+          <ringGeometry args={[0.02, 0.03, 16]} />
           <meshBasicMaterial color="#ff0000" opacity={0.6} transparent depthTest={false} />
         </mesh>
       )}
@@ -320,18 +358,30 @@ function VRTeleportRing({ entity }: { entity: Entity }) {
   );
 }
 
-function EntityMesh({ entity }: { entity: Entity }) {
+function EntityMesh({ entity, entities }: { entity: Entity; entities: Record<string, Entity> }) {
   const meshRef = useRef<THREE.Mesh>(null!);
 
-  const selectedEntityId = useEditorStore(s => s.selectedEntityId);
-  const selectEntity = useEditorStore(s => s.selectEntity);
-  const editorMode = useEditorStore(s => s.editorMode);
-  const isPlaying = useEditorStore(s => s.isPlaying);
-  const updateComponent = useEditorStore(s => s.updateComponent);
-  const snapEnabled = useEditorStore(s => s.snapEnabled);
-  const snapValue = useEditorStore(s => s.snapValue);
-  const setRigidBodyRef = useEditorStore(s => s.setRigidBodyRef);
-  const activeViewport = useEditorStore(s => s.activeViewport);
+  const {
+    selectedEntityId,
+    selectEntity,
+    editorMode,
+    isPlaying,
+    updateComponent,
+    snapEnabled,
+    snapValue,
+    setRigidBodyRef,
+    activeViewport
+  } = useEditorStore(useShallow(s => ({
+    selectedEntityId: s.selectedEntityId,
+    selectEntity: s.selectEntity,
+    editorMode: s.editorMode,
+    isPlaying: s.isPlaying,
+    updateComponent: s.updateComponent,
+    snapEnabled: s.snapEnabled,
+    snapValue: s.snapValue,
+    setRigidBodyRef: s.setRigidBodyRef,
+    activeViewport: s.activeViewport
+  })));
 
   const isGameView = activeViewport === 'game';
   const isStandalone = typeof window !== 'undefined' && window.location.pathname === '/preview';
@@ -557,9 +607,9 @@ function EntityMesh({ entity }: { entity: Entity }) {
           />
         )}
         {entity.childrenIds && entity.childrenIds.map(id => {
-          const childEntity = useEditorStore.getState().activeScene().entities[id];
+          const childEntity = entities[id];
           if (!childEntity) return null;
-          return <EntityMesh key={id} entity={childEntity} />;
+          return <EntityMesh key={id} entity={childEntity} entities={entities} />;
         })}
       </mesh>
     );
@@ -643,9 +693,9 @@ function EntityMesh({ entity }: { entity: Entity }) {
         <Edges scale={1.01} color="#44aaff" />
       )}
       {entity.childrenIds && entity.childrenIds.map(id => {
-        const childEntity = useEditorStore.getState().activeScene().entities[id];
+        const childEntity = entities[id];
         if (!childEntity) return null;
-        return <EntityMesh key={id} entity={childEntity} />;
+        return <EntityMesh key={id} entity={childEntity} entities={entities} />;
       })}
     </mesh>
   );
@@ -691,6 +741,15 @@ function XRSync() {
   const cachedPlayerId = useRef<string | null>(null);
   const sceneActiveId = useEditorStore(s => s.activeSceneId);
 
+  // Seletores reativos do editorStore via ref para evitar getState() por frame
+  const scene = useEditorStore(s => s.scenes[s.activeSceneId]);
+  const sceneRef = useRef(scene);
+  sceneRef.current = scene;
+
+  const rigidBodyRefs = useEditorStore(s => s.rigidBodyRefs);
+  const rigidBodyRefsRef = useRef(rigidBodyRefs);
+  rigidBodyRefsRef.current = rigidBodyRefs;
+
   // Recalcula o ID do player quando a cena mudar
   useEffect(() => {
     cachedPlayerId.current = null; // Reset para forçar re-lookup no próximo frame
@@ -701,19 +760,20 @@ function XRSync() {
 
   useFrame(() => {
     if (!groupRef.current) return;
-    const storeState = useEditorStore.getState();
-    const scene = storeState.activeScene();
+    const currentScene = sceneRef.current;
+    if (!currentScene) return;
 
     // Busca o player uma única vez por cena e armazena em cache
-    if (!cachedPlayerId.current || !scene.entities[cachedPlayerId.current]) {
-      const found = Object.values(scene.entities).find(e => e.tags?.includes('player') || e.components.Camera?.isMain);
+    if (!cachedPlayerId.current || !currentScene.entities[cachedPlayerId.current]) {
+      const found = Object.values(currentScene.entities).find(e => e.tags?.includes('player') || e.components.Camera?.isMain);
       cachedPlayerId.current = found?.id ?? null;
     }
     if (!cachedPlayerId.current) return;
-    const player = scene.entities[cachedPlayerId.current];
+    const player = currentScene.entities[cachedPlayerId.current];
     if (!player) return;
 
-    const rb = storeState.rigidBodyRefs[player.id];
+    const rbRefs = rigidBodyRefsRef.current || {};
+    const rb = rbRefs[player.id];
     let ePos = player.components.Transform?.position || [0, 0, 0];
     let eRot = player.components.Transform?.rotation || [0, 0, 0];
 
@@ -745,8 +805,10 @@ function XRSync() {
 }
 
 export function SceneEntities() {
-  const scene = useEditorStore(s => s.activeScene());
+  const scene = useEditorStore(s => s.scenes[s.activeSceneId]);
   const isStandalone = typeof window !== 'undefined' && window.location.pathname === '/preview';
+
+  if (!scene) return null;
 
   return (
     <>
@@ -754,7 +816,7 @@ export function SceneEntities() {
       {scene.rootEntityIds.map(id => {
         const entity = scene.entities[id];
         if (!entity) return null;
-        return <EntityMesh key={id} entity={entity} />;
+        return <EntityMesh key={id} entity={entity} entities={scene.entities} />;
       })}
     </>
   );

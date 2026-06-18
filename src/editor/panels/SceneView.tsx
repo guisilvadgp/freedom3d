@@ -34,6 +34,11 @@ function LoadingTracker({
 }) {
   const [loadingState, setLoadingState] = useState({ active: false, progress: 0 });
 
+  const onProgressRef = useRef(onProgress);
+  onProgressRef.current = onProgress;
+  const onLoadedRef = useRef(onLoaded);
+  onLoadedRef.current = onLoaded;
+
   useEffect(() => {
     let timeout: any;
     
@@ -42,8 +47,8 @@ function LoadingTracker({
       timeout = setTimeout(() => {
         const progress = total > 0 ? (loaded / total) * 100 : 0;
         setLoadingState({ active, progress });
-        if (onProgress) {
-          onProgress(Math.round(progress));
+        if (onProgressRef.current) {
+          onProgressRef.current(Math.round(progress));
         }
       }, 0);
     };
@@ -81,7 +86,7 @@ function LoadingTracker({
       manager.onLoad = origLoad;
       manager.onError = origError;
     };
-  }, [onProgress]);
+  }, []); // Dependência vazia: roda uma única vez no mount
 
   const { active, progress } = loadingState;
 
@@ -89,14 +94,14 @@ function LoadingTracker({
     // Só considera carregado se a estrutura da cena do servidor já foi injetada no Zustand,
     // e os loaders de assets terminaram (ou a fila está vazia após a injeção).
     if (sceneLoaded && (!active || progress === 100)) {
-      if (onLoaded) {
+      if (onLoadedRef.current) {
         const timer = setTimeout(() => {
-          onLoaded();
+          if (onLoadedRef.current) onLoadedRef.current();
         }, 300);
         return () => clearTimeout(timer);
       }
     }
-  }, [active, progress, sceneLoaded, onLoaded]);
+  }, [active, progress, sceneLoaded]);
 
   return null;
 }
@@ -213,7 +218,7 @@ export function SceneView({
       )}
 
       {/* Performance stats in play mode */}
-      {isPlaying && <Stats />}
+      {isPlaying && !isStandalone && <Stats />}
     </>
   );
 
