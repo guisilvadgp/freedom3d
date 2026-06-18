@@ -317,9 +317,30 @@ const liveSyncPlugin = () => {
         if (req.url.startsWith('/api/asset/') && req.method === 'GET') {
           const pathName = req.url.split('?')[0];
           const fileName = decodeURIComponent(pathName.split('/api/asset/')[1] || '');
-          const filePath = path.join(cacheDir, fileName);
+          let filePath = path.join(cacheDir, fileName);
+
+          // Se não existir no cache global, procura nas pastas de assets de todos os projetos
+          if (!fs.existsSync(filePath)) {
+            const folders = fs.readdirSync(projectsDir).filter(name => {
+              return fs.statSync(path.join(projectsDir, name)).isDirectory();
+            });
+            for (const folder of folders) {
+              const projectAssetPath = path.join(projectsDir, folder, 'assets', fileName);
+              if (fs.existsSync(projectAssetPath)) {
+                filePath = projectAssetPath;
+                break;
+              }
+            }
+          }
+
           if (fs.existsSync(filePath)) {
-            res.setHeader('Content-Type', 'model/gltf-binary');
+            if (fileName.endsWith('.glb') || fileName.endsWith('.gltf')) {
+              res.setHeader('Content-Type', 'model/gltf-binary');
+            } else if (fileName.endsWith('.mp3')) {
+              res.setHeader('Content-Type', 'audio/mpeg');
+            } else {
+              res.setHeader('Content-Type', 'application/octet-stream');
+            }
             res.setHeader('Access-Control-Allow-Origin', '*');
             res.end(fs.readFileSync(filePath));
           } else {
