@@ -129,6 +129,19 @@ export default function App() {
           store.setEditorMode('scale');
         }
       }
+
+      // Tab (Alterna entre translate, rotate, scale)
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        const currentMode = store.editorMode;
+        if (currentMode === 'translate') {
+          store.setEditorMode('rotate');
+        } else if (currentMode === 'rotate') {
+          store.setEditorMode('scale');
+        } else {
+          store.setEditorMode('translate');
+        }
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);

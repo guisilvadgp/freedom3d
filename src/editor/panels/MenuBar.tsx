@@ -365,6 +365,10 @@ export function MenuBar() {
                     <td><kbd>R</kbd></td>
                   </tr>
                   <tr>
+                    <td>Alternar Translação/Rotação/Redimensionamento</td>
+                    <td><kbd>Tab</kbd></td>
+                  </tr>
+                  <tr>
                     <td>Focar Console</td>
                     <td><kbd>Alt</kbd> + <kbd>1</kbd></td>
                   </tr>
