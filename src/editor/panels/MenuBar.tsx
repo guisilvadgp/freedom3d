@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useEditorStore } from '../store/editorStore';
 import { 
   FolderOpen, Save, Play, Square, Wifi, 
@@ -31,7 +32,7 @@ export function MenuBar() {
     setBottomTab,
     isPlaying,
     togglePlay
-  } = useEditorStore(state => ({
+  } = useEditorStore(useShallow(state => ({
     activeScene: state.activeSceneId ? state.scenes[state.activeSceneId] : null,
     saveCurrentScene: state.saveCurrentScene,
     publishToPreview: state.publishToPreview,
@@ -51,7 +52,7 @@ export function MenuBar() {
     setBottomTab: state.setBottomTab,
     isPlaying: state.isPlaying,
     togglePlay: state.togglePlay
-  }));
+  })));
 
   // Fecha o menu se clicar fora
   useEffect(() => {
