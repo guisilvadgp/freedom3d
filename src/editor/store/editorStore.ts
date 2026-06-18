@@ -1,14 +1,6 @@
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
 import type { Entity, EntityId, Scene, SceneId, AnyComponent, ComponentType } from '../../engine/ecs/types';
-import {
-  saveScene as dbSaveScene,
-  loadScene as dbLoadScene,
-  listScenes,
-  deleteScene as dbDeleteScene,
-  saveGLTFAsset,
-  loadGLTFAsset,
-} from '../../engine/core/persistence';
 import type { SceneMetadata } from '../../engine/core/persistence';
 import {
   createCube,
@@ -489,11 +481,6 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         await saveCurrentScene();
 
         const scene = activeScene();
-        Object.values(scene.entities).forEach(e => {
-          if (e.components.GLTFModel && e.components.GLTFModel.fileName) {
-            loadGLTFAsset(e.components.GLTFModel.fileName);
-          }
-        });
         const payload = { ...scene, publishedAt: Date.now() };
         await fetch('/api/sync', { method: 'POST', body: JSON.stringify(payload) });
         addLog('info', '🚀 Jogo publicado para o Preview com sucesso!');
@@ -509,16 +496,20 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     importGLTF: async (file: File) => {
       const { addLog, activeScene } = get();
       try {
-        const buffer = await file.arrayBuffer();
-        // Salva o asset no IndexedDB para persistência
-        await saveGLTFAsset(file.name, buffer);
-        // Cria blob URL para uso imediato
-        const blob = new Blob([buffer], { type: 'model/gltf-binary' });
-        const src = URL.createObjectURL(blob);
-        fetch('/api/asset/' + encodeURIComponent(file.name), { method: 'POST', body: buffer, headers: {'Content-Type': 'application/octet-stream'} }).then(r => console.log('Upload result:', r.status)).catch(e => console.error('Upload failed:', e));
-        
-
         const scene = activeScene();
+        const buffer = await file.arrayBuffer();
+        
+        // Faz o upload direto para o diretório de assets do projeto ativo
+        const uploadUrl = `/api/project/upload-asset?project=${encodeURIComponent(scene.name)}&file=${encodeURIComponent(file.name)}`;
+        const res = await fetch(uploadUrl, {
+          method: 'POST',
+          body: buffer,
+          headers: { 'Content-Type': 'application/octet-stream' }
+        });
+        if (!res.ok) throw new Error('Falha no upload do asset para o servidor.');
+
+        const src = `/api/project/get-asset?project=${encodeURIComponent(scene.name)}&file=${encodeURIComponent(file.name)}`;
+
         const entity: Entity = {
           id: uuidv4(),
           name: file.name.replace(/\.(gltf|glb)$/i, ''),
@@ -544,7 +535,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           },
         };
 
-        addLog('info', `📦 Modelo importado: "${file.name}" (${(file.size / 1024).toFixed(1)} KB)`);
+        addLog('info', `📦 Modelo importado no projeto: "${file.name}" (${(file.size / 1024).toFixed(1)} KB)`);
         set((s) => ({
           scenes: {
             ...s.scenes,
@@ -565,10 +556,9 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     instantiateAsset: async (fileName: string) => {
       const { addLog, activeScene } = get();
       try {
-        const src = await loadGLTFAsset(fileName);
-        if (!src) throw new Error('Asset não encontrado no banco.');
-
         const scene = activeScene();
+        const src = `/api/project/get-asset?project=${encodeURIComponent(scene.name)}&file=${encodeURIComponent(fileName)}`;
+
         const entity: Entity = {
           id: uuidv4(),
           name: fileName.replace(/\.(gltf|glb)$/i, ''),
@@ -594,7 +584,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           },
         };
 
-        addLog('info', `📦 Instanciado: "${fileName}"`);
+        addLog('info', `📦 Instanciado do projeto: "${fileName}"`);
         set((s) => ({
           scenes: {
             ...s.scenes,
@@ -664,12 +654,19 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       set({ isSaving: true });
       try {
         const scene = activeScene();
-        await dbSaveScene(scene);
-        addLog('info', `💾 Cena "${scene.name}" salva com sucesso.`);
+        const response = await fetch('/api/project/save-scene', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ projectName: scene.name, scene })
+        });
+        if (!response.ok) throw new Error('Falha ao salvar no servidor');
+
+        addLog('info', `💾 Projeto "${scene.name}" salvo no disco com sucesso.`);
         showToast(`Projeto "${scene.name}" salvo com sucesso!`, 'success');
+        set({ hasUnpublishedChanges: false });
         await get().refreshSavedScenes();
       } catch (err) {
-        get().addLog('error', `Falha ao salvar: ${String(err)}`);
+        get().addLog('error', `Falha ao salvar no disco: ${String(err)}`);
         showToast('Falha ao salvar o projeto!', 'error');
       } finally {
         set({ isSaving: false });
@@ -679,25 +676,43 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     createNewProject: async (name: string) => {
       const { refreshSavedScenes, showToast, addLog } = get();
       try {
-        const newScene = makeDefaultScene();
-        newScene.name = name.trim() || 'Novo Projeto';
+        const cleanName = name.replace(/[^a-zA-Z0-9_\-\s]/g, '').trim() || 'Novo Projeto';
         
-        // Salva imediatamente no banco para registrar
-        await dbSaveScene(newScene);
+        // Cria a pasta e estrutura básica no servidor
+        const response = await fetch('/api/projects', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: cleanName })
+        });
+        if (!response.ok) throw new Error('Erro ao criar pasta no disco');
+        const data = await response.json();
+        const finalName = data.name;
+
+        const newScene = makeDefaultScene();
+        newScene.id = finalName;
+        newScene.name = finalName;
+
+        // Salva o scene.json inicial na pasta do projeto
+        const saveResponse = await fetch('/api/project/save-scene', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ projectName: finalName, scene: newScene })
+        });
+        if (!saveResponse.ok) throw new Error('Erro ao inicializar scene.json do projeto');
         
         set((s) => ({
-          scenes: { ...s.scenes, [newScene.id]: newScene },
-          activeSceneId: newScene.id,
+          scenes: { ...s.scenes, [finalName]: newScene },
+          activeSceneId: finalName,
           selectedEntityId: null,
           showSaveModal: false,
-          hasUnpublishedChanges: true,
+          hasUnpublishedChanges: false,
         }));
         
-        addLog('info', `📁 Novo projeto criado: "${newScene.name}"`);
-        showToast(`Projeto "${newScene.name}" criado!`);
+        addLog('info', `📁 Novo projeto criado no disco: "${finalName}"`);
+        showToast(`Projeto "${finalName}" criado!`);
         await refreshSavedScenes();
       } catch (err) {
-        addLog('error', `Falha ao criar projeto: ${String(err)}`);
+        addLog('error', `Falha ao criar projeto no disco: ${String(err)}`);
         showToast('Erro ao criar novo projeto', 'error');
       }
     },
@@ -705,29 +720,35 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     renameProject: async (id: string, name: string) => {
       const { addLog, refreshSavedScenes, showToast } = get();
       try {
-        const cleanName = name.trim() || 'Sem nome';
-        // Se for a cena ativa em memória
+        const cleanName = name.replace(/[^a-zA-Z0-9_\-\s]/g, '').trim() || 'Sem nome';
+        
+        const response = await fetch('/api/project/rename', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ oldName: id, newName: cleanName })
+        });
+        if (!response.ok) throw new Error('Erro ao renomear pasta de projeto no servidor');
+        const data = await response.json();
+        const finalNewName = data.name;
+
         if (get().activeSceneId === id) {
+          const currentScene = get().scenes[id];
+          const updatedScene = { ...currentScene, id: finalNewName, name: finalNewName };
           set((s) => ({
             scenes: {
               ...s.scenes,
-              [id]: { ...s.scenes[id], name: cleanName }
+              [finalNewName]: updatedScene
             },
-            hasUnpublishedChanges: true
+            activeSceneId: finalNewName,
+            hasUnpublishedChanges: false
           }));
         }
 
-        // Carrega do IndexedDB, altera o nome e salva de volta
-        const record = await dbLoadScene(id);
-        if (record) {
-          record.scene.name = cleanName;
-          await dbSaveScene(record.scene);
-          addLog('info', `✏️ Projeto renomeado para "${cleanName}".`);
-          showToast(`Projeto renomeado para "${cleanName}"`);
-          await refreshSavedScenes();
-        }
+        addLog('info', `✏️ Pasta do projeto renomeada de "${id}" para "${finalNewName}".`);
+        showToast(`Projeto renomeado para "${finalNewName}"`);
+        await refreshSavedScenes();
       } catch (err) {
-        addLog('error', `Falha ao renomear: ${String(err)}`);
+        addLog('error', `Falha ao renomear pasta: ${String(err)}`);
         showToast('Erro ao renomear projeto', 'error');
       }
     },
@@ -735,21 +756,15 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     loadSavedScene: async (id) => {
       const { addLog, showToast } = get();
       try {
-        const record = await dbLoadScene(id);
-        if (!record) { addLog('warn', 'Cena não encontrada.'); return; }
+        const response = await fetch(`/api/project/load-scene?name=${encodeURIComponent(id)}`);
+        if (!response.ok) throw new Error('Projeto não encontrado no disco');
+        const scene = await response.json();
 
-        const scene = record.scene;
-        // Reidrata blob URLs de modelos GLTF
-        for (const entity of Object.values(scene.entities)) {
+        // Reidrata blob URLs de modelos GLTF apontando para o endpoint do projeto
+        for (const entity of Object.values(scene.entities) as any[]) {
           if (entity.components.GLTFModel) {
             const { fileName } = entity.components.GLTFModel;
-            const src = await loadGLTFAsset(fileName);
-            if (src) {
-              entity.components.GLTFModel.src = src;
-            } else {
-              addLog('warn', `Asset GLTF "${fileName}" não encontrado no cache. Re-importe o arquivo.`);
-              entity.active = false;
-            }
+            entity.components.GLTFModel.src = `/api/project/get-asset?project=${encodeURIComponent(id)}&file=${encodeURIComponent(fileName)}`;
           }
         }
 
@@ -758,30 +773,43 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           activeSceneId: scene.id,
           selectedEntityId: null,
           showSaveModal: false,
+          hasUnpublishedChanges: false
         }));
-        addLog('info', `📂 Cena "${scene.name}" carregada.`);
+        addLog('info', `📂 Projeto "${scene.name}" carregado do disco.`);
         showToast(`Projeto "${scene.name}" carregado!`);
       } catch (err) {
-        get().addLog('error', `Falha ao carregar: ${String(err)}`);
+        get().addLog('error', `Falha ao carregar do disco: ${String(err)}`);
         showToast('Erro ao carregar o projeto', 'error');
       }
     },
 
     deleteSavedScene: async (id) => {
       const { refreshSavedScenes, showToast } = get();
-      await dbDeleteScene(id);
-      await refreshSavedScenes();
-      showToast('Projeto removido', 'warning');
-      get().addLog('warn', 'Cena deletada do armazenamento.');
+      try {
+        const response = await fetch('/api/project/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: id })
+        });
+        if (!response.ok) throw new Error('Erro ao deletar projeto');
+
+        await refreshSavedScenes();
+        showToast('Projeto removido do disco', 'warning');
+        get().addLog('warn', `Pasta do projeto "${id}" excluída com sucesso.`);
+      } catch (err) {
+        get().addLog('error', `Falha ao excluir projeto do disco: ${String(err)}`);
+        showToast('Erro ao excluir projeto', 'error');
+      }
     },
 
     refreshSavedScenes: async () => {
       try {
-        const list = await listScenes();
-        set({ savedScenes: list });
-      } catch (_) {
-        // IndexedDB pode não estar disponível em alguns contextos
-      }
+        const response = await fetch('/api/projects');
+        if (response.ok) {
+          const list = await response.json();
+          set({ savedScenes: list });
+        }
+      } catch (_) {}
     },
   };
 });

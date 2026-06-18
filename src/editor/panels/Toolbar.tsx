@@ -1,7 +1,6 @@
 import { useRef } from 'react';
 import { useEditorStore } from '../store/editorStore';
 import {
-  FolderOpen,
   Upload,
   Move,
   RotateCw,

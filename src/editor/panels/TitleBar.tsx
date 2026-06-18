@@ -1,6 +1,6 @@
 import { useEditorStore } from '../store/editorStore';
 import { useShallow } from 'zustand/react/shallow';
-import { FolderOpen, Save, Maximize2, Minimize2, Circle } from 'lucide-react';
+import { FolderOpen, Save, Circle } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 export function TitleBar() {

@@ -1,18 +1,28 @@
 import { useEffect, useState } from 'react';
 import { useEditorStore } from '../store/editorStore';
-import { listAssets } from '../../engine/core/persistence';
-import type { StoredAsset } from '../../engine/core/persistence';
 import { RotateCw, Blocks, Layers, Plus } from 'lucide-react';
+
+interface ProjectAsset {
+  fileName: string;
+  size: number;
+}
 
 export function AssetBrowser() {
   const { instantiateAsset, prefabs, instantiatePrefab } = useEditorStore();
-  const [assets, setAssets] = useState<Omit<StoredAsset, 'buffer'>[]>([]);
+  const activeSceneId = useEditorStore(s => s.activeSceneId);
+  const activeScene = useEditorStore(s => s.scenes[activeSceneId]);
+  const sceneName = activeScene?.name || 'default';
+
+  const [assets, setAssets] = useState<ProjectAsset[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchAssets = async () => {
     try {
-      const list = await listAssets();
-      setAssets(list);
+      const res = await fetch(`/api/project/assets?project=${encodeURIComponent(sceneName)}`);
+      if (res.ok) {
+        const list = await res.json();
+        setAssets(list);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -22,10 +32,9 @@ export function AssetBrowser() {
 
   useEffect(() => {
     fetchAssets();
-    // Poll for updates (simple way to keep it fresh when importing)
     const interval = setInterval(fetchAssets, 3000);
     return () => clearInterval(interval);
-  }, []);
+  }, [sceneName]);
 
   const formatSize = (bytes: number) => {
     if (bytes < 1024) return bytes + ' B';
