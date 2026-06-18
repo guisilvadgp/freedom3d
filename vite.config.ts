@@ -222,12 +222,14 @@ const liveSyncPlugin = () => {
               res.setHeader('Content-Type', 'application/octet-stream');
             }
             res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
             res.end(fs.readFileSync(filePath));
           } else {
             const globalPath = path.join(cacheDir, fileName);
             if (fs.existsSync(globalPath)) {
               res.setHeader('Content-Type', 'model/gltf-binary');
               res.setHeader('Access-Control-Allow-Origin', '*');
+              res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
               res.end(fs.readFileSync(globalPath));
             } else {
               res.statusCode = 404;
@@ -349,6 +351,7 @@ const liveSyncPlugin = () => {
                 res.setHeader('Content-Type', 'application/octet-stream');
               }
               res.setHeader('Access-Control-Allow-Origin', '*');
+              res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
               res.end(fs.readFileSync(filePath));
             } else {
               res.statusCode = 404;
