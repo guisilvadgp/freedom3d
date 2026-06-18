@@ -41,6 +41,7 @@ export function StandalonePlayer() {
   const addLog = useEditorStore(state => state.addLog);
   const activeSceneId = useEditorStore(state => state.activeSceneId);
   const [showDebug, setShowDebug] = useState(false);
+  const [showConfigModal, setShowConfigModal] = useState(false);
 
   // Estados da tela de carregamento e inicio do jogo
   const [loading, setLoading] = useState(true);
@@ -339,44 +340,298 @@ export function StandalonePlayer() {
                 ⚠️ Nenhum cenário publicado no Mobile Preview ainda. No editor, abra o projeto desejado e clique em <strong>Publish to Mobile</strong> na barra superior para visualizá-lo aqui.
               </div>
             ) : (
-              <button
-                onClick={handlePlay}
-                style={{
-                  background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
-                  color: '#fff',
-                  border: 'none',
-                  padding: '16px 40px',
-                  fontSize: '16px',
-                  fontWeight: 700,
-                  letterSpacing: '1px',
-                  borderRadius: '30px',
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 20px rgba(99, 102, 241, 0.4)',
-                  transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  outline: 'none',
-                  margin: '0 auto'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'scale(1.05)';
-                  e.currentTarget.style.boxShadow = '0 6px 25px rgba(99, 102, 241, 0.6)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'scale(1)';
-                  e.currentTarget.style.boxShadow = '0 4px 20px rgba(99, 102, 241, 0.4)';
-                }}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-                PLAY GAME
-              </button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', alignItems: 'center' }}>
+                <button
+                  onClick={handlePlay}
+                  style={{
+                    background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '16px 40px',
+                    fontSize: '16px',
+                    fontWeight: 700,
+                    letterSpacing: '1px',
+                    borderRadius: '30px',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 20px rgba(99, 102, 241, 0.4)',
+                    transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    outline: 'none',
+                    margin: '0 auto'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'scale(1.05)';
+                    e.currentTarget.style.boxShadow = '0 6px 25px rgba(99, 102, 241, 0.6)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'scale(1)';
+                    e.currentTarget.style.boxShadow = '0 4px 20px rgba(99, 102, 241, 0.4)';
+                  }}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                  PLAY GAME
+                </button>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowConfigModal(true);
+                  }}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    color: '#e2e8f0',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    padding: '12px 30px',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    borderRadius: '30px',
+                    cursor: 'pointer',
+                    transition: 'background 0.2s ease, transform 0.2s ease',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    outline: 'none'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+                    e.currentTarget.style.transform = 'scale(1.03)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
+                    e.currentTarget.style.transform = 'scale(1)';
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="3" />
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                  </svg>
+                  CONFIGURAR CONTROLE
+                </button>
+              </div>
             )}
           </div>
         </div>
       )}
+      {showConfigModal && <ControlConfigModal onClose={() => setShowConfigModal(false)} />}
+    </div>
+  );
+}
+
+interface GamepadConfig {
+  triggerButton: number;
+  moveAxisX: number;
+  moveAxisY: number;
+  buttonA: number;
+  buttonB: number;
+  buttonC: number;
+  buttonD: number;
+}
+
+function ControlConfigModal({ onClose }: { onClose: () => void }) {
+  const [config, setConfig] = useState<GamepadConfig>(() => {
+    const saved = localStorage.getItem('freedom3d_gamepad_config');
+    return saved ? JSON.parse(saved) : {
+      triggerButton: 0,
+      moveAxisX: 0,
+      moveAxisY: 1,
+      buttonA: 0,
+      buttonB: 1,
+      buttonC: 2,
+      buttonD: 3
+    };
+  });
+
+  const [activeGamepadName, setActiveGamepadName] = useState<string>('Nenhum controle detectado');
+  const [bindingField, setBindingField] = useState<keyof GamepadConfig | null>(null);
+
+  useEffect(() => {
+    const updateGamepad = () => {
+      if (typeof navigator !== 'undefined' && navigator.getGamepads) {
+        const gps = navigator.getGamepads();
+        const firstGp = Array.from(gps).find(g => g !== null && g.connected);
+        if (firstGp) {
+          setActiveGamepadName(`${firstGp.id} (${firstGp.buttons.length} botões, ${firstGp.axes.length} eixos)`);
+        } else {
+          setActiveGamepadName('Nenhum controle detectado. Pressione um botão no controle bluetooth para ativar.');
+        }
+      }
+    };
+
+    updateGamepad();
+    const interval = setInterval(updateGamepad, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (!bindingField) return;
+
+    let animFrameId: number;
+    let initialAxesValues: number[] = [];
+    if (navigator.getGamepads) {
+      const gps = navigator.getGamepads();
+      const gp = Array.from(gps).find(g => g !== null && g.connected);
+      if (gp) {
+        initialAxesValues = Array.from(gp.axes);
+      }
+    }
+
+    const poll = () => {
+      const gps = navigator.getGamepads ? navigator.getGamepads() : [];
+      const gp = Array.from(gps).find(g => g !== null && g.connected);
+
+      if (gp) {
+        // 1. Escuta botões
+        for (let i = 0; i < gp.buttons.length; i++) {
+          if (gp.buttons[i].pressed || gp.buttons[i].value > 0.6) {
+            setConfig(prev => {
+              const next = { ...prev, [bindingField]: i };
+              localStorage.setItem('freedom3d_gamepad_config', JSON.stringify(next));
+              return next;
+            });
+            setBindingField(null);
+            return;
+          }
+        }
+
+        // 2. Escuta eixos
+        if (bindingField === 'moveAxisX' || bindingField === 'moveAxisY') {
+          for (let i = 0; i < gp.axes.length; i++) {
+            const val = gp.axes[i];
+            const initVal = initialAxesValues[i] || 0;
+            if (Math.abs(val - initVal) > 0.4) {
+              setConfig(prev => {
+                const next = { ...prev, [bindingField]: i };
+                localStorage.setItem('freedom3d_gamepad_config', JSON.stringify(next));
+                return next;
+              });
+              setBindingField(null);
+              return;
+            }
+          }
+        }
+      }
+      animFrameId = requestAnimationFrame(poll);
+    };
+
+    animFrameId = requestAnimationFrame(poll);
+    return () => cancelAnimationFrame(animFrameId);
+  }, [bindingField]);
+
+  const handleReset = () => {
+    const defaults = {
+      triggerButton: 0,
+      moveAxisX: 0,
+      moveAxisY: 1,
+      buttonA: 0,
+      buttonB: 1,
+      buttonC: 2,
+      buttonD: 3
+    };
+    setConfig(defaults);
+    localStorage.setItem('freedom3d_gamepad_config', JSON.stringify(defaults));
+  };
+
+  const getFieldLabel = (field: keyof GamepadConfig) => {
+    switch (field) {
+      case 'triggerButton': return 'Gatilho / Clique (Teleporte)';
+      case 'moveAxisX': return 'Analógico X (Esquerda/Direita)';
+      case 'moveAxisY': return 'Analógico Y (Frente/Trás)';
+      case 'buttonA': return 'Botão A';
+      case 'buttonB': return 'Botão B';
+      case 'buttonC': return 'Botão C';
+      case 'buttonD': return 'Botão D';
+    }
+  };
+
+  const isAxis = (field: keyof GamepadConfig) => {
+    return field === 'moveAxisX' || field === 'moveAxisY';
+  };
+
+  return (
+    <div style={{
+      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+      background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(10px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000,
+      fontFamily: 'sans-serif', padding: '20px'
+    }} onClick={onClose}>
+      <div style={{
+        background: 'rgba(30, 41, 59, 0.95)', border: '1px solid rgba(255, 255, 255, 0.1)',
+        borderRadius: '20px', width: '100%', maxWidth: '500px', padding: '30px',
+        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)', color: '#fff',
+        display: 'flex', flexDirection: 'column', gap: '20px'
+      }} onClick={e => e.stopPropagation()}>
+        
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: '#f8fafc' }}>
+            Configurar Controles Bluetooth
+          </h2>
+          <button onClick={onClose} style={{
+            background: 'none', border: 'none', color: '#94a3b8', fontSize: '24px', cursor: 'pointer', outline: 'none'
+          }}>&times;</button>
+        </div>
+
+        <div style={{
+          background: 'rgba(255,255,255,0.03)', borderRadius: '12px', padding: '15px',
+          border: '1px solid rgba(255,255,255,0.05)', fontSize: '13px', color: '#94a3b8'
+        }}>
+          <strong>Controle Ativo:</strong>
+          <div style={{ color: '#818cf8', marginTop: '4px', fontWeight: 600 }}>{activeGamepadName}</div>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '350px', overflowY: 'auto', paddingRight: '5px' }}>
+          {(Object.keys(config) as Array<keyof GamepadConfig>).map((field) => (
+            <div key={field} style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '10px 14px', background: 'rgba(255,255,255,0.02)',
+              borderRadius: '10px', border: '1px solid rgba(255,255,255,0.03)'
+            }}>
+              <span style={{ fontSize: '14px', fontWeight: 500, color: '#cbd5e1' }}>
+                {getFieldLabel(field)}
+              </span>
+              <button
+                onClick={() => setBindingField(field)}
+                style={{
+                  background: bindingField === field ? '#f59e0b' : 'rgba(99, 102, 241, 0.15)',
+                  color: bindingField === field ? '#000' : '#818cf8',
+                  border: bindingField === field ? 'none' : '1px solid rgba(99, 102, 241, 0.3)',
+                  padding: '6px 16px', fontSize: '13px', fontWeight: 600,
+                  borderRadius: '6px', cursor: 'pointer', minWidth: '120px', textAlign: 'center',
+                  transition: 'all 0.2s ease', outline: 'none'
+                }}
+              >
+                {bindingField === field 
+                  ? (isAxis(field) ? 'Mova analógico...' : 'Pressione botão...') 
+                  : (isAxis(field) ? `Eixo ${config[field]}` : `Botão ${config[field]}`)}
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', marginTop: '10px' }}>
+          <button onClick={handleReset} style={{
+            background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8',
+            padding: '10px 20px', borderRadius: '10px', fontSize: '13px', fontWeight: 600,
+            cursor: 'pointer', transition: 'background 0.2s ease', outline: 'none'
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'none'}
+          >
+            Resetar Padrão
+          </button>
+          <button onClick={onClose} style={{
+            background: 'linear-gradient(135deg, #6366f1, #4f46e5)', border: 'none', color: '#fff',
+            padding: '10px 25px', borderRadius: '10px', fontSize: '13px', fontWeight: 700,
+            cursor: 'pointer', boxShadow: '0 4px 12px rgba(99, 102, 241, 0.2)', outline: 'none'
+          }}>
+            Salvar e Fechar
+          </button>
+        </div>
+
+      </div>
     </div>
   );
 }

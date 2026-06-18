@@ -8,10 +8,16 @@ export const Input = {
     isLocked: false,
     buttons: {} as Record<number, boolean>,
   },
+  gamepad: {
+    buttons: {} as Record<string, boolean>,
+    axes: [0, 0] as [number, number],
+  },
   
   // Methods to check input state
   getKey: (code: string) => !!Input.keys[code],
   getMouseButton: (btn: number) => !!Input.mouse.buttons[btn],
+  getGamepadButton: (btnName: string) => !!Input.gamepad.buttons[btnName],
+  getGamepadAxis: (axisIdx: number) => Input.gamepad.axes[axisIdx] || 0,
   
   // Mouse Lock API helper
   lockMouse: () => {
@@ -45,6 +51,39 @@ export const Input = {
   _resetFrame: () => {
     Input.mouse.movementX = 0;
     Input.mouse.movementY = 0;
+  },
+
+  _updateGamepadState: () => {
+    if (typeof navigator === 'undefined' || !navigator.getGamepads) return;
+    const configStr = localStorage.getItem('freedom3d_gamepad_config');
+    const config = configStr ? JSON.parse(configStr) : {
+      triggerButton: 0,
+      moveAxisX: 0,
+      moveAxisY: 1,
+      buttonA: 0,
+      buttonB: 1,
+      buttonC: 2,
+      buttonD: 3
+    };
+
+    const gamepads = navigator.getGamepads();
+    Input.gamepad.buttons = {};
+    Input.gamepad.axes = [0, 0];
+
+    for (const gp of gamepads) {
+      if (gp && gp.connected) {
+        if (gp.buttons.length > config.buttonA) Input.gamepad.buttons['A'] = gp.buttons[config.buttonA].pressed;
+        if (gp.buttons.length > config.buttonB) Input.gamepad.buttons['B'] = gp.buttons[config.buttonB].pressed;
+        if (gp.buttons.length > config.buttonC) Input.gamepad.buttons['C'] = gp.buttons[config.buttonC].pressed;
+        if (gp.buttons.length > config.buttonD) Input.gamepad.buttons['D'] = gp.buttons[config.buttonD].pressed;
+
+        if (gp.axes.length > Math.max(config.moveAxisX, config.moveAxisY)) {
+          Input.gamepad.axes[0] = gp.axes[config.moveAxisX];
+          Input.gamepad.axes[1] = gp.axes[config.moveAxisY];
+        }
+        break;
+      }
+    }
   },
 
   _onKeyDown: (e: KeyboardEvent) => { Input.keys[e.code] = true; },

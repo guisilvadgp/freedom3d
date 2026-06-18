@@ -98,6 +98,11 @@ export function GameLoop() {
     frame.current++;
     accumulated.current += delta;
 
+    // Atualiza estados do Gamepad Bluetooth (VRBox)
+    if ((Input as any)._updateGamepadState) {
+      (Input as any)._updateGamepadState();
+    }
+
     // ── Update (todo frame) ──────────────────────────────────
     const rbRefs = rigidBodyRefsRef.current || {};
     const updComp = updateComponentRef.current;

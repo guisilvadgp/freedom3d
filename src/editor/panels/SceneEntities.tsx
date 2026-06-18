@@ -67,6 +67,8 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
   // Timestamps para throttling
   const lastRotationUpdate = useRef(0);
   const lastPositionUpdate = useRef(0);
+  const handleSelectRef = useRef<() => void>(null!);
+  const lastTriggerPressed = useRef(false);
 
   // Setup WebXR "Tap" Event
   useEffect(() => {
@@ -126,6 +128,8 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
         }
       });
     };
+
+    handleSelectRef.current = handleSelect;
 
     const onSessionStart = () => {
       session = xr.getSession();
@@ -228,6 +232,52 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
               }
             }
           }
+        }
+
+        // Lê a configuração salva do gamepad Bluetooth (VRBox)
+        const configStr = typeof window !== 'undefined' ? localStorage.getItem('freedom3d_gamepad_config') : null;
+        const config = configStr ? JSON.parse(configStr) : {
+          triggerButton: 0,
+          moveAxisX: 0,
+          moveAxisY: 1,
+          buttonA: 0,
+          buttonB: 1,
+          buttonC: 2,
+          buttonD: 3
+        };
+
+        const gamepads = typeof navigator !== 'undefined' && navigator.getGamepads ? navigator.getGamepads() : [];
+        let extTriggerPressed = false;
+
+        for (const gp of gamepads) {
+          if (gp && gp.connected) {
+            if (gp.axes.length > Math.max(config.moveAxisX, config.moveAxisY)) {
+              const gpX = gp.axes[config.moveAxisX];
+              const gpY = gp.axes[config.moveAxisY];
+              if (Math.abs(gpX) > 0.05) moveX = gpX;
+              if (Math.abs(gpY) > 0.05) moveZ = gpY;
+            }
+
+            if (gp.buttons.length > config.triggerButton) {
+              const btn = gp.buttons[config.triggerButton];
+              if (btn.pressed || btn.value > 0.5) {
+                extTriggerPressed = true;
+              }
+            }
+            break;
+          }
+        }
+
+        // Dispara o clique do gatilho configurado
+        if (extTriggerPressed) {
+          if (!lastTriggerPressed.current) {
+            lastTriggerPressed.current = true;
+            if (handleSelectRef.current) {
+              handleSelectRef.current();
+            }
+          }
+        } else {
+          lastTriggerPressed.current = false;
         }
 
         const rb = rigidBodyRefsRef.current[entity.id];
