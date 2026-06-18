@@ -208,7 +208,7 @@
 | Animação (Skeleton, Blend Trees, IK) | ❌ | Fase 3 |
 | Física (RigidBody, Raycast, Joints) | ✅ | Integrado com Rapier para simulação de corpos rígidos, colisores e gravidade |
 | Áudio Espacial / Reverb / Mixer | 🟡 | Áudio posicional 3D funcional integrado via Drei |
-| Multiplayer (Rooms, Matchmaking) | ❌ | Fase 3 |
+| Multiplayer (Rooms, Matchmaking) | 🟡 | Canal WebSocket integrado no servidor Vite com replicação de Transforms locais e spawning de Ghosts remotos |
 | VR / WebXR / Hand Tracking | ✅ | Suporte imersivo VR com locomoção por joystick suave e gaze teleport rings |
 | AR / Plane Detection / Anchors | 🟡 | Entrada básica na sessão AR no SceneView via WebXR |
 
@@ -258,7 +258,7 @@
 | @orion/core | 🟡 | Código em `src/engine/` mas sem separação monorepo ainda |
 | @orion/editor | 🟡 | Código em `src/editor/` |
 | @orion/physics | 🟡 | Física embutida no core via Rapier |
-| @orion/network | ❌ | Fase 3 |
+| @orion/network | 🟡 | Implementado client NetworkManager e rota WS no backend Vite |
 | @orion/audio | 🟡 | Áudio embutido no core via Drei |
 | @orion/vr | 🟡 | XR embutido no core/editor via @react-three/xr |
 | @orion/ui | ❌ | Fase 2+ |
@@ -271,7 +271,7 @@
 ```
 Fase 1 – Core (3 meses)      ██████████  100% concluído
 Fase 2 – Editor (4 meses)    ██████████  100% concluído
-Fase 3 – Produção (5 meses)  ████████░░   80% concluído (Física, Áudio e Partículas concluídos!)
+Fase 3 – Produção (5 meses)  █████████░   90% concluído (Física, Áudio, Partículas e Multiplayer básico concluídos!)
 Fase 4 – XR (3 meses)        ██████░░░░   60% concluído (VR imersivo com joystick e teletransporte!)
 ```
 
@@ -316,9 +316,9 @@ Fase 4 – XR (3 meses)        ██████░░░░   60% concluído (
 | Physics | 6 | 3 | 50% |
 | Audio | 4 | 2 | 50% |
 | VR/AR | 10 | 5 | 50% |
-| Multiplayer | 5 | 0 | 0% |
+| Multiplayer | 5 | 3 | 60% |
 | Build Targets | 5 | 1 | 20% |
-| **TOTAL** | **~68** | **~40** | **~59%** |
+| **TOTAL** | **~68** | **~43** | **~63%** |
 
 > O MVP (Fase 1 e Fase 2) do editor foi concluído com sucesso.
 > A maior parte das funcionalidades de Produção (Física, Áudio) e WebXR (VR imersivo) já foram integradas e validadas!

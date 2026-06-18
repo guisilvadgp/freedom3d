@@ -652,10 +652,25 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       set({ isSaving: true });
       try {
         const scene = activeScene();
+        
+        // Filtra as entidades ghosts de multiplayer para não salvar no arquivo da cena
+        const cleanedEntities = { ...scene.entities };
+        Object.keys(cleanedEntities).forEach(id => {
+          if (id.startsWith('ghost-')) {
+            delete cleanedEntities[id];
+          }
+        });
+        
+        const cleanedScene = {
+          ...scene,
+          entities: cleanedEntities,
+          rootEntityIds: scene.rootEntityIds.filter(id => !id.startsWith('ghost-'))
+        };
+
         const response = await fetch('/api/project/save-scene', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ projectName: scene.name, scene })
+          body: JSON.stringify({ projectName: scene.name, scene: cleanedScene })
         });
         if (!response.ok) throw new Error('Falha ao salvar no servidor');
 

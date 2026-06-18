@@ -21,6 +21,121 @@ const liveSyncPlugin = () => {
     name: 'live-sync',
     enforce: 'pre',
     configureServer(server: any) {
+      // Configurar servidor WebSocket para replicação multiplayer
+      try {
+        const { WebSocketServer } = require('ws');
+        const wss = new WebSocketServer({ noServer: true });
+
+        server.httpServer.on('upgrade', (request: any, socket: any, head: any) => {
+          const urlParams = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
+          if (urlParams.pathname === '/api/multiplayer') {
+            wss.handleUpgrade(request, socket, head, (ws: any) => {
+              wss.emit('connection', ws, request);
+            });
+          }
+        });
+
+        const rooms = new Map<string, Set<any>>(); // roomId -> Set of ws sockets
+
+        wss.on('connection', (ws: any) => {
+          let currentRoomId = 'default-room';
+          let currentPlayerId = '';
+
+          ws.on('message', (messageStr: string) => {
+            try {
+              const data = JSON.parse(messageStr);
+              if (data.type === 'join') {
+                currentPlayerId = data.playerId;
+                currentRoomId = data.roomId || 'default-room';
+                
+                if (!rooms.has(currentRoomId)) {
+                  rooms.set(currentRoomId, new Set());
+                }
+                const room = rooms.get(currentRoomId)!;
+                
+                ws.playerId = currentPlayerId;
+                ws.position = data.position || [0, 0, 0];
+                ws.rotation = data.rotation || [0, 0, 0];
+                ws.name = data.name || `Player_${currentPlayerId}`;
+                
+                room.add(ws);
+                console.log(`[WS Multiplayer] Player ${currentPlayerId} joined room ${currentRoomId}`);
+
+                // Envia a lista dos outros jogadores
+                const existingPlayers = Array.from(room)
+                  .filter((client: any) => client !== ws && client.playerId)
+                  .map((client: any) => ({
+                    playerId: client.playerId,
+                    position: client.position,
+                    rotation: client.rotation,
+                    name: client.name
+                  }));
+                
+                ws.send(JSON.stringify({
+                  type: 'room-players',
+                  players: existingPlayers
+                }));
+
+                // Notifica os outros
+                room.forEach((client: any) => {
+                  if (client !== ws && client.readyState === 1) {
+                    client.send(JSON.stringify({
+                      type: 'player-joined',
+                      playerId: currentPlayerId,
+                      position: ws.position,
+                      rotation: ws.rotation,
+                      name: ws.name
+                    }));
+                  }
+                });
+              } else if (data.type === 'move') {
+                ws.position = data.position;
+                ws.rotation = data.rotation;
+
+                const room = rooms.get(currentRoomId);
+                if (room) {
+                  room.forEach((client: any) => {
+                    if (client !== ws && client.readyState === 1) {
+                      client.send(JSON.stringify({
+                        type: 'player-moved',
+                        playerId: currentPlayerId,
+                        position: data.position,
+                        rotation: data.rotation
+                      }));
+                    }
+                  });
+                }
+              }
+            } catch (err) {
+              console.error('[WS Multiplayer] Error processing message:', err);
+            }
+          });
+
+          ws.on('close', () => {
+            const room = rooms.get(currentRoomId);
+            if (room) {
+              room.delete(ws);
+              console.log(`[WS Multiplayer] Player ${currentPlayerId} left room ${currentRoomId}`);
+              
+              room.forEach((client: any) => {
+                if (client.readyState === 1) {
+                  client.send(JSON.stringify({
+                    type: 'player-left',
+                    playerId: currentPlayerId
+                  }));
+                }
+              });
+
+              if (room.size === 0) {
+                rooms.delete(currentRoomId);
+              }
+            }
+          });
+        });
+      } catch (err) {
+        console.warn('[WS Multiplayer] Could not initialize WebSocket server, ws module probably missing:', err);
+      }
+
       server.middlewares.use((req: any, res: any, next: any) => {
         // 1. List Projects
         if (req.url === '/api/projects' && req.method === 'GET') {

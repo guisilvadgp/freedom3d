@@ -4,6 +4,7 @@ import { useEditorStore } from '../../editor/store/editorStore';
 import { Input } from './InputManager';
 import { useRapier } from '@react-three/rapier';
 import * as THREE from 'three';
+import { Network } from './NetworkManager';
 
 // ============================================================
 // Orion Engine – Game Loop System
@@ -43,6 +44,10 @@ export function GameLoop() {
         Input._cleanup();
         Input.unlockMouse();
         addLog('info', `⏹ Game loop encerrado. Frames renderizados: ${frame.current}`);
+        
+        // Desconecta do multiplayer
+        Network.disconnect();
+        
         frame.current = 0;
         accumulated.current = 0;
       }
@@ -56,6 +61,12 @@ export function GameLoop() {
       Input._init();
       addLog('info', '▶ Game loop iniciado (Update @ requestAnimationFrame, FixedUpdate @ 60Hz)');
       
+      // Conecta ao multiplayer se houver componente Network na cena
+      const hasNetwork = Object.values(scene.entities).some(e => e?.components.Network !== undefined);
+      if (hasNetwork) {
+        Network.connect({ roomName: scene.name });
+      }
+
       // Compila todos os scripts ativos na cena
       compiledScripts.current = {};
       for (const entity of Object.values(scene.entities)) {
@@ -120,6 +131,28 @@ export function GameLoop() {
         }
       }
     }
+
+    // Replicação Multiplayer: Envia posição/rotação do jogador local
+    for (const entity of Object.values(scene.entities)) {
+      if (entity?.active && entity.components.Network?.isLocal) {
+        const rb = rbRefs[entity.id];
+        let pos = entity.components.Transform?.position || [0, 0, 0];
+        let rot = entity.components.Transform?.rotation || [0, 0, 0];
+        
+        if (rb) {
+          try {
+            const trans = rb.translation();
+            pos = [trans.x, trans.y, trans.z];
+            const rotQ = rb.rotation();
+            const euler = new THREE.Euler().setFromQuaternion(new THREE.Quaternion(rotQ.x, rotQ.y, rotQ.z, rotQ.w));
+            rot = [euler.x, euler.y, euler.z];
+          } catch(e) {}
+        }
+        
+        Network.sendState(entity.id, { position: pos, rotation: rot });
+      }
+    }
+
     Input._resetFrame();
 
     // ── FixedUpdate (60Hz fixo) ──────────────────────────────
