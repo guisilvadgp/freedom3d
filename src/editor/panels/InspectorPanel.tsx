@@ -836,6 +836,14 @@ export function InspectorPanel() {
               <Plus size={12} /> Add Camera
             </button>
           )}
+          {!entity.components.Network && (
+            <button 
+              className="panel-btn" 
+              onClick={() => useEditorStore.getState().addComponent(selectedEntityId, { type: 'Network', isLocal: true, syncPosition: true, syncRotation: true, syncAnimation: false, sendRate: 20 })}
+            >
+              <Plus size={12} /> Add Network
+            </button>
+          )}
         </div>
       </div>
     </div>
