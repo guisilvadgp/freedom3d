@@ -6,14 +6,14 @@ import { useState, useEffect } from 'react';
 export function TitleBar() {
   const {
     activeScene,
+    activeSceneId,
     saveCurrentScene,
-    setShowSaveModal,
     hasUnpublishedChanges,
     isSaving
   } = useEditorStore(useShallow(s => ({
-    activeScene: s.scenes[s.activeSceneId],
+    activeScene: s.activeSceneId ? s.scenes[s.activeSceneId] : null,
+    activeSceneId: s.activeSceneId,
     saveCurrentScene: s.saveCurrentScene,
-    setShowSaveModal: s.setShowSaveModal,
     hasUnpublishedChanges: s.hasUnpublishedChanges,
     isSaving: s.isSaving
   })));
@@ -81,31 +81,39 @@ export function TitleBar() {
       {/* Project Status & Title */}
       <div className="window-title">
         <span className="app-name">Freedom3D Editor</span>
-        <span className="title-separator">—</span>
-        <span className="project-name">{activeScene?.name || 'Projeto Sem Nome'}</span>
-        
-        {/* Status indicator */}
-        <div className={`status-dot ${hasUnpublishedChanges ? 'unsaved' : 'saved'}`} title={hasUnpublishedChanges ? 'Alterações pendentes de publicação' : 'Salvo e Publicado'}>
-          <Circle size={8} fill="currentColor" />
-        </div>
+        {activeScene && (
+          <>
+            <span className="title-separator">—</span>
+            <span className="project-name">{activeScene.name}</span>
+            <div className={`status-dot ${hasUnpublishedChanges ? 'unsaved' : 'saved'}`} title={hasUnpublishedChanges ? 'Alterações pendentes de publicação' : 'Salvo e Publicado'}>
+              <Circle size={8} fill="currentColor" />
+            </div>
+          </>
+        )}
       </div>
 
       {/* Titlebar Action Buttons */}
       <div className="titlebar-actions">
-        <button className="titlebar-btn" onClick={() => setShowSaveModal(true)} title="Gerenciar Projetos (Salvar / Carregar / Criar)">
-          <FolderOpen size={14} />
-          <span>Projetos</span>
-        </button>
+        {activeSceneId ? (
+          <>
+            <button className="titlebar-btn" onClick={() => useEditorStore.setState({ activeSceneId: '' })} title="Voltar ao Gerenciador de Projetos (Hub)">
+              <FolderOpen size={14} />
+              <span>Sair do Projeto</span>
+            </button>
 
-        <button 
-          className={`titlebar-btn save-btn ${isSaving ? 'saving' : ''}`} 
-          onClick={saveCurrentScene} 
-          disabled={isSaving}
-          title="Salvar Projeto (Ctrl + S)"
-        >
-          <Save size={14} />
-          <span>{isSaving ? 'Salvando...' : 'Salvar'}</span>
-        </button>
+            <button 
+              className={`titlebar-btn save-btn ${isSaving ? 'saving' : ''}`} 
+              onClick={saveCurrentScene} 
+              disabled={isSaving}
+              title="Salvar Projeto (Ctrl + S)"
+            >
+              <Save size={14} />
+              <span>{isSaving ? 'Salvando...' : 'Salvar'}</span>
+            </button>
+          </>
+        ) : (
+          <span className="hub-badge" style={{ fontSize: '10px', fontWeight: 'bold', background: 'rgba(255,255,255,0.08)', padding: '3px 8px', borderRadius: '4px', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.5px' }}>HUB DE PROJETOS</span>
+        )}
       </div>
     </div>
   );

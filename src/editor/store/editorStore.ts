@@ -150,11 +150,9 @@ interface EditorStore {
 }
 
 export const useEditorStore = create<EditorStore>((set, get) => {
-  const defaultScene = makeDefaultScene();
-
   return {
-    scenes: { [defaultScene.id]: defaultScene },
-    activeSceneId: defaultScene.id,
+    scenes: {},
+    activeSceneId: '',
     activeScene: () => get().scenes[get().activeSceneId],
 
     hasUnpublishedChanges: false,

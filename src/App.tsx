@@ -21,48 +21,15 @@ export default function App() {
   const { bottomTab, setBottomTab } = useEditorStore();
 
   useEffect(() => {
-    const loadLatestScene = async () => {
+    const loadProjectsList = async () => {
       try {
         const store = useEditorStore.getState();
-        // Tenta obter a cena mais recente do servidor (/api/sync)
-        const res = await fetch('/api/sync');
-        let loadedFromServer = false;
-        
-        if (res.ok) {
-          try {
-            const scene = await res.json();
-            if (scene && scene.id && Object.keys(scene).length > 0) {
-              // Reidrata as blob URLs de modelos GLTF
-              for (const entity of Object.values(scene.entities) as any[]) {
-                if (entity.components?.GLTFModel?.fileName) {
-                  entity.components.GLTFModel.src = '/api/asset/' + encodeURIComponent(entity.components.GLTFModel.fileName);
-                }
-              }
-              useEditorStore.setState(state => ({
-                scenes: { ...state.scenes, [scene.id]: scene },
-                activeSceneId: scene.id
-              }));
-              loadedFromServer = true;
-              store.addLog('info', `📂 Carregada cena ativa do servidor: "${scene.name || 'Sem nome'}"`);
-            }
-          } catch (_) {
-            // Ignora erro se JSON vier vazio ou invalido
-          }
-        }
-
-        // Se nao carregou do servidor, tenta carregar a mais recente do IndexedDB
-        if (!loadedFromServer) {
-          await store.refreshSavedScenes();
-          const saved = useEditorStore.getState().savedScenes;
-          if (saved && saved.length > 0) {
-            await store.loadSavedScene(saved[0].id);
-          }
-        }
+        await store.refreshSavedScenes();
       } catch (err) {
-        console.error('Falha ao inicializar cena:', err);
+        console.error('Falha ao inicializar lista de projetos:', err);
       }
     };
-    loadLatestScene();
+    loadProjectsList();
   }, []);
 
   const saveCurrentScene = useEditorStore(state => state.saveCurrentScene);
@@ -85,6 +52,18 @@ export default function App() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [saveCurrentScene]);
+
+  const activeSceneId = useEditorStore(state => state.activeSceneId);
+
+  if (!activeSceneId) {
+    return (
+      <div className="editor-root native-theme">
+        <TitleBar />
+        <SaveLoadModal isHub={true} />
+        <Toast />
+      </div>
+    );
+  }
 
   return (
     <div className="editor-root native-theme">

@@ -3,7 +3,7 @@ import { useEditorStore } from '../store/editorStore';
 import { useShallow } from 'zustand/react/shallow';
 import { FolderOpen, X, Plus, Trash2, Edit3, Check, Calendar, Layers, Folder } from 'lucide-react';
 
-export function SaveLoadModal() {
+export function SaveLoadModal({ isHub = false }: { isHub?: boolean }) {
   const {
     showSaveModal,
     setShowSaveModal,
@@ -31,10 +31,10 @@ export function SaveLoadModal() {
   const [renameValue, setRenameValue] = useState('');
 
   useEffect(() => {
-    if (showSaveModal) refreshSavedScenes();
-  }, [showSaveModal]);
+    if (isHub || showSaveModal) refreshSavedScenes();
+  }, [showSaveModal, isHub]);
 
-  if (!showSaveModal) return null;
+  if (!isHub && !showSaveModal) return null;
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,9 +122,11 @@ export function SaveLoadModal() {
               <h1>Projetos Recentes</h1>
               <p>Gerencie, edite ou crie novos cenários 3D</p>
             </div>
-            <button className="close-dashboard-btn" onClick={() => setShowSaveModal(false)} title="Fechar Gerenciador">
-              <X size={20} />
-            </button>
+            {!isHub && (
+              <button className="close-dashboard-btn" onClick={() => setShowSaveModal(false)} title="Fechar Gerenciador">
+                <X size={20} />
+              </button>
+            )}
           </div>
 
           <div className="projects-grid">
