@@ -1,34 +1,52 @@
 import { useState } from 'react';
 import { useEditorStore } from '../store/editorStore';
-import type { Entity } from '../../engine/ecs/types';
+import { 
+  Box, 
+  Circle, 
+  Square, 
+  Database, 
+  Disc, 
+  Sun, 
+  Lightbulb, 
+  User, 
+  Users, 
+  Target, 
+  Eye, 
+  EyeOff, 
+  Copy, 
+  Trash2, 
+  Plus,
+  Video,
+  Cpu
+} from 'lucide-react';
 
 const ENTITY_TYPES = [
-  { id: 'cube', label: '📦 Cube', icon: '📦' },
-  { id: 'sphere', label: '🔵 Sphere', icon: '🔵' },
-  { id: 'plane', label: '▬ Plane', icon: '▬' },
-  { id: 'cylinder', label: '🔵 Cylinder', icon: '⬜' },
-  { id: 'torus', label: '🟣 Torus', icon: '🟣' },
+  { id: 'cube', label: 'Cube', icon: <Box size={14} /> },
+  { id: 'sphere', label: 'Sphere', icon: <Circle size={14} /> },
+  { id: 'plane', label: 'Plane', icon: <Square size={14} /> },
+  { id: 'cylinder', label: 'Cylinder', icon: <Database size={14} /> },
+  { id: 'torus', label: 'Torus', icon: <Disc size={14} /> },
 ];
 
 const LIGHT_TYPES = [
-  { id: 'directional', label: '☀️ Directional Light' },
-  { id: 'point', label: '💡 Point Light' },
+  { id: 'directional', label: 'Directional Light', icon: <Sun size={14} /> },
+  { id: 'point', label: 'Point Light', icon: <Lightbulb size={14} /> },
 ];
 
 const PLAYER_TYPES = [
-  { id: 'first-person', label: '🚶 First Person Player' },
-  { id: 'third-person', label: '🏃 Third Person Player' },
+  { id: 'first-person', label: 'First Person Player', icon: <User size={14} /> },
+  { id: 'third-person', label: 'Third Person Player', icon: <Users size={14} /> },
 ];
 
 const XR_TYPES = [
-  { id: 'vr-position', label: '🌀 VR Position' },
+  { id: 'vr-position', label: 'VR Position', icon: <Target size={14} /> },
 ];
 
 export function HierarchyPanel() {
   const {
-    activeScene, selectedEntityId, selectEntity,
-    createEntity, deleteEntity, duplicateEntity,
-    renameEntity, toggleEntityActive,
+    activeScene,
+    createEntity,
+    renameEntity,
   } = useEditorStore();
   const scene = activeScene();
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -61,7 +79,7 @@ export function HierarchyPanel() {
           onClick={() => setShowCreateMenu(!showCreateMenu)}
           title="Create Entity"
         >
-          + Create
+          <Plus size={13} /> Create
         </button>
       </div>
 
@@ -70,25 +88,25 @@ export function HierarchyPanel() {
           <div className="create-menu-section">3D Objects</div>
           {ENTITY_TYPES.map((t) => (
             <button key={t.id} className="create-menu-item" onClick={() => handleCreate(t.id)}>
-              {t.label}
+              {t.icon} {t.label}
             </button>
           ))}
           <div className="create-menu-section">Lights</div>
           {LIGHT_TYPES.map((t) => (
             <button key={t.id} className="create-menu-item" onClick={() => handleCreate(t.id)}>
-              {t.label}
+              {t.icon} {t.label}
             </button>
           ))}
           <div className="create-menu-section">Players</div>
           {PLAYER_TYPES.map((t) => (
             <button key={t.id} className="create-menu-item" onClick={() => handleCreate(t.id)}>
-              {t.label}
+              {t.icon} {t.label}
             </button>
           ))}
           <div className="create-menu-section">XR / VR</div>
           {XR_TYPES.map((t) => (
             <button key={t.id} className="create-menu-item" onClick={() => handleCreate(t.id)}>
-              {t.label}
+              {t.icon} {t.label}
             </button>
           ))}
         </div>
@@ -143,10 +161,15 @@ function HierarchyNode({
   if (!entity) return null;
 
   const isSelected = selectedEntityId === entityId;
-  const icon = entity.components.Light ? '💡'
-    : entity.components.Camera ? '🎥'
-    : entity.components.MeshRenderer ? '📦'
-    : '📁';
+  
+  // Decide the icon dynamically based on entity components
+  const renderIcon = () => {
+    if (entity.components.Light) return <Sun size={14} />;
+    if (entity.components.Camera) return <Video size={14} />;
+    if (entity.components.MeshRenderer) return <Box size={14} />;
+    if (entity.components.Script) return <Cpu size={14} />;
+    return <Box size={14} />;
+  };
 
   return (
     <>
@@ -177,9 +200,9 @@ function HierarchyNode({
           e.stopPropagation();
           toggleEntityActive(entityId);
         }}>
-          {entity.active ? '👁' : '🚫'}
+          {entity.active ? <Eye size={13} /> : <EyeOff size={13} />}
         </span>
-        <span className="entity-icon">{icon}</span>
+        <span className="entity-icon">{renderIcon()}</span>
 
         {renamingId === entityId ? (
           <input
@@ -204,12 +227,16 @@ function HierarchyNode({
               className="entity-action-btn"
               title="Duplicate"
               onClick={(e) => { e.stopPropagation(); duplicateEntity(entityId); }}
-            >⧉</button>
+            >
+              <Copy size={13} />
+            </button>
             <button
               className="entity-action-btn delete"
               title="Delete"
               onClick={(e) => { e.stopPropagation(); deleteEntity(entityId); }}
-            >✕</button>
+            >
+              <Trash2 size={13} />
+            </button>
           </div>
         )}
       </div>

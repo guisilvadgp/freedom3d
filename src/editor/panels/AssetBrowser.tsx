@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useEditorStore } from '../store/editorStore';
 import { listAssets } from '../../engine/core/persistence';
 import type { StoredAsset } from '../../engine/core/persistence';
+import { RotateCw, Blocks, Layers, Plus } from 'lucide-react';
 
 export function AssetBrowser() {
   const { instantiateAsset, prefabs, instantiatePrefab } = useEditorStore();
@@ -36,7 +37,9 @@ export function AssetBrowser() {
     <div className="asset-browser">
       <div className="asset-toolbar">
         <span className="asset-title">Meus Assets (GLTF)</span>
-        <button className="panel-btn small" onClick={fetchAssets}>🔄 Refresh</button>
+        <button className="panel-btn small" onClick={fetchAssets}>
+          <RotateCw size={12} /> Refresh
+        </button>
       </div>
       
       {loading ? (
@@ -60,7 +63,9 @@ export function AssetBrowser() {
                     e.dataTransfer.setData('application/json', JSON.stringify({ type: 'prefab', index: i }));
                   }}
                 >
-                  <div className="asset-icon">🎯</div>
+                  <div className="asset-icon">
+                    <Blocks size={24} />
+                  </div>
                   <div className="asset-info">
                     <span className="asset-name" title={prefab.name}>{prefab.name}</span>
                     <span className="asset-size">Prefab</span>
@@ -71,7 +76,7 @@ export function AssetBrowser() {
                       onClick={() => instantiatePrefab(i)}
                       title="Adicionar à Cena"
                     >
-                      ➕ Instanciar
+                      <Plus size={13} /> Instanciar
                     </button>
                   </div>
                 </div>
@@ -96,7 +101,9 @@ export function AssetBrowser() {
                     e.dataTransfer.setData('application/json', JSON.stringify({ type: 'gltf', fileName: asset.fileName }));
                   }}
                 >
-                  <div className="asset-icon">📦</div>
+                  <div className="asset-icon">
+                    <Layers size={24} />
+                  </div>
                   <div className="asset-info">
                     <span className="asset-name" title={asset.fileName}>{asset.fileName}</span>
                     <span className="asset-size">{formatSize(asset.size)}</span>
@@ -107,7 +114,7 @@ export function AssetBrowser() {
                       onClick={() => instantiateAsset(asset.fileName)}
                       title="Adicionar à Cena"
                     >
-                      ➕ Instanciar
+                      <Plus size={13} /> Instanciar
                     </button>
                   </div>
                 </div>

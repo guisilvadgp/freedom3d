@@ -6,7 +6,6 @@ import { RigidBody, MeshCollider } from '@react-three/rapier';
 import * as THREE from 'three';
 import { useEditorStore } from '../store/editorStore';
 import type { Entity } from '../../engine/ecs/types';
-import { xrStore } from './SceneView';
 
 // ── Um modelo GLTF carregado ─────────────────────────────────
 
@@ -97,7 +96,6 @@ function GLTFMesh({ entity }: { entity: Entity }) {
   const gltf = useLoader(GLTFLoader, model.src);
   const clonedScene = useMemo(() => {
     const clone = gltf.scene.clone(true);
-    const isMobile = isStandalone || (typeof navigator !== 'undefined' && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent));
 
     // Aplicar shadow em todos os meshes internos e otimizar texturas no mobile/desktop para economizar VRAM
     clone.traverse((child) => {

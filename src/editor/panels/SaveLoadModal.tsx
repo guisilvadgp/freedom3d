@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useEditorStore } from '../store/editorStore';
+import { FolderOpen, X, Save, Trash2 } from 'lucide-react';
 
 export function SaveLoadModal() {
   const {
@@ -27,8 +28,12 @@ export function SaveLoadModal() {
     <div className="modal-overlay" onClick={() => setShowSaveModal(false)}>
       <div className="modal-box" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <span className="modal-title">💾 Salvar / Carregar Cena</span>
-          <button className="modal-close" onClick={() => setShowSaveModal(false)}>✕</button>
+          <span className="modal-title">
+            <FolderOpen size={18} /> Salvar / Carregar Cena
+          </span>
+          <button className="modal-close" onClick={() => setShowSaveModal(false)}>
+            <X size={18} />
+          </button>
         </div>
 
         {/* Save current */}
@@ -41,7 +46,8 @@ export function SaveLoadModal() {
               onClick={saveCurrentScene}
               disabled={isSaving}
             >
-              {isSaving ? 'Salvando...' : '💾 Salvar'}
+              <Save size={14} />
+              {isSaving ? 'Salvando...' : 'Salvar'}
             </button>
           </div>
         </div>
@@ -57,7 +63,7 @@ export function SaveLoadModal() {
               <div className="modal-scene-info">
                 <span className="modal-scene-label">{sc.name}</span>
                 <span className="modal-scene-meta">
-                  {sc.entityCount} entidades · {formatDate(sc.savedAt)}
+                  {sc.entityCount} entidades • {formatDate(sc.savedAt)}
                 </span>
               </div>
               <div className="modal-scene-actions">
@@ -65,13 +71,13 @@ export function SaveLoadModal() {
                   className="modal-btn small"
                   onClick={() => loadSavedScene(sc.id)}
                 >
-                  📂 Abrir
+                  <FolderOpen size={13} /> Abrir
                 </button>
                 <button
                   className="modal-btn small danger"
                   onClick={() => deleteSavedScene(sc.id)}
                 >
-                  ✕
+                  <Trash2 size={13} />
                 </button>
               </div>
             </div>

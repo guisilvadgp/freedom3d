@@ -1,4 +1,5 @@
 import { useEditorStore } from '../store/editorStore';
+import { Terminal, Info, AlertTriangle, AlertCircle, Trash2 } from 'lucide-react';
 
 export function ConsolePanel() {
   const { consoleLogs, clearConsole } = useEditorStore();
@@ -10,11 +11,17 @@ export function ConsolePanel() {
     error: '#f56342',
   };
 
-  const typePrefix: Record<string, string> = {
-    log: '›',
-    info: 'ℹ',
-    warn: '⚠',
-    error: '✕',
+  const renderTypeIcon = (type: string) => {
+    switch (type) {
+      case 'info':
+        return <Info size={13} style={{ color: typeColor.info }} />;
+      case 'warn':
+        return <AlertTriangle size={13} style={{ color: typeColor.warn }} />;
+      case 'error':
+        return <AlertCircle size={13} style={{ color: typeColor.error }} />;
+      default:
+        return <Terminal size={13} style={{ color: typeColor.log }} />;
+    }
   };
 
   const formatTime = (ts: number) => {
@@ -26,13 +33,15 @@ export function ConsolePanel() {
     <div className="console-panel">
       <div className="console-toolbar">
         <span className="console-count">{consoleLogs.length} logs</span>
-        <button className="panel-btn small" onClick={clearConsole}>Clear</button>
+        <button className="panel-btn small" onClick={clearConsole}>
+          <Trash2 size={12} /> Clear
+        </button>
       </div>
       <div className="console-output">
         {consoleLogs.map((log) => (
           <div key={log.id} className="console-line" style={{ color: typeColor[log.type] }}>
             <span className="console-time">[{formatTime(log.timestamp)}]</span>
-            <span className="console-type">{typePrefix[log.type]}</span>
+            <span className="console-type">{renderTypeIcon(log.type)}</span>
             <span className="console-msg">{log.message}</span>
           </div>
         ))}

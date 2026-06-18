@@ -6,7 +6,7 @@ import { RigidBody, MeshCollider } from '@react-three/rapier';
 import * as THREE from 'three';
 import { useEditorStore } from '../store/editorStore';
 import type { Entity } from '../../engine/ecs/types';
-import { xrStore, attemptTeleport } from './SceneView';
+import { attemptTeleport } from './SceneView';
 
 // ── Perspective Camera Wrapper ──────────────────────────────
 // Updates position and rotation on every frame (60fps) directly in Three.js
@@ -211,13 +211,6 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
     }
   });
 
-  const entityPos = entity.components.Transform?.position || [0, 0, 0];
-  const offset = camera.offset || [0, 0, 0];
-  const xrOriginPos: [number, number, number] = [
-    entityPos[0] + offset[0],
-    entityPos[1] + offset[1] - (initialHeadsetHeight ?? 1.6),
-    entityPos[2] + offset[2]
-  ];
   return (
     <>
       <PerspectiveCamera

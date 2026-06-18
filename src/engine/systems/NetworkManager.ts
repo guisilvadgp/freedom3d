@@ -1,4 +1,3 @@
-import { Entity } from '../ecs/types';
 import { useEditorStore } from '../../editor/store/editorStore';
 
 export interface NetworkConfig {
@@ -19,10 +18,10 @@ export class NetworkManager {
     if (config?.serverUrl) this.serverUrl = config.serverUrl;
     if (config?.roomName) this.roomId = config.roomName;
 
-    // TODO: Implementar conexão WebSocket real ou Colyseus client
+    // TODO: Implementar conexao WebSocket real ou Colyseus client
     console.log(`[Network] Conectando a ${this.serverUrl} (Room: ${this.roomId})...`);
     
-    // Simulação de conexão local
+    // Simulacao de conexao local
     setTimeout(() => {
       this.connected = true;
       this.playerId = 'player-' + Math.floor(Math.random() * 1000);
@@ -44,23 +43,23 @@ export class NetworkManager {
     return this.connected;
   }
 
-  // Replicação (Enviar estado local)
-  sendState(entityId: string, transform: any) {
+  // Replicacao (Enviar estado local)
+  sendState(_entityId: string, _transform: any) {
     if (!this.connected) return;
-    const packet = {
-      type: 'SYNC_TRANSFORM',
-      playerId: this.playerId,
-      entityId,
-      position: transform.position,
-      rotation: transform.rotation,
-      timestamp: Date.now()
-    };
+    // const packet = {
+    //   type: 'SYNC_TRANSFORM',
+    //   playerId: this.playerId,
+    //   entityId: _entityId,
+    //   position: _transform.position,
+    //   rotation: _transform.rotation,
+    //   timestamp: Date.now()
+    // };
     // this.socket.send(JSON.stringify(packet));
   }
 
   // Receber estado remoto (Mock)
   onReceiveState(packet: any) {
-    if (packet.playerId === this.playerId) return; // Ignora o próprio state
+    if (packet.playerId === this.playerId) return; // Ignora o proprio state
 
     // Matchmaking / Sync logic
     // const { activeScene, updateComponent } = useEditorStore.getState();

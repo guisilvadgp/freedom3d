@@ -1,18 +1,19 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import Editor from '@monaco-editor/react';
 import { useEditorStore } from '../store/editorStore';
 import type { ScriptComponent } from '../../engine/ecs/types';
+import { FileCode, Plus } from 'lucide-react';
 
-const defaultCode = `// O objeto 'entity' contém a referência para esta entidade.
-// O objeto 'engine' contém referências para cena e controle.
+const defaultCode = `// O objeto 'entity' contem a referencia para esta entidade.
+// O objeto 'engine' contem referencias para cena e controle.
 
 export function onAwake() {
-  // Chamado na inicialização
+  // Chamado na inicializacao
 }
 
 export function onUpdate(delta) {
   // Chamado a cada frame
-  // Exemplo de rotação:
+  // Exemplo de rotacao:
   // if (entity.components.Transform) {
   //   entity.components.Transform.rotation[1] += 90 * delta;
   // }
@@ -52,7 +53,7 @@ export function ScriptEditor() {
   if (!scriptComponent) {
     return (
       <div className="script-editor-empty">
-        <p>A entidade "{entity.name}" não possui um ScriptComponent.</p>
+        <p>A entidade "{entity.name}" nao possui um ScriptComponent.</p>
         <button 
           className="panel-btn primary"
           onClick={() => {
@@ -62,8 +63,9 @@ export function ScriptEditor() {
               code: defaultCode
             });
           }}
+          style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '10px' }}
         >
-          Adicionar ScriptComponent
+          <Plus size={14} /> Adicionar ScriptComponent
         </button>
       </div>
     );
@@ -72,8 +74,8 @@ export function ScriptEditor() {
   return (
     <div className="script-editor-container" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div className="script-toolbar" style={{ padding: '8px 16px', background: 'var(--bg-panel-alt)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
-          📝 {entity.name} / {scriptComponent.scriptName}.js
+        <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <FileCode size={14} /> {entity.name} / {scriptComponent.scriptName}.js
         </span>
         <input 
           type="text" 
