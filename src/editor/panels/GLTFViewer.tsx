@@ -57,26 +57,28 @@ function shrinkTexture(texture: THREE.Texture, maxSize = 512) {
   }
 }
 
-// ── IndexedDB Caching Helpers ───────────────────────────────
+// ── IndexedDB Caching Helpers (ArrayBuffer) ──────────────────
 function initIndexedDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     if (typeof window === 'undefined' || !window.indexedDB) {
       reject(new Error('IndexedDB not supported'));
       return;
     }
-    const request = indexedDB.open('freedom3d-assets-db', 1);
+    // Incrementado versão para 2 para forçar a limpeza de possíveis dados inválidos anteriores
+    const request = indexedDB.open('freedom3d-assets-db', 2);
     request.onupgradeneeded = () => {
       const db = request.result;
-      if (!db.objectStoreNames.contains('assets')) {
-        db.createObjectStore('assets');
+      if (db.objectStoreNames.contains('assets')) {
+        db.deleteObjectStore('assets');
       }
+      db.createObjectStore('assets');
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
 }
 
-function getBlobFromDB(db: IDBDatabase, key: string): Promise<Blob | null> {
+function getArrayBufferFromDB(db: IDBDatabase, key: string): Promise<ArrayBuffer | null> {
   return new Promise((resolve) => {
     try {
       const transaction = db.transaction('assets', 'readonly');
@@ -90,12 +92,12 @@ function getBlobFromDB(db: IDBDatabase, key: string): Promise<Blob | null> {
   });
 }
 
-function saveBlobToDB(db: IDBDatabase, key: string, blob: Blob): Promise<void> {
+function saveArrayBufferToDB(db: IDBDatabase, key: string, buffer: ArrayBuffer): Promise<void> {
   return new Promise((resolve) => {
     try {
       const transaction = db.transaction('assets', 'readwrite');
       const store = transaction.objectStore('assets');
-      const request = store.put(blob, key);
+      const request = store.put(buffer, key);
       request.onsuccess = () => resolve();
       request.onerror = () => resolve();
     } catch (e) {
@@ -144,19 +146,22 @@ function getCachedUrl(src: string): string {
       }
 
       const db = await initIndexedDB();
-      const cachedBlob = await getBlobFromDB(db, fileKey);
-      if (cachedBlob) {
-        const blobUrl = URL.createObjectURL(cachedBlob);
+      const cachedBuffer = await getArrayBufferFromDB(db, fileKey);
+      if (cachedBuffer) {
+        // Reconstrói o Blob a partir do ArrayBuffer armazenado de forma estável
+        const blob = new Blob([cachedBuffer], { type: 'model/gltf-binary' });
+        const blobUrl = URL.createObjectURL(blob);
         urlCache.set(src, blobUrl);
         return blobUrl;
       }
 
-      // Se não estiver no IndexedDB, baixa do servidor e salva localmente
+      // Se não estiver no IndexedDB, baixa do servidor e salva localmente como ArrayBuffer
       const res = await fetch(src);
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-      const blob = await res.blob();
-      await saveBlobToDB(db, fileKey, blob);
+      const arrayBuffer = await res.arrayBuffer();
+      await saveArrayBufferToDB(db, fileKey, arrayBuffer);
       
+      const blob = new Blob([arrayBuffer], { type: 'model/gltf-binary' });
       const blobUrl = URL.createObjectURL(blob);
       urlCache.set(src, blobUrl);
       return blobUrl;
