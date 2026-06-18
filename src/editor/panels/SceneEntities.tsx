@@ -11,6 +11,28 @@ import { attemptTeleport } from './SceneView';
 // ── Perspective Camera Wrapper ──────────────────────────────
 // Updates position and rotation on every frame (60fps) directly in Three.js
 // avoiding React re-renders while keeping script mutations synchronized.
+// Cache global de anéis de teleporte — evita scene.traverse() a cada frame
+const _teleportRingCache = new Map<string, THREE.Object3D[]>();
+let _teleportRingCacheKey = '';
+
+function getTeleportRings(scene: THREE.Scene, sceneKey: string): THREE.Object3D[] {
+  if (_teleportRingCacheKey === sceneKey && _teleportRingCache.has(sceneKey)) {
+    return _teleportRingCache.get(sceneKey)!;
+  }
+  const rings: THREE.Object3D[] = [];
+  scene.traverse((o) => {
+    if (o.userData?.isTeleportRing) rings.push(o);
+  });
+  _teleportRingCache.set(sceneKey, rings);
+  _teleportRingCacheKey = sceneKey;
+  return rings;
+}
+
+// Invalida o cache quando a cena mudar (chamado externamente)
+export function invalidateTeleportRingCache() {
+  _teleportRingCacheKey = '';
+}
+
 function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: { entity: Entity; camera: any; isGameView: boolean; isStandalone: boolean }) {
   const ref = useRef<THREE.PerspectiveCamera>(null);
   const [initialHeadsetHeight, setInitialHeadsetHeight] = useState<number | null>(null);
@@ -19,6 +41,7 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
   const raycaster = useRef(new THREE.Raycaster());
   const hoveredRing = useRef<any>(null);
   const crosshairRef = useRef<THREE.Mesh>(null);
+  const sceneActiveId = useEditorStore(s => s.activeSceneId);
 
   // Setup WebXR "Tap" Event
   useEffect(() => {
@@ -27,12 +50,13 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
     let session: any = null;
 
     const handleSelect = () => {
-      // Dispara raycast a partir da posição e direção da cabeça
       const xrCam = gl.xr.isPresenting ? gl.xr.getCamera() : defaultCamera;
       raycaster.current.ray.origin.setFromMatrixPosition(xrCam.matrixWorld);
       xrCam.getWorldDirection(raycaster.current.ray.direction);
 
-      const intersects = raycaster.current.intersectObjects(scene.children, true);
+      // Usa cache de anéis para evitar intersectObjects em toda a cena
+      const rings = getTeleportRings(scene as any, sceneActiveId);
+      const intersects = raycaster.current.intersectObjects(rings, false);
       const hit = intersects.find(i => i.object.userData?.isTeleportRing);
       if (hit && hit.object.userData.onClick) {
         hit.object.userData.onClick({ stopPropagation: () => { } });
@@ -57,7 +81,7 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
       xr.removeEventListener('sessionend', onSessionEnd);
       if (session) session.removeEventListener('select', handleSelect);
     };
-  }, [gl, scene, defaultCamera, isStandalone]);
+  }, [gl, scene, defaultCamera, isStandalone, sceneActiveId]);
 
   useFrame((state, delta) => {
     if (ref.current && camera) {
@@ -82,25 +106,19 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
         }
       }
 
-      // VR Gaze (Hovering) - raycast a 10fps (100ms) — sem traverse por frame
+      // VR Gaze (Hovering) — throttle a 10 frames/s e usa cache de rings
       if (isStandalone) {
         const xrCam = state.gl.xr.getCamera();
         const now = performance.now();
         const lastRaycast = (raycaster.current as any).lastTime || 0;
 
-        if (now - lastRaycast > 100) {
+        if (now - lastRaycast > 100) { // Throttle: 10fps é suficiente para hover de anéis
           (raycaster.current as any).lastTime = now;
           raycaster.current.ray.origin.setFromMatrixPosition(xrCam.matrixWorld);
           xrCam.getWorldDirection(raycaster.current.ray.direction);
 
-          // Cache da lista de anéis — reconstrói apenas se a cena mudou (evita traverse por frame)
-          if (!(raycaster.current as any).ringCache) {
-            const rings: THREE.Object3D[] = [];
-            scene.traverse((o) => { if (o.userData?.isTeleportRing) rings.push(o); });
-            (raycaster.current as any).ringCache = rings;
-          }
-          const rings: THREE.Object3D[] = (raycaster.current as any).ringCache;
-
+          // Cache de anéis — sem traverse toda frame!
+          const rings = getTeleportRings(state.scene as any, sceneActiveId);
           const intersects = raycaster.current.intersectObjects(rings, false);
           const hit = intersects[0];
           if (hit) {
@@ -128,9 +146,9 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
       // VR Locomotion (Smooth movement + turning)
       const session = state.gl.xr.getSession();
       if (session) {
-        let moveX = 0; // Strafe (Left Stick X)
-        let moveZ = 0; // Forward/Backward (Left Stick Y)
-        let turnX = 0; // Rotate (Right Stick X)
+        let moveX = 0;
+        let moveZ = 0;
+        let turnX = 0;
 
         for (const source of session.inputSources) {
           if (source.gamepad) {
@@ -151,8 +169,7 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
         const storeState = useEditorStore.getState();
         const rb = storeState.rigidBodyRefs[entity.id];
 
-        // Apply turning (yaw rotation)
-        const turnSpeed = 1.5; // rad/s
+        const turnSpeed = 1.5;
         if (Math.abs(turnX) > 0.05) {
           const currentRot = entity.components.Transform?.rotation || [0, 0, 0];
           const newEulerY = currentRot[1] - turnX * turnSpeed * delta * (180 / Math.PI);
@@ -168,18 +185,15 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
           }
         }
 
-        // Apply movement vector
         const headCamera = state.camera;
         const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(headCamera.quaternion);
         const right = new THREE.Vector3(1, 0, 0).applyQuaternion(headCamera.quaternion);
-
-        // Keep movement horizontal
         forward.y = 0;
         right.y = 0;
         forward.normalize();
         right.normalize();
 
-        const moveSpeed = 4.0; // m/s
+        const moveSpeed = 4.0;
         const moveVec = new THREE.Vector3()
           .addScaledVector(forward, -moveZ)
           .addScaledVector(right, moveX)
@@ -187,11 +201,7 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
 
         if (rb) {
           const currentVel = rb.linvel();
-          rb.setLinvel({
-            x: moveVec.x,
-            y: currentVel.y,
-            z: moveVec.z
-          }, true);
+          rb.setLinvel({ x: moveVec.x, y: currentVel.y, z: moveVec.z }, true);
         } else {
           const currentPos = entity.components.Transform?.position || [0, 0, 0];
           const newPos: [number, number, number] = [
@@ -199,9 +209,7 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
             currentPos[1],
             currentPos[2] + moveVec.z * delta
           ];
-          storeState.updateComponent(entity.id, 'Transform', {
-            position: newPos
-          });
+          storeState.updateComponent(entity.id, 'Transform', { position: newPos });
         }
       }
     } else {
@@ -677,48 +685,46 @@ function EntityMesh({ entity }: { entity: Entity }) {
   );
 }
 
-// Objetos THREE reutilizáveis — zero alocação GC por frame
-const _xrEuler = new THREE.Euler();
-const _xrQuat = new THREE.Quaternion();
-
 function XRSync() {
   const groupRef = useRef<THREE.Group>(null);
-  // Cache do ID do player — evita Object.values().find() por frame
-  const playerIdRef = useRef<string | null>(null);
+  // Cache do player para evitar Object.values().find() a cada frame
+  const cachedPlayerId = useRef<string | null>(null);
+  const sceneActiveId = useEditorStore(s => s.activeSceneId);
+
+  // Recalcula o ID do player quando a cena mudar
+  useEffect(() => {
+    cachedPlayerId.current = null; // Reset para forçar re-lookup no próximo frame
+  }, [sceneActiveId]);
+
+  const eulerTemp = useRef(new THREE.Euler());
+  const quatTemp = useRef(new THREE.Quaternion());
 
   useFrame(() => {
     if (!groupRef.current) return;
     const storeState = useEditorStore.getState();
     const scene = storeState.activeScene();
 
-    // Resolve player ID apenas quando necessário (não todo frame)
-    if (!playerIdRef.current || !scene.entities[playerIdRef.current]) {
-      const found = Object.values(scene.entities).find(
-        e => e.tags?.includes('player') || e.components.Camera?.isMain
-      );
-      playerIdRef.current = found?.id ?? null;
+    // Busca o player uma única vez por cena e armazena em cache
+    if (!cachedPlayerId.current || !scene.entities[cachedPlayerId.current]) {
+      const found = Object.values(scene.entities).find(e => e.tags?.includes('player') || e.components.Camera?.isMain);
+      cachedPlayerId.current = found?.id ?? null;
     }
-
-    if (!playerIdRef.current) return;
-    const player = scene.entities[playerIdRef.current];
+    if (!cachedPlayerId.current) return;
+    const player = scene.entities[cachedPlayerId.current];
     if (!player) return;
 
     const rb = storeState.rigidBodyRefs[player.id];
     let ePos = player.components.Transform?.position || [0, 0, 0];
-    let rotY = 0;
+    let eRot = player.components.Transform?.rotation || [0, 0, 0];
 
     if (rb) {
       const trans = rb.translation();
       ePos = [trans.x, trans.y, trans.z];
 
-      // Reutiliza objetos THREE — sem alocação GC
       const rot = rb.rotation();
-      _xrQuat.set(rot.x, rot.y, rot.z, rot.w);
-      _xrEuler.setFromQuaternion(_xrQuat);
-      rotY = _xrEuler.y;
-    } else {
-      const eRot = player.components.Transform?.rotation || [0, 0, 0];
-      rotY = (eRot[1] * Math.PI) / 180;
+      quatTemp.current.set(rot.x, rot.y, rot.z, rot.w);
+      eulerTemp.current.setFromQuaternion(quatTemp.current);
+      eRot = [eulerTemp.current.x * 180 / Math.PI, eulerTemp.current.y * 180 / Math.PI, eulerTemp.current.z * 180 / Math.PI];
     }
 
     const offset = player.components.Camera?.offset || [0, 0, 0];
@@ -728,7 +734,7 @@ function XRSync() {
       ePos[1] + offset[1] - 1.6,
       ePos[2] + offset[2]
     );
-    groupRef.current.rotation.set(0, rotY, 0);
+    groupRef.current.rotation.set(0, eRot[1] * Math.PI / 180, 0);
   });
 
   return (

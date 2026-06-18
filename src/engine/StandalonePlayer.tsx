@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import * as THREE from 'three';
 import { SceneView, xrStore } from '../editor/panels/SceneView';
 import { useEditorStore } from '../editor/store/editorStore';
 
@@ -127,28 +128,49 @@ export function StandalonePlayer() {
         if (scene && scene.publishedAt) {
           window.sessionStorage.setItem('lastPublishedAt', scene.publishedAt.toString());
         }
+
+        // Pré-carrega todos os assets GLTF em background usando THREE.Cache
+        // para que já estejam na memória quando o usuário clicar Play
+        if (scene && scene.entities) {
+          Object.values(scene.entities).forEach((e: any) => {
+            if (e.components?.GLTFModel?.fileName) {
+              const url = '/api/asset/' + encodeURIComponent(e.components.GLTFModel.fileName);
+              if (!THREE.Cache.get(url)) {
+                // Preload silencioso via fetch (não bloqueia)
+                fetch(url, { priority: 'low' } as any)
+                  .then(r => r.arrayBuffer())
+                  .then(buf => { THREE.Cache.add(url, buf); })
+                  .catch(() => {});
+              }
+            }
+          });
+        }
       })
       .catch(() => {
         setSceneLoaded(true);
       });
 
-    // Polling para detectar nova publicação pelo editor
-    // No mobile/tablet o intervalo é maior para não desperdiçar CPU/banda
-    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
-    const pollInterval = setInterval(async () => {
-      try {
-        const res = await fetch('/api/sync', { cache: 'no-store' });
-        const scene = await res.json();
-        if (scene && scene.publishedAt) {
-          const lastPublishedAt = window.sessionStorage.getItem('lastPublishedAt');
-          if (lastPublishedAt && lastPublishedAt !== scene.publishedAt.toString()) {
-            console.log('Nova cena detectada! Atualizando o cenário sem recarregar a página...');
-            window.sessionStorage.setItem('lastPublishedAt', scene.publishedAt.toString());
-            handleSceneUpdate(scene);
+    // Polling para atualizações — apenas quando o editor está ativo
+    // (detectado pelo parâmetro ?editor na URL ou pelo header Referer)
+    const isEditorMode = window.location.search.includes('editor') || document.referrer.includes('editor');
+    let pollInterval: ReturnType<typeof setInterval> | null = null;
+
+    if (isEditorMode) {
+      pollInterval = setInterval(async () => {
+        try {
+          const res = await fetch('/api/sync', { cache: 'no-store' });
+          const scene = await res.json();
+          if (scene && scene.publishedAt) {
+            const lastPublishedAt = window.sessionStorage.getItem('lastPublishedAt');
+            if (lastPublishedAt && lastPublishedAt !== scene.publishedAt.toString()) {
+              console.log('Nova cena detectada! Atualizando o cenário sem recarregar a página...');
+              window.sessionStorage.setItem('lastPublishedAt', scene.publishedAt.toString());
+              handleSceneUpdate(scene);
+            }
           }
-        }
-      } catch (err) { }
-    }, isMobile ? 15000 : 5000); // 15s mobile, 5s desktop
+        } catch (err) { }
+      }, 3000);
+    }
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'F2' || (e.ctrlKey && e.shiftKey && e.key === 'D')) {
@@ -158,7 +180,7 @@ export function StandalonePlayer() {
     window.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      clearInterval(pollInterval);
+      if (pollInterval) clearInterval(pollInterval);
       window.removeEventListener('error', handleError);
       window.removeEventListener('keydown', handleKeyDown);
       console.error = origError;
