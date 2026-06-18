@@ -751,11 +751,25 @@ function XRSync() {
 
   const eulerTemp = useRef(new THREE.Euler());
   const quatTemp = useRef(new THREE.Quaternion());
+  const initialHeadsetHeight = useRef<number | null>(null);
 
-  useFrame(() => {
+  useFrame((state) => {
     if (!groupRef.current) return;
     const currentScene = sceneRef.current;
     if (!currentScene) return;
+
+    // Captura a altura física inicial do headset ao entrar no VR
+    if (state.gl.xr.isPresenting) {
+      const xrCam = state.gl.xr.getCamera();
+      if (xrCam && initialHeadsetHeight.current === null) {
+        const y = xrCam.position.y;
+        if (y > 0.1) {
+          initialHeadsetHeight.current = y;
+        }
+      }
+    } else {
+      initialHeadsetHeight.current = null; // Reseta se não estiver apresentando
+    }
 
     // Busca o player uma única vez por cena e armazena em cache
     if (!cachedPlayerId.current || !currentScene.entities[cachedPlayerId.current]) {
@@ -782,10 +796,11 @@ function XRSync() {
     }
 
     const offset = player.components.Camera?.offset || [0, 0, 0];
+    const h = initialHeadsetHeight.current ?? 1.6;
 
     groupRef.current.position.set(
       ePos[0] + offset[0],
-      ePos[1] + offset[1] - 1.6,
+      ePos[1] + offset[1] - h,
       ePos[2] + offset[2]
     );
     groupRef.current.rotation.set(0, eRot[1] * Math.PI / 180, 0);
