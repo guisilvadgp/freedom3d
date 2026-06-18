@@ -860,25 +860,11 @@ function XRSync() {
 
   const eulerTemp = useRef(new THREE.Euler());
   const quatTemp = useRef(new THREE.Quaternion());
-  const initialHeadsetHeight = useRef<number | null>(null);
 
   useFrame((state) => {
     if (!groupRef.current) return;
     const currentScene = sceneRef.current;
     if (!currentScene) return;
-
-    // Captura a altura física inicial do headset ao entrar no VR
-    if (state.gl.xr.isPresenting) {
-      const xrCam = (state.gl.xr as any).getCamera(state.camera);
-      if (xrCam && initialHeadsetHeight.current === null) {
-        const y = xrCam.position.y;
-        if (y > 0.1) {
-          initialHeadsetHeight.current = y;
-        }
-      }
-    } else {
-      initialHeadsetHeight.current = null; // Reseta se não estiver apresentando
-    }
 
     // Busca o player uma única vez por cena e armazena em cache
     if (!cachedPlayerId.current || !currentScene.entities[cachedPlayerId.current]) {
@@ -905,11 +891,28 @@ function XRSync() {
     }
 
     const offset = player.components.Camera?.offset || [0, 0, 0];
-    const h = initialHeadsetHeight.current ?? 1.6;
+
+    // Obtém a altura física do headset do WebXR
+    let xrCamHeight = 0;
+    if (state.gl.xr.isPresenting) {
+      const xrCam = (state.gl.xr as any).getCamera(state.camera);
+      if (xrCam) {
+        xrCamHeight = xrCam.position.y;
+      }
+    }
+
+    // Se o dispositivo tem tracking de altura (6DoF), a altura é maior que 0.5m.
+    // Nesse caso, o XROrigin deve ficar exatamente no chão (ePos[1]).
+    // Se for 3DoF (ou primeiro frame/celular simples), a altura é ~0,
+    // então posicionamos no offset da câmera do player (ePos[1] + offset[1])
+    // para compensar e manter o ponto de vista na altura dos olhos do avatar.
+    const targetY = xrCamHeight >= 0.5 
+      ? ePos[1] 
+      : ePos[1] + (offset[1] || 1.6);
 
     groupRef.current.position.set(
       ePos[0] + offset[0],
-      ePos[1] + offset[1] - h,
+      targetY,
       ePos[2] + offset[2]
     );
     groupRef.current.rotation.set(0, eRot[1] * Math.PI / 180, 0);
