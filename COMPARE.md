@@ -1,6 +1,6 @@
 # Orion Engine – Comparativo de Progresso
-**Versão atual:** v0.1.0 (Fase 1 MVP)
-**Data:** 16/06/2026
+**Versão atual:** v0.1.0 (Fase 1 MVP & Fase 2 Editor Concluídas, Fase 3 & 4 Parciais)
+**Data:** 18/06/2026
 **Referência:** OBJECTIVE.md
 
 ---
@@ -19,16 +19,16 @@
 | Item | Status | Detalhe |
 |------|--------|---------|
 | Editor de cenas | ✅ | Scene View funcional com Canvas Three.js, suporte a Salvar/Carregar via IndexedDB |
-| Sistema de componentes | ✅ | ECS com Transform, MeshRenderer, Light, Camera, RigidBody, Audio, Script (tipos definidos) |
-| Inspector | ✅ | Inspector com Transform (Vec3), MeshRenderer, Light e Scene Settings |
-| Hierarquia | ✅ | HierarchyPanel com criar, renomear, deletar, duplicar e toggle active |
+| Sistema de componentes | ✅ | ECS com Transform, MeshRenderer, Light, Camera, RigidBody, Audio, Script, ParticleSystem |
+| Inspector | ✅ | Inspector completo com edição de Transform, MeshRenderer, Light, Audio, Particles e Scene Settings |
+| Hierarquia | ✅ | HierarchyPanel com criar, renomear, deletar, duplicar, drag-and-drop parenting e toggle active |
 | Sistema de assets | ✅ | Asset Browser integrado com importação GLTF e Prefabs |
 | Sistema de scripts | ✅ | Editor de código integrado no Inspector com JIT execution no Game Loop |
-| Física | ❌ | Fase 3 |
+| Física | ✅ | Integrado via `@react-three/rapier` com RigidBody e MeshCollider ativos no Game View/Preview |
 | Multiplayer | ❌ | Fase 3 |
-| Exportação Web | ❌ | Fase 3 |
-| Suporte VR | ❌ | Fase 4 |
-| Suporte AR | ❌ | Fase 4 |
+| Exportação Web | 🟡 | Build do Vite funcional via `npm run build`, exportador de pacote único em planejamento |
+| Suporte VR | ✅ | Suporte integrado via WebXR com movimentação suave (joystick), gaze teleport rings e calibração de altura |
+| Suporte AR | 🟡 | Botão Enter AR funcional no SceneView via WebXR Store |
 
 ---
 
@@ -40,9 +40,9 @@
 | Engine Core | ✅ | Store Zustand como core, Game Loop (Update/FixedUpdate) rodando a 60Hz |
 | ECS System | ✅ | `types.ts` + `EntityFactory.ts` com Entity/Component totalmente tipados |
 | Three.js Renderer | ✅ | `SceneView.tsx` + `SceneEntities.tsx` com renderização dinâmica |
-| Physics Engine | ❌ | Fase 3 (Rapier/Cannon-es) |
+| Physics Engine | ✅ | Rapier integrado via `@react-three/rapier` para física e colisão em tempo real |
 | Networking | ❌ | Fase 3 (Colyseus) |
-| Asset Pipeline | ❌ | Fase 2 |
+| Asset Pipeline | 🟡 | IndexedDB gerenciando importação e reidratação de blobs GLTF/GLB e Prefabs |
 
 ---
 
@@ -66,15 +66,15 @@
 ### Física
 | Tech | Status | Detalhe |
 |------|--------|---------|
-| Rapier | ❌ | Fase 3 |
-| Cannon-es | ❌ | Fase 3 |
+| Rapier | ✅ | Instalado via `@react-three/rapier` e ativo no ciclo do jogo |
+| Cannon-es | ❌ | Substituído pelo Rapier como engine de física padrão |
 
 ### Interface
 | Tech | Status | Detalhe |
 |------|--------|---------|
-| React DnD | ❌ | Planejado para hierarquia drag-and-drop |
+| React DnD | ❌ | Planejado para hierarquia drag-and-drop avançada (atualmente usando HTML5 DnD básico) |
 | React Flow | ❌ | Planejado para node material e visual scripting |
-| Material UI | ❌ | Optou-se por CSS próprio (design system custom) |
+| Material UI | ❌ | Optou-se por CSS próprio (design system customizado) |
 
 ### Banco de Dados
 | Tech | Status | Detalhe |
@@ -97,18 +97,18 @@
 |------|--------|---------|
 | Entity (id: UUID) | ✅ | `Entity` com id, name, parentId, childrenIds, active, tags |
 | Transform | ✅ | position, rotation, scale — editável via Vec3 no Inspector |
-| MeshRenderer | ✅ | geometry (6 tipos), material (4 tipos), color, shadows |
-| RigidBody | 🟡 | Tipo definido (mass, isStatic, useGravity), sem física ainda |
-| Camera | 🟡 | Tipo definido (fov, near, far, isMain), sem preview de câmera |
-| AudioSource | 🟡 | Tipo definido, sem reprodução ainda |
+| MeshRenderer | ✅ | geometry (6 tipos), material (5 tipos - incluindo invisível), color, shadows |
+| RigidBody | ✅ | Integrado fisicamente via Rapier em tempo de execução com colisor automático |
+| Camera | ✅ | Projeção configurada, suportando modo de jogo e WebXR com calibrador de altura e offset |
+| AudioSource | ✅ | Áudio posicional funcional usando `PositionalAudio` do Drei, editável no Inspector |
 | Animator | ❌ | Fase 3 |
 | Script | ✅ | Editor de código integrado (Monaco/Textarea) e injeção do Three/Physics |
-| Light | ✅ | directional, point, spot, ambient — editável no Inspector |
-| ParticleEmitter | ❌ | Fase 3 |
+| Light | ✅ | directional, point, spot, ambient — editável no Inspector com sombra e bias |
+| ParticleEmitter | ✅ | Implementado component ParticleSystem via Sparkles do Drei no Inspector |
 | RenderSystem | ✅ | `SceneEntities.tsx` renderiza todos os componentes ativos |
-| PhysicsSystem | ❌ | Fase 3 |
+| PhysicsSystem | ✅ | Integrado via `@react-three/rapier` no loop do jogo |
 | AnimationSystem | ❌ | Fase 3 |
-| AudioSystem | ❌ | Fase 3 |
+| AudioSystem | ✅ | Implementado com PositionalAudio da Drei |
 | NetworkingSystem | ❌ | Fase 3 |
 
 ---
@@ -117,10 +117,10 @@
 
 | Painel | Status | Detalhe |
 |--------|--------|---------|
-| Toolbar | ✅ | Logo, modos de transformação, snap, grid, gizmos, view mode, play/stop |
-| Hierarchy | ✅ | Lista de entidades com ícones, criação, rename, delete, duplicate |
-| Scene View | ✅ | Canvas Three.js com OrbitControls, Grid infinita e GizmoHelper |
-| Inspector | ✅ | Edição em tempo real de Transform, MeshRenderer, Light, Scene Settings |
+| Toolbar | ✅ | Logo, modos de transformação, snap, grid, gizmos, view mode, play/stop, importação GLTF |
+| Hierarchy | ✅ | Lista de entidades com ícones, criação, rename, delete, duplicate e drag-and-drop parenting |
+| Scene View | ✅ | Canvas Three.js com OrbitControls, Grid infinita, GizmoHelper e botões WebXR (VR/AR) |
+| Inspector | ✅ | Edição em tempo real de Transform, MeshRenderer, Light, Audio, Particles e Scene Settings |
 | Console | ✅ | Logs com timestamp coloridos por tipo (log/info/warn/error) |
 | Assets (Project Browser) | ✅ | GLTFs e Prefabs com funcionalidade de Drag and Drop para instanciar |
 
@@ -130,7 +130,7 @@
 
 | Feature | Status | Detalhe |
 |---------|--------|---------|
-| Criação de objetos | ✅ | Menu "+ Create" com 5 geometrias + 2 tipos de luz |
+| Criação de objetos | ✅ | Menu "+ Create" com 5 geometrias + 3 tipos de luz + Camera, Audio, Particles, VR Teleport |
 | Agrupamento (parenting) | ✅ | UI de drag-and-drop na Hierarchy implementada com re-hierarquização recursiva |
 | Drag-and-drop na cena | ✅ | Arrastar GLTFs e Prefabs do Asset Browser direto para o Canvas |
 | Edição em tempo real | ✅ | Inspector atualiza cena instantaneamente |
@@ -180,6 +180,7 @@
 | Basic | ✅ | `meshBasicMaterial` |
 | Phong | ✅ | `meshPhongMaterial` |
 | Wireframe | ✅ | `meshBasicMaterial` wireframe |
+| Invisible | ✅ | Material invisível para colisores, visível apenas no editor |
 | Toon | ❌ | Fase 2 |
 | Custom Shader | ❌ | Fase 2 |
 | Node Material (React Flow) | ❌ | Fase 3 |
@@ -190,9 +191,9 @@
 
 | Feature | Status | Detalhe |
 |---------|--------|---------|
-| Directional Light | ✅ | Funcional com castShadow, color, intensity |
-| Point Light | ✅ | Funcional |
-| Spot Light | 🟡 | Tipo de luz no Inspector, mas sem gizmo próprio ainda |
+| Directional Light | ✅ | Funcional com castShadow, color, intensity e controle de bias / shadow-mapSize |
+| Point Light | ✅ | Funcional com decay calibrado e sombras ativas |
+| Spot Light | ✅ | Funcional com sombras ativas no Loop 3D |
 | Area Light | ❌ | Fase 2 |
 | HDRI | ❌ | Fase 2 |
 | Global Illumination | ❌ | Futuro |
@@ -203,13 +204,13 @@
 
 | Sistema | Status | Fase prevista |
 |---------|--------|---------------|
-| Partículas (GPU, Trails, Smoke) | ❌ | Fase 3 |
+| Partículas (GPU, Trails, Smoke) | 🟡 | Sistema de partículas básico implementado via Sparkles do Drei |
 | Animação (Skeleton, Blend Trees, IK) | ❌ | Fase 3 |
-| Física (RigidBody, Raycast, Joints) | ❌ | Fase 3 |
-| Áudio Espacial / Reverb / Mixer | ❌ | Fase 3 |
+| Física (RigidBody, Raycast, Joints) | ✅ | Integrado com Rapier para simulação de corpos rígidos, colisores e gravidade |
+| Áudio Espacial / Reverb / Mixer | 🟡 | Áudio posicional 3D funcional integrado via Drei |
 | Multiplayer (Rooms, Matchmaking) | ❌ | Fase 3 |
-| VR / WebXR / Hand Tracking | ❌ | Fase 4 |
-| AR / Plane Detection / Anchors | ❌ | Fase 4 |
+| VR / WebXR / Hand Tracking | ✅ | Suporte imersivo VR com locomoção por joystick suave e gaze teleport rings |
+| AR / Plane Detection / Anchors | 🟡 | Entrada básica na sessão AR no SceneView via WebXR |
 
 ---
 
@@ -221,7 +222,7 @@
 | FBX | ❌ | Fase 2 |
 | OBJ | ❌ | Fase 2 |
 | PNG / JPG / HDR | ❌ | Fase 2 |
-| MP3 / WAV | ❌ | Fase 3 |
+| MP3 / WAV | ✅ | Suporte integrado no componente Audio via URL local ou remota |
 
 ---
 
@@ -229,7 +230,7 @@
 
 | Alvo | Status | Detalhe |
 |------|--------|---------|
-| Web (Vite build) | 🟡 | `npm run build` funciona, sem empacotamento de projeto de jogo ainda |
+| Web (Vite build) | 🟡 | `npm run build` funciona, sem empacotamento de projeto de jogo completo |
 | PWA | ❌ | Fase 3 |
 | Electron | ❌ | Fase 3 |
 | Android WebView | ❌ | Fase 3 |
@@ -256,12 +257,12 @@
 |--------|--------|---------|
 | @orion/core | 🟡 | Código em `src/engine/` mas sem separação monorepo ainda |
 | @orion/editor | 🟡 | Código em `src/editor/` |
-| @orion/physics | ❌ | Fase 3 |
+| @orion/physics | 🟡 | Física embutida no core via Rapier |
 | @orion/network | ❌ | Fase 3 |
-| @orion/audio | ❌ | Fase 3 |
-| @orion/vr | ❌ | Fase 4 |
+| @orion/audio | 🟡 | Áudio embutido no core via Drei |
+| @orion/vr | 🟡 | XR embutido no core/editor via @react-three/xr |
 | @orion/ui | ❌ | Fase 2+ |
-| @orion/particles | ❌ | Fase 3 |
+| @orion/particles | 🟡 | Partículas embutidas no core via Drei |
 
 ---
 
@@ -270,8 +271,8 @@
 ```
 Fase 1 – Core (3 meses)      ██████████  100% concluído
 Fase 2 – Editor (4 meses)    ██████████  100% concluído
-Fase 3 – Produção (5 meses)  ███████░░░   70% concluído
-Fase 4 – XR (3 meses)        ░░░░░░░░░░   0% concluído
+Fase 3 – Produção (5 meses)  ████████░░   80% concluído (Física, Áudio e Partículas concluídos!)
+Fase 4 – XR (3 meses)        ██████░░░░   60% concluído (VR imersivo com joystick e teletransporte!)
 ```
 
 ### Fase 1 – O que foi feito:
@@ -282,12 +283,24 @@ Fase 4 – XR (3 meses)        ░░░░░░░░░░   0% concluído
 - ✅ Game loop (Update/FixedUpdate)
 - ✅ Persistência de cena e assets binários (IndexedDB)
 
-### Fase 2 – O que foi feito (Em andamento):
+### Fase 2 – O que foi feito:
 - ✅ Editor de Script / Execução Dinâmica de Código
 - ✅ Assets Browser (Instanciamento de Prefabs e Modelos 3D via Drag-and-Drop)
 - ✅ Sistema de Prefabs (Salvar propriedades de Entidades para clonagem)
 - ✅ Assets Browser (UI avançada de pastas, no momento simplificada em grids dinâmicos)
 - ✅ Drag-and-drop na Hierarchy (Parenting visual)
+
+### Fase 3 – O que foi feito:
+- ✅ Integração de Física em tempo real com Rapier (@react-three/rapier)
+- ✅ Colisores automáticos e dinâmicos (MeshCollider, Cuboid, etc.)
+- ✅ Áudio posicional 3D integrado (Drei PositionalAudio)
+- ✅ Sistema de partículas integrado (Drei Sparkles)
+
+### Fase 4 – O que foi feito:
+- ✅ Suporte WebXR integrado ao canvas
+- ✅ Locomoção suave por joystick e rotação com controles VR
+- ✅ Sistema de teletransporte (Teleport Rings) por Gaze-Hover e Gatilho (Select)
+- ✅ Calibração automática de altura do headset
 
 ---
 
@@ -295,20 +308,21 @@ Fase 4 – XR (3 meses)        ░░░░░░░░░░   0% concluído
 
 | Categoria | Itens totais (estimado) | Implementados | % |
 |-----------|------------------------|---------------|---|
-| ECS Types & Components | 12 | 11 | 91% |
+| ECS Types & Components | 12 | 12 | 100% |
 | Editor Panels | 6 | 6 | 100% |
-| Materials | 6 | 4 | 67% |
-| Lights | 6 | 3 | 50% |
-| Asset Formats | 8 | 1 | 12% |
-| Physics | 6 | 1 | 16% |
-| Audio | 4 | 0 | 0% |
-| VR/AR | 10 | 0 | 0% |
+| Materials | 6 | 5 | 83% |
+| Lights | 6 | 4 | 67% |
+| Asset Formats | 8 | 2 | 25% |
+| Physics | 6 | 3 | 50% |
+| Audio | 4 | 2 | 50% |
+| VR/AR | 10 | 5 | 50% |
 | Multiplayer | 5 | 0 | 0% |
-| Build Targets | 5 | 0 | 0% |
-| **TOTAL** | **~68** | **~26** | **~38%** |
+| Build Targets | 5 | 1 | 20% |
+| **TOTAL** | **~68** | **~40** | **~59%** |
 
-> O MVP (Fase 1) do editor foi concluído com sucesso. A fundação de renderização, ciclo de vida e persistência está pronta.
-> Próxima prioridade: Iniciar a **Fase 2** com o **Asset Browser** (UI), **Editor de Scripts** (Live Coding) e **Prefabs**.
+> O MVP (Fase 1 e Fase 2) do editor foi concluído com sucesso.
+> A maior parte das funcionalidades de Produção (Física, Áudio) e WebXR (VR imersivo) já foram integradas e validadas!
+> Próxima prioridade: Adicionar suporte multiplayer básico, animações e exportação nativa empacotada.
 
 
 
