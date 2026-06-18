@@ -39,6 +39,7 @@ export function StandalonePlayer() {
   const setActiveViewport = useEditorStore(state => state.setActiveViewport);
   const togglePlay = useEditorStore(state => state.togglePlay);
   const addLog = useEditorStore(state => state.addLog);
+  const activeSceneId = useEditorStore(state => state.activeSceneId);
   const [showDebug, setShowDebug] = useState(false);
 
   // Estados da tela de carregamento e inicio do jogo
@@ -301,7 +302,7 @@ export function StandalonePlayer() {
               textTransform: 'uppercase',
               fontWeight: 500
             }}>
-              {loading ? 'Carregando recursos...' : 'Pronto para iniciar'}
+              {loading ? 'Carregando recursos...' : !activeSceneId ? 'Aguardando Publicação' : 'Pronto para iniciar'}
             </p>
 
             {loading ? (
@@ -332,6 +333,10 @@ export function StandalonePlayer() {
                 }}>
                   {progressVal}%
                 </span>
+              </div>
+            ) : !activeSceneId ? (
+              <div style={{ color: '#ef4444', fontSize: '13px', maxWidth: '380px', margin: '0 auto', lineHeight: '1.6', background: 'rgba(239, 68, 68, 0.08)', padding: '14px 20px', borderRadius: '12px', border: '1px solid rgba(239, 68, 68, 0.15)', fontFamily: 'sans-serif' }}>
+                ⚠️ Nenhum cenário publicado no Mobile Preview ainda. No editor, abra o projeto desejado e clique em <strong>Publish to Mobile</strong> na barra superior para visualizá-lo aqui.
               </div>
             ) : (
               <button

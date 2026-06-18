@@ -125,6 +125,7 @@ export function SceneView({
   const activeViewport = useEditorStore(s => s.activeViewport);
   const setActiveViewport = useEditorStore(s => s.setActiveViewport);
   const scene = useEditorStore(s => s.scenes[s.activeSceneId]);
+  if (!scene) return null;
   const isGameView = isStandalone || activeViewport === 'game';
 
   const isDragging = useRef(false);
