@@ -57,7 +57,127 @@ function shrinkTexture(texture: THREE.Texture, maxSize = 512) {
   }
 }
 
-function GLTFMesh({ entity }: { entity: Entity }) {
+// ── IndexedDB Caching Helpers ───────────────────────────────
+function initIndexedDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    if (typeof window === 'undefined' || !window.indexedDB) {
+      reject(new Error('IndexedDB not supported'));
+      return;
+    }
+    const request = indexedDB.open('freedom3d-assets-db', 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains('assets')) {
+        db.createObjectStore('assets');
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function getBlobFromDB(db: IDBDatabase, key: string): Promise<Blob | null> {
+  return new Promise((resolve) => {
+    try {
+      const transaction = db.transaction('assets', 'readonly');
+      const store = transaction.objectStore('assets');
+      const request = store.get(key);
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => resolve(null);
+    } catch (e) {
+      resolve(null);
+    }
+  });
+}
+
+function saveBlobToDB(db: IDBDatabase, key: string, blob: Blob): Promise<void> {
+  return new Promise((resolve) => {
+    try {
+      const transaction = db.transaction('assets', 'readwrite');
+      const store = transaction.objectStore('assets');
+      const request = store.put(blob, key);
+      request.onsuccess = () => resolve();
+      request.onerror = () => resolve();
+    } catch (e) {
+      resolve();
+    }
+  });
+}
+
+const urlCache = new Map<string, string>();
+const urlPromises = new Map<string, Promise<string>>();
+
+function getCachedUrl(src: string): string {
+  if (typeof window === 'undefined') return src;
+  
+  if (urlCache.has(src)) {
+    return urlCache.get(src)!;
+  }
+  
+  if (urlPromises.has(src)) {
+    throw urlPromises.get(src);
+  }
+
+  const promise = (async () => {
+    try {
+      // Intercepta endpoints de assets (/api/asset/ ou /api/project/get-asset)
+      const isAssetUrl = src.includes('/api/asset/') || src.includes('/api/project/get-asset');
+      if (!isAssetUrl) {
+        urlCache.set(src, src);
+        return src;
+      }
+
+      // Tenta extrair um identificador único (nome do arquivo ou hash)
+      let fileKey = '';
+      if (src.includes('/api/asset/')) {
+        fileKey = src.split('/api/asset/')[1]?.split('?')[0] || '';
+      } else if (src.includes('/api/project/get-asset')) {
+        const urlParams = new URL(src, window.location.href);
+        const project = urlParams.searchParams.get('project') || '';
+        const file = urlParams.searchParams.get('file') || '';
+        fileKey = `${project}:${file}`;
+      }
+
+      if (!fileKey) {
+        urlCache.set(src, src);
+        return src;
+      }
+
+      const db = await initIndexedDB();
+      const cachedBlob = await getBlobFromDB(db, fileKey);
+      if (cachedBlob) {
+        const blobUrl = URL.createObjectURL(cachedBlob);
+        urlCache.set(src, blobUrl);
+        return blobUrl;
+      }
+
+      // Se não estiver no IndexedDB, baixa do servidor e salva localmente
+      const res = await fetch(src);
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+      const blob = await res.blob();
+      await saveBlobToDB(db, fileKey, blob);
+      
+      const blobUrl = URL.createObjectURL(blob);
+      urlCache.set(src, blobUrl);
+      return blobUrl;
+    } catch (e) {
+      console.warn('[AssetCache] Fallback para URL original devido a erro:', e);
+      urlCache.set(src, src);
+      return src;
+    }
+  })();
+
+  urlPromises.set(src, promise);
+  throw promise;
+}
+
+export function GLTFMesh({ entity }: { entity: Entity }) {
+  const model = entity.components.GLTFModel!;
+  const resolvedSrc = getCachedUrl(model.src);
+  return <GLTFMeshInner entity={entity} resolvedSrc={resolvedSrc} />;
+}
+
+function GLTFMeshInner({ entity, resolvedSrc }: { entity: Entity; resolvedSrc: string }) {
   const groupRef = useRef<THREE.Group>(null!);
 
   const {
@@ -106,7 +226,7 @@ function GLTFMesh({ entity }: { entity: Entity }) {
   };
 
 
-  const gltf = useLoader(GLTFLoader, model.src);
+  const gltf = useLoader(GLTFLoader, resolvedSrc);
   const clonedScene = useMemo(() => {
     const clone = gltf.scene.clone(true);
 
