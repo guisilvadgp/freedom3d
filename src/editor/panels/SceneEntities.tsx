@@ -101,7 +101,13 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
       const currentScene = storeState.activeScene();
       Object.values(currentScene.entities).forEach(e => {
         if (e.tags?.includes('player') || e.components.Camera?.isMain) {
-          const currentPos = e.components.Transform?.position || [0, 0, 0];
+          const rb = storeState.rigidBodyRefs[e.id];
+          let currentPos = e.components.Transform?.position || [0, 0, 0];
+          if (rb) {
+            const trans = rb.translation();
+            currentPos = [trans.x, trans.y, trans.z];
+          }
+
           const targetPos: [number, number, number] = [
             currentPos[0] + moveStep.x,
             currentPos[1],
@@ -112,7 +118,6 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
             position: targetPos,
           });
 
-          const rb = storeState.rigidBodyRefs[e.id];
           if (rb) {
             rb.setTranslation({ x: targetPos[0], y: targetPos[1], z: targetPos[2] }, true);
             rb.setLinvel({ x: 0, y: 0, z: 0 }, true);
