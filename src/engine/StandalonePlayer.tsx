@@ -425,6 +425,8 @@ interface GamepadConfig {
   triggerButton: number;
   moveAxisX: number;
   moveAxisY: number;
+  invertX?: boolean;
+  invertY?: boolean;
   buttonA: number;
   buttonB: number;
   buttonC: number;
@@ -438,6 +440,8 @@ function ControlConfigModal({ onClose }: { onClose: () => void }) {
       triggerButton: 0,
       moveAxisX: 0,
       moveAxisY: 1,
+      invertX: false,
+      invertY: false,
       buttonA: 0,
       buttonB: 1,
       buttonC: 2,
@@ -526,6 +530,8 @@ function ControlConfigModal({ onClose }: { onClose: () => void }) {
       triggerButton: 0,
       moveAxisX: 0,
       moveAxisY: 1,
+      invertX: false,
+      invertY: false,
       buttonA: 0,
       buttonB: 1,
       buttonC: 2,
@@ -583,32 +589,64 @@ function ControlConfigModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '350px', overflowY: 'auto', paddingRight: '5px' }}>
-          {(Object.keys(config) as Array<keyof GamepadConfig>).map((field) => (
-            <div key={field} style={{
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              padding: '10px 14px', background: 'rgba(255,255,255,0.02)',
-              borderRadius: '10px', border: '1px solid rgba(255,255,255,0.03)'
-            }}>
-              <span style={{ fontSize: '14px', fontWeight: 500, color: '#cbd5e1' }}>
-                {getFieldLabel(field)}
-              </span>
-              <button
-                onClick={() => setBindingField(field)}
-                style={{
-                  background: bindingField === field ? '#f59e0b' : 'rgba(99, 102, 241, 0.15)',
-                  color: bindingField === field ? '#000' : '#818cf8',
-                  border: bindingField === field ? 'none' : '1px solid rgba(99, 102, 241, 0.3)',
-                  padding: '6px 16px', fontSize: '13px', fontWeight: 600,
-                  borderRadius: '6px', cursor: 'pointer', minWidth: '120px', textAlign: 'center',
-                  transition: 'all 0.2s ease', outline: 'none'
+          {(Object.keys(config) as Array<keyof GamepadConfig>)
+            .filter(field => field !== 'invertX' && field !== 'invertY')
+            .map((field) => (
+              <div key={field} style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '10px 14px', background: 'rgba(255,255,255,0.02)',
+                borderRadius: '10px', border: '1px solid rgba(255,255,255,0.03)'
+              }}>
+                <span style={{ fontSize: '14px', fontWeight: 500, color: '#cbd5e1' }}>
+                  {getFieldLabel(field)}
+                </span>
+                <button
+                  onClick={() => setBindingField(field)}
+                  style={{
+                    background: bindingField === field ? '#f59e0b' : 'rgba(99, 102, 241, 0.15)',
+                    color: bindingField === field ? '#000' : '#818cf8',
+                    border: bindingField === field ? 'none' : '1px solid rgba(99, 102, 241, 0.3)',
+                    padding: '6px 16px', fontSize: '13px', fontWeight: 600,
+                    borderRadius: '6px', cursor: 'pointer', minWidth: '120px', textAlign: 'center',
+                    transition: 'all 0.2s ease', outline: 'none'
+                  }}
+                >
+                  {bindingField === field 
+                    ? (isAxis(field) ? 'Mova analógico...' : 'Pressione botão...') 
+                    : (isAxis(field) ? `Eixo ${config[field]}` : `Botão ${config[field]}`)}
+                </button>
+              </div>
+            ))}
+
+          {/* Inversão de Eixos */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '12px 14px', background: 'rgba(255,255,255,0.02)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.03)', marginTop: '4px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '14px', cursor: 'pointer', color: '#cbd5e1' }}>
+              <span>Inverter Horizontal (Eixo X)</span>
+              <input 
+                type="checkbox" 
+                checked={config.invertX || false} 
+                onChange={e => {
+                  const next = { ...config, invertX: e.target.checked };
+                  setConfig(next);
+                  localStorage.setItem('freedom3d_gamepad_config', JSON.stringify(next));
                 }}
-              >
-                {bindingField === field 
-                  ? (isAxis(field) ? 'Mova analógico...' : 'Pressione botão...') 
-                  : (isAxis(field) ? `Eixo ${config[field]}` : `Botão ${config[field]}`)}
-              </button>
-            </div>
-          ))}
+                style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#818cf8' }}
+              />
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '14px', cursor: 'pointer', color: '#cbd5e1', marginTop: '4px' }}>
+              <span>Inverter Vertical (Eixo Y)</span>
+              <input 
+                type="checkbox" 
+                checked={config.invertY || false} 
+                onChange={e => {
+                  const next = { ...config, invertY: e.target.checked };
+                  setConfig(next);
+                  localStorage.setItem('freedom3d_gamepad_config', JSON.stringify(next));
+                }}
+                style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#818cf8' }}
+              />
+            </label>
+          </div>
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', marginTop: '10px' }}>

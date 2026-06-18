@@ -60,6 +60,8 @@ export const Input = {
       triggerButton: 0,
       moveAxisX: 0,
       moveAxisY: 1,
+      invertX: false,
+      invertY: false,
       buttonA: 0,
       buttonB: 1,
       buttonC: 2,
@@ -78,8 +80,10 @@ export const Input = {
         if (gp.buttons.length > config.buttonD) Input.gamepad.buttons['D'] = gp.buttons[config.buttonD].pressed;
 
         if (gp.axes.length > Math.max(config.moveAxisX, config.moveAxisY)) {
-          Input.gamepad.axes[0] = gp.axes[config.moveAxisX];
-          Input.gamepad.axes[1] = gp.axes[config.moveAxisY];
+          const rawX = gp.axes[config.moveAxisX];
+          const rawY = gp.axes[config.moveAxisY];
+          Input.gamepad.axes[0] = config.invertX ? -rawX : rawX;
+          Input.gamepad.axes[1] = config.invertY ? -rawY : rawY;
         }
         break;
       }

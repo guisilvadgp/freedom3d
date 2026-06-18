@@ -240,6 +240,8 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
           triggerButton: 0,
           moveAxisX: 0,
           moveAxisY: 1,
+          invertX: false,
+          invertY: false,
           buttonA: 0,
           buttonB: 1,
           buttonC: 2,
@@ -254,8 +256,10 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
             if (gp.axes.length > Math.max(config.moveAxisX, config.moveAxisY)) {
               const gpX = gp.axes[config.moveAxisX];
               const gpY = gp.axes[config.moveAxisY];
-              if (Math.abs(gpX) > 0.05) moveX = gpX;
-              if (Math.abs(gpY) > 0.05) moveZ = gpY;
+              const finalX = config.invertX ? -gpX : gpX;
+              const finalY = config.invertY ? -gpY : gpY;
+              if (Math.abs(finalX) > 0.05) moveX = finalX;
+              if (Math.abs(finalY) > 0.05) moveZ = finalY;
             }
 
             if (gp.buttons.length > config.triggerButton) {
