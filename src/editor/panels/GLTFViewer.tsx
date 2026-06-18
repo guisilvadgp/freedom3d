@@ -76,6 +76,19 @@ function GLTFMesh({ entity }: { entity: Entity }) {
   const rigidBody = entity.components.RigidBody;
   const isSelected = selectedEntityId === entity.id;
 
+  // Log de diagnóstico: qual src está sendo requisitado
+  useEffect(() => {
+    if (isStandalone) {
+      console.log(`[GLTF] Tentando carregar: "${entity.name || entity.id}" → ${model.src}`);
+      // Verifica se o src está definido
+      if (!model.src) {
+        console.error(`[GLTF] ❌ src está VAZIO/UNDEFINED para entidade "${entity.name || entity.id}"`);
+      } else if (model.src.startsWith('blob:')) {
+        console.error(`[GLTF] ❌ src ainda é um blob URL para "${entity.name || entity.id}": ${model.src}`);
+      }
+    }
+  }, [model.src, isStandalone, entity.id, entity.name]);
+
   // Drag detection: evita seleção acidental ao arrastar a câmera
   const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
   const handlePointerDown = (e: any) => {
@@ -94,6 +107,26 @@ function GLTFMesh({ entity }: { entity: Entity }) {
 
 
   const gltf = useLoader(GLTFLoader, model.src);
+
+  // Log de sucesso após carregamento
+  useEffect(() => {
+    if (!gltf || !isStandalone) return;
+    let meshCount = 0;
+    let texCount = 0;
+    gltf.scene.traverse(c => {
+      if ((c as THREE.Mesh).isMesh) {
+        meshCount++;
+        const mat = (c as THREE.Mesh).material;
+        const mats = Array.isArray(mat) ? mat : [mat];
+        mats.forEach((m: any) => {
+          ['map','normalMap','roughnessMap','metalnessMap','emissiveMap'].forEach(k => {
+            if (m[k]?.isTexture) texCount++;
+          });
+        });
+      }
+    });
+    console.log(`[GLTF] ✅ "${entity.name || entity.id}" carregado — ${meshCount} mesh(es), ${texCount} textura(s)`);
+  }, [gltf, isStandalone, entity.id, entity.name]);
   const clonedScene = useMemo(() => {
     const clone = gltf.scene.clone(true);
 
