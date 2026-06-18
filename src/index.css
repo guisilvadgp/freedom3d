@@ -1254,6 +1254,14 @@ input[type="checkbox"] {
   padding: 0 16px;
   user-select: none;
   flex-shrink: 0;
+  -webkit-app-region: drag; /* Permite arrastar a janela do Electron */
+}
+
+/* Garante que os controles internos da TitleBar não sejam arrastáveis e sim clicáveis */
+.window-controls,
+.titlebar-actions,
+.window-title {
+  -webkit-app-region: no-drag;
 }
 
 /* macOS-like Window Controls */

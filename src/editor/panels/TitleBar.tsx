@@ -38,11 +38,34 @@ export function TitleBar() {
     }
   };
 
+  // @ts-ignore
+  const electronAPI = window.electronAPI;
+
   const handleClose = () => {
-    if (confirm('Deseja fechar o Freedom3D Editor? Certifique-se de salvar suas alterações.')) {
-      window.close();
-      // Se não fechar por restrições do navegador:
-      alert('Para fechar, você pode fechar esta aba do navegador.');
+    if (electronAPI) {
+      electronAPI.windowControl('close');
+    } else {
+      if (confirm('Deseja fechar o Freedom3D Editor? Certifique-se de salvar suas alterações.')) {
+        window.close();
+        // Se não fechar por restrições do navegador:
+        alert('Para fechar, você pode fechar esta aba do navegador.');
+      }
+    }
+  };
+
+  const handleMinimize = () => {
+    if (electronAPI) {
+      electronAPI.windowControl('minimize');
+    } else {
+      alert('Para minimizar o editor, utilize o atalho de janela do seu sistema operacional.');
+    }
+  };
+
+  const handleMaximize = () => {
+    if (electronAPI) {
+      electronAPI.windowControl('maximize');
+    } else {
+      toggleFullscreen();
     }
   };
 
@@ -51,8 +74,8 @@ export function TitleBar() {
       {/* macOS-style Window Controls */}
       <div className="window-controls">
         <button className="control-btn close" onClick={handleClose} title="Fechar" />
-        <button className="control-btn minimize" onClick={() => alert('Para minimizar o editor, utilize o atalho de janela do seu sistema operacional.')} title="Minimizar" />
-        <button className="control-btn maximize" onClick={toggleFullscreen} title={isFullscreen ? 'Sair da Tela Cheia' : 'Tela Cheia'} />
+        <button className="control-btn minimize" onClick={handleMinimize} title="Minimizar" />
+        <button className="control-btn maximize" onClick={handleMaximize} title={electronAPI ? 'Maximizar' : (isFullscreen ? 'Sair da Tela Cheia' : 'Tela Cheia')} />
       </div>
 
       {/* Project Status & Title */}
