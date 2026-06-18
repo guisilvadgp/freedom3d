@@ -602,6 +602,7 @@ function EntityMesh({ entity, entities }: { entity: Entity; entities: Record<str
             rotationSnap={snapEnabled ? (Math.PI / 12) : null}
             scaleSnap={snapEnabled ? snapValue : null}
             onChange={handleChange}
+            onMouseDown={() => useEditorStore.getState().takeHistorySnapshot()}
           />
         )}
       </>
@@ -832,6 +833,7 @@ function EntityMesh({ entity, entities }: { entity: Entity; entities: Record<str
           rotationSnap={snapEnabled ? (Math.PI / 12) : null}
           scaleSnap={snapEnabled ? snapValue : null}
           onChange={handleChange}
+          onMouseDown={() => useEditorStore.getState().takeHistorySnapshot()}
         />
       )}
     </>

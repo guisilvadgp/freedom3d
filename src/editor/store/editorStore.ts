@@ -147,6 +147,12 @@ interface EditorStore {
   renameProject: (id: string, name: string) => Promise<void>;
 
   hasUnpublishedChanges: boolean;
+
+  historyPast: Scene[];
+  historyFuture: Scene[];
+  takeHistorySnapshot: () => void;
+  undo: () => void;
+  redo: () => void;
 }
 
 export const useEditorStore = create<EditorStore>((set, get) => {
@@ -156,6 +162,67 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     activeScene: () => get().scenes[get().activeSceneId],
 
     hasUnpublishedChanges: false,
+
+    historyPast: [],
+    historyFuture: [],
+
+    takeHistorySnapshot: () => {
+      const { activeSceneId, scenes } = get();
+      if (!activeSceneId || !scenes[activeSceneId]) return;
+      const sceneClone = JSON.parse(JSON.stringify(scenes[activeSceneId]));
+      set((s) => {
+        const past = [...s.historyPast];
+        if (past.length >= 35) past.shift();
+        return {
+          historyPast: [...past, sceneClone],
+          historyFuture: []
+        };
+      });
+    },
+
+    undo: () => {
+      const { activeSceneId, scenes, historyPast, historyFuture } = get();
+      if (!activeSceneId || !scenes[activeSceneId] || historyPast.length === 0) return;
+      
+      const currentScene = scenes[activeSceneId];
+      const sceneClone = JSON.parse(JSON.stringify(currentScene));
+      
+      const newPast = [...historyPast];
+      const previousScene = newPast.pop()!;
+      
+      set((s) => ({
+        scenes: {
+          ...s.scenes,
+          [activeSceneId]: previousScene
+        },
+        historyPast: newPast,
+        historyFuture: [...historyFuture, sceneClone],
+        hasUnpublishedChanges: true
+      }));
+      get().addLog('info', '↩️ Desfazer (Undo) executado.');
+    },
+
+    redo: () => {
+      const { activeSceneId, scenes, historyPast, historyFuture } = get();
+      if (!activeSceneId || !scenes[activeSceneId] || historyFuture.length === 0) return;
+      
+      const currentScene = scenes[activeSceneId];
+      const sceneClone = JSON.parse(JSON.stringify(currentScene));
+      
+      const newFuture = [...historyFuture];
+      const nextScene = newFuture.pop()!;
+      
+      set((s) => ({
+        scenes: {
+          ...s.scenes,
+          [activeSceneId]: nextScene
+        },
+        historyPast: [...historyPast, sceneClone],
+        historyFuture: newFuture,
+        hasUnpublishedChanges: true
+      }));
+      get().addLog('info', '↪️ Refazer (Redo) executado.');
+    },
 
     toast: null,
     showToast: (message, type = 'success') => {
@@ -221,6 +288,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     clearConsole: () => set({ consoleLogs: [] }),
 
     createEntity: (type) => {
+      get().takeHistorySnapshot();
       const scene = get().activeScene();
       let entity: Entity;
       switch (type) {
@@ -252,6 +320,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     },
 
     deleteEntity: (id) => {
+      get().takeHistorySnapshot();
       const scene = get().activeScene();
       const entity = scene.entities[id];
       if (!entity) return;
@@ -273,6 +342,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     },
 
     duplicateEntity: (id) => {
+      get().takeHistorySnapshot();
       const scene = get().activeScene();
       const original = scene.entities[id];
       if (!original) return;
@@ -302,6 +372,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     },
 
     renameEntity: (id, name) => {
+      get().takeHistorySnapshot();
       const scene = get().activeScene();
       set((s) => ({
         scenes: {
@@ -319,6 +390,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     },
 
     toggleEntityActive: (id) => {
+      get().takeHistorySnapshot();
       const scene = get().activeScene();
       const entity = scene.entities[id];
       set((s) => ({
@@ -337,6 +409,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     },
 
     reparentEntity: (childId, newParentId) => {
+      get().takeHistorySnapshot();
       const scene = get().activeScene();
       const child = scene.entities[childId];
       if (!child) return;
@@ -398,6 +471,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     },
 
     addComponent: (entityId, component) => {
+      get().takeHistorySnapshot();
       const scene = get().activeScene();
       const entity = scene.entities[entityId];
       if (!entity) return;
@@ -420,6 +494,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     },
 
     removeComponent: (entityId, type) => {
+      get().takeHistorySnapshot();
       const scene = get().activeScene();
       const entity = scene.entities[entityId];
       if (!entity) return;
