@@ -168,17 +168,27 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
       }
 
       const xrCamera = (state.gl.xr as any).getCamera(state.camera);
-      if (xrCamera && initialHeadsetHeight === null) {
-        const y = xrCamera.position.y;
+      const subCam = xrCamera.cameras?.[0] || xrCamera;
+      
+      const subCamPos = new THREE.Vector3();
+      const subCamQuat = new THREE.Quaternion();
+      const subCamScale = new THREE.Vector3();
+      if (subCam) {
+        subCam.matrixWorld.decompose(subCamPos, subCamQuat, subCamScale);
+      }
+
+      if (subCam && initialHeadsetHeight === null) {
+        const y = subCamPos.y;
         if (y > 0.1) {
           setInitialHeadsetHeight(y);
         }
       }
 
       // Sincroniza a posição e direção do olhar a cada frame
-      if (xrCamera) {
-        gazeOriginRef.current.copy(xrCamera.position);
-        xrCamera.getWorldDirection(gazeDirectionRef.current);
+      if (subCam) {
+        gazeOriginRef.current.copy(subCamPos);
+        const e = subCam.matrixWorld.elements;
+        gazeDirectionRef.current.set(-e[8], -e[9], -e[10]).normalize();
       }
 
       // VR Gaze (Hovering) — throttle a 10 frames/s e usa cache de rings
@@ -210,9 +220,9 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
         }
 
         // Atualizar a posicao do crosshair para grudar no rosto do jogador usando a pose sincronizada
-        if (crosshairRef.current && xrCamera) {
-          crosshairRef.current.position.copy(xrCamera.position);
-          crosshairRef.current.quaternion.copy(xrCamera.quaternion);
+        if (crosshairRef.current && subCam) {
+          crosshairRef.current.position.copy(subCamPos);
+          crosshairRef.current.quaternion.copy(subCamQuat);
           crosshairRef.current.translateZ(-1.5);
         }
       }
