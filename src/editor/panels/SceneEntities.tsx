@@ -271,12 +271,6 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
         near={camera.near}
         far={camera.far}
       />
-      {isStandalone && (
-        <mesh ref={crosshairRef} position={[0, 0, -1.5]} renderOrder={999}>
-          <ringGeometry args={[0.02, 0.03, 16]} />
-          <meshBasicMaterial color="#ff0000" opacity={0.6} transparent depthTest={false} />
-        </mesh>
-      )}
     </>
   );
 }

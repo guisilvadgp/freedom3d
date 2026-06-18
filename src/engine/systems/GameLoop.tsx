@@ -23,8 +23,8 @@ export function GameLoop() {
   const started = useRef(false);
   const stopped = useRef(false);
   
-  // Cache de funções compiladas: entityId -> Function
-  const compiledScripts = useRef<Record<string, Function>>({});
+  // Cache de scripts compilados e instanciados: entityId -> any
+  const compiledScripts = useRef<Record<string, any>>({});
 
   // Cache das fatias da store para evitar chamadas de getState por frame
   const rigidBodyRefs = useEditorStore(s => s.rigidBodyRefs);
@@ -64,12 +64,31 @@ export function GameLoop() {
         const code = entity.components.Script.code;
         try {
           const cleanCode = code.replace(/export function/g, 'function');
-          compiledScripts.current[entity.id] = new Function('entity', 'delta', 'updateComponent', 'Input', 'rigidBody', 'camera', 'rapierContext', 'Math', 'THREE', `
-            ${cleanCode}
-            if (typeof onUpdate === "function") {
-              onUpdate(delta);
+          const scriptCreator = new Function('rapierContext', 'Math', 'THREE', `
+            let entity;
+            let delta;
+            let updateComponent;
+            let Input;
+            let rigidBody;
+            let camera;
+
+            function updateFrameData(_entity, _delta, _updateComponent, _Input, _rigidBody, _camera) {
+              entity = _entity;
+              delta = _delta;
+              updateComponent = _updateComponent;
+              Input = _Input;
+              rigidBody = _rigidBody;
+              camera = _camera;
             }
+
+            ${cleanCode}
+
+            return {
+              updateFrameData,
+              onUpdate: typeof onUpdate === 'function' ? onUpdate : null
+            };
           `);
+          compiledScripts.current[entity.id] = scriptCreator(rapierContext, Math, THREE);
         } catch(err) {
           addLog('error', `Erro ao compilar script "${entity.name}": ${String(err)}`);
         }
@@ -85,11 +104,12 @@ export function GameLoop() {
     for (const entity of Object.values(scene.entities)) {
       if (!entity?.active) continue;
       
-      const fn = compiledScripts.current[entity.id];
-      if (fn) {
+      const instance = compiledScripts.current[entity.id];
+      if (instance && instance.onUpdate) {
         try {
           const rb = rbRefs[entity.id];
-          fn(entity, delta, updComp, Input, rb, entity.components.Camera, rapierContext, Math, THREE);
+          instance.updateFrameData(entity, delta, updComp, Input, rb, entity.components.Camera);
+          instance.onUpdate(delta);
         } catch(err) {
           console.error(`Runtime script error on ${entity.name}:`, err);
         }
