@@ -58,7 +58,7 @@ export function StandalonePlayer() {
     if (navigator.xr) {
       navigator.xr.isSessionSupported('immersive-vr').then(supported => {
         if (supported) {
-          xrStore.enterVR().catch(() => {}); // silencia falhas de permissão
+          xrStore.enterVR().catch(() => { }); // silencia falhas de permissão
         } else {
           console.log('ℹ️ Dispositivo não suporta WebXR imersivo. Rodando apenas em tela cheia.');
         }
@@ -72,7 +72,7 @@ export function StandalonePlayer() {
   useEffect(() => {
     // Forçar modo Jogo
     setActiveViewport('game');
-    
+
     // Só força o pause se for o carregamento inicial real da página
     // e não um HMR (Hot Module Replacement) do Vite
     const isFirstLoad = !window.sessionStorage.getItem('firstLoadDone');
@@ -89,7 +89,7 @@ export function StandalonePlayer() {
     };
     window.addEventListener('error', handleError);
     const origError = console.error;
-    
+
     // Evitar loop infinito e lag limitando erros repetidos no console
     const loggedErrors = new Map<string, number>();
     console.error = (...args) => {
@@ -132,7 +132,9 @@ export function StandalonePlayer() {
         setSceneLoaded(true);
       });
 
-    // Polling for updates
+    // Polling para detectar nova publicação pelo editor
+    // No mobile/tablet o intervalo é maior para não desperdiçar CPU/banda
+    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
     const pollInterval = setInterval(async () => {
       try {
         const res = await fetch('/api/sync', { cache: 'no-store' });
@@ -145,8 +147,8 @@ export function StandalonePlayer() {
             handleSceneUpdate(scene);
           }
         }
-      } catch (err) {}
-    }, 3000);
+      } catch (err) { }
+    }, isMobile ? 15000 : 5000); // 15s mobile, 5s desktop
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'F2' || (e.ctrlKey && e.shiftKey && e.key === 'D')) {
@@ -165,11 +167,11 @@ export function StandalonePlayer() {
 
   return (
     <div style={{ width: '100vw', height: '100vh', margin: 0, padding: 0, overflow: 'hidden', position: 'relative' }}>
-      <SceneView 
-        isStandalone={true} 
+      <SceneView
+        isStandalone={true}
         sceneLoaded={sceneLoaded}
-        onProgress={(p) => setProgressVal(p)} 
-        onLoaded={() => setLoading(false)} 
+        onProgress={(p) => setProgressVal(p)}
+        onLoaded={() => setLoading(false)}
       />
       {showDebug && <DebugUI />}
 
@@ -208,7 +210,7 @@ export function StandalonePlayer() {
 
       {/* Overlay de Carregamento e Botão PLAY */}
       {showOverlay && (
-        <div 
+        <div
           onClick={() => {
             if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
               document.documentElement.requestFullscreen().then(() => {
@@ -219,7 +221,7 @@ export function StandalonePlayer() {
                     console.warn('Bloqueio de orientação falhou/não suportado:', err);
                   });
                 }
-              }).catch(() => {});
+              }).catch(() => { });
             }
           }}
           style={{

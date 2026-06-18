@@ -72,9 +72,13 @@ export function GameLoop() {
 
     // ── Update (todo frame) ──────────────────────────────────
     const rigidBodyRefs = useEditorStore.getState().rigidBodyRefs || {};
-    for (const entity of Object.values(scene.entities)) {
+    // Itera diretamente sobre as chaves da cena sem alocar novo array
+    const entityIds = scene.rootEntityIds;
+    const entities = scene.entities;
+    for (let i = 0; i < entityIds.length; i++) {
+      const entity = entities[entityIds[i]];
       if (!entity?.active) continue;
-      
+
       const fn = compiledScripts.current[entity.id];
       if (fn) {
         try {

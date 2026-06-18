@@ -279,9 +279,9 @@ export function SceneView({
         }}
       >
         <Canvas
-          shadows
-          dpr={[1, 2]}
-          gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping }}
+          shadows={!isStandalone} // Sombras desligadas no modo mobile/preview (alto custo GPU)
+          dpr={isStandalone ? [1, 1.5] : [1, 2]} // DPR máx 1.5 no preview — reduz pixels drasticamente
+          gl={{ antialias: !isStandalone, toneMapping: THREE.ACESFilmicToneMapping }} // Sem antialias no preview
           camera={{ fov: 60, near: 0.1, far: 1000, position: [5, 5, 8] }}
           onPointerMissed={() => {
             if (!isGameView && !isDragging.current) {

@@ -82,21 +82,24 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
         }
       }
 
-      // VR Gaze (Hovering) - raycast otimizado (apenas anéis e rodando a 10fps para não lagar)
+      // VR Gaze (Hovering) - raycast a 10fps (100ms) — sem traverse por frame
       if (isStandalone) {
         const xrCam = state.gl.xr.getCamera();
         const now = performance.now();
         const lastRaycast = (raycaster.current as any).lastTime || 0;
 
-        if (now - lastRaycast > 10) {
+        if (now - lastRaycast > 100) {
           (raycaster.current as any).lastTime = now;
           raycaster.current.ray.origin.setFromMatrixPosition(xrCam.matrixWorld);
           xrCam.getWorldDirection(raycaster.current.ray.direction);
 
-          const rings: THREE.Object3D[] = [];
-          scene.traverse((o) => {
-            if (o.userData?.isTeleportRing) rings.push(o);
-          });
+          // Cache da lista de anéis — reconstrói apenas se a cena mudou (evita traverse por frame)
+          if (!(raycaster.current as any).ringCache) {
+            const rings: THREE.Object3D[] = [];
+            scene.traverse((o) => { if (o.userData?.isTeleportRing) rings.push(o); });
+            (raycaster.current as any).ringCache = rings;
+          }
+          const rings: THREE.Object3D[] = (raycaster.current as any).ringCache;
 
           const intersects = raycaster.current.intersectObjects(rings, false);
           const hit = intersects[0];
@@ -674,40 +677,58 @@ function EntityMesh({ entity }: { entity: Entity }) {
   );
 }
 
+// Objetos THREE reutilizáveis — zero alocação GC por frame
+const _xrEuler = new THREE.Euler();
+const _xrQuat = new THREE.Quaternion();
+
 function XRSync() {
   const groupRef = useRef<THREE.Group>(null);
+  // Cache do ID do player — evita Object.values().find() por frame
+  const playerIdRef = useRef<string | null>(null);
 
   useFrame(() => {
     if (!groupRef.current) return;
     const storeState = useEditorStore.getState();
     const scene = storeState.activeScene();
-    const player = Object.values(scene.entities).find(e => e.tags?.includes('player') || e.components.Camera?.isMain);
+
+    // Resolve player ID apenas quando necessário (não todo frame)
+    if (!playerIdRef.current || !scene.entities[playerIdRef.current]) {
+      const found = Object.values(scene.entities).find(
+        e => e.tags?.includes('player') || e.components.Camera?.isMain
+      );
+      playerIdRef.current = found?.id ?? null;
+    }
+
+    if (!playerIdRef.current) return;
+    const player = scene.entities[playerIdRef.current];
     if (!player) return;
 
     const rb = storeState.rigidBodyRefs[player.id];
     let ePos = player.components.Transform?.position || [0, 0, 0];
-    let eRot = player.components.Transform?.rotation || [0, 0, 0];
+    let rotY = 0;
 
     if (rb) {
       const trans = rb.translation();
       ePos = [trans.x, trans.y, trans.z];
 
+      // Reutiliza objetos THREE — sem alocação GC
       const rot = rb.rotation();
-      const euler = new THREE.Euler().setFromQuaternion(new THREE.Quaternion(rot.x, rot.y, rot.z, rot.w));
-      eRot = [euler.x * 180 / Math.PI, euler.y * 180 / Math.PI, euler.z * 180 / Math.PI];
+      _xrQuat.set(rot.x, rot.y, rot.z, rot.w);
+      _xrEuler.setFromQuaternion(_xrQuat);
+      rotY = _xrEuler.y;
+    } else {
+      const eRot = player.components.Transform?.rotation || [0, 0, 0];
+      rotY = (eRot[1] * Math.PI) / 180;
     }
 
     const offset = player.components.Camera?.offset || [0, 0, 0];
 
-    // Smoothly update position to avoid jitter, or direct set for snap teleport
     groupRef.current.position.set(
       ePos[0] + offset[0],
-      ePos[1] + offset[1] - 1.6, // Compensate for typical headset height
+      ePos[1] + offset[1] - 1.6,
       ePos[2] + offset[2]
     );
-
-    // Apply only yaw (Y rotation) to prevent tilting the playspace
-    groupRef.current.rotation.set(0, eRot[1] * Math.PI / 180, 0);
+    groupRef.current.rotation.set(0, rotY, 0);
   });
 
   return (
