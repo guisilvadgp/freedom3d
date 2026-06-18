@@ -64,7 +64,7 @@ if (typeof window !== 'undefined') {
     url: string,
     onLoad?: (response: string | ArrayBuffer) => void,
     onProgress?: (request: ProgressEvent) => void,
-    onError?: (event: ErrorEvent) => void
+    onError?: (event: any) => void
   ) {
     const self = this;
 
