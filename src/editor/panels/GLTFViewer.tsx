@@ -194,8 +194,8 @@ function GLTFMesh({ entity }: { entity: Entity }) {
       position={pos}
       rotation={rot}
       scale={scale}
-      onPointerDown={handlePointerDown}
-      onPointerUp={handlePointerUp}
+      onPointerDown={isStandalone ? undefined : handlePointerDown}
+      onPointerUp={isStandalone ? undefined : handlePointerUp}
     >
       <primitive object={clonedScene} />
 

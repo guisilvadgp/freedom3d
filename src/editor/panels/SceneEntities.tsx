@@ -572,8 +572,8 @@ function EntityMesh({ entity, entities }: { entity: Entity; entities: Record<str
         position={(!rigidBody || !isPlaying) ? pos : undefined}
         rotation={(!rigidBody || !isPlaying) ? rot : undefined}
         scale={scale}
-        onPointerDown={handlePointerDown}
-        onPointerUp={handlePointerUp}
+        onPointerDown={isStandalone ? undefined : handlePointerDown}
+        onPointerUp={isStandalone ? undefined : handlePointerUp}
       >
         <sphereGeometry args={[0.2, 8, 8]} />
         <meshBasicMaterial color={light ? light.color : "#ffffff"} wireframe opacity={0.3} transparent visible={!isGameView} />
@@ -653,8 +653,8 @@ function EntityMesh({ entity, entities }: { entity: Entity; entities: Record<str
       scale={scale}
       castShadow={mesh.castShadow}
       receiveShadow={mesh.receiveShadow}
-      onPointerDown={handlePointerDown}
-      onPointerUp={handlePointerUp}
+      onPointerDown={isStandalone ? undefined : handlePointerDown}
+      onPointerUp={isStandalone ? undefined : handlePointerUp}
       userData={{ isPlayer }}
     >
       {renderGeometry()}
