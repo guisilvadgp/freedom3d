@@ -1,18 +1,19 @@
 import { useRef } from 'react';
 import { useEditorStore } from '../store/editorStore';
-import { 
-  FolderOpen, 
-  Upload, 
-  Move, 
-  RotateCw, 
-  Maximize, 
-  Magnet, 
-  Grid, 
-  Eye, 
-  Send, 
-  Play, 
-  Square, 
-  Hexagon 
+import {
+  FolderOpen,
+  Upload,
+  Move,
+  RotateCw,
+  Maximize,
+  Magnet,
+  Grid,
+  Eye,
+  Send,
+  Play,
+  Square,
+  Hexagon,
+  Save
 } from 'lucide-react';
 
 export function Toolbar() {
@@ -23,7 +24,7 @@ export function Toolbar() {
     showGizmos, toggleGizmos,
     snapEnabled, toggleSnap, snapValue, setSnapValue,
     viewMode, setViewMode,
-    setShowSaveModal, importGLTF, publishToPreview, hasUnpublishedChanges
+    saveCurrentScene, isSaving, importGLTF, publishToPreview, hasUnpublishedChanges
   } = useEditorStore();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -49,9 +50,9 @@ export function Toolbar() {
 
       {/* Project Actions */}
       <div className="toolbar-group">
-        <button className="toolbar-btn" onClick={() => setShowSaveModal(true)} title="Save/Load Scene">
-          <FolderOpen size={15} />
-          <span className="btn-label">Project</span>
+        <button className="toolbar-btn" onClick={saveCurrentScene} title="Salvar Projeto (Ctrl + S)" disabled={isSaving}>
+          <Save size={15} />
+          <span className="btn-label">{isSaving ? 'Salvando...' : 'Salvar'}</span>
         </button>
         <button className="toolbar-btn" onClick={() => fileInputRef.current?.click()} title="Import GLTF Model">
           <Upload size={15} />
@@ -147,19 +148,19 @@ export function Toolbar() {
       <div className="toolbar-spacer" />
 
       {/* Play controls */}
-      <button 
-        className={`toolbar-btn publish-btn ${!hasUnpublishedChanges ? 'disabled' : ''}`} 
-        onClick={publishToPreview} 
+      <button
+        className={`toolbar-btn publish-btn ${!hasUnpublishedChanges ? 'disabled' : ''}`}
+        onClick={publishToPreview}
         disabled={!hasUnpublishedChanges}
         title="Publish to Preview"
         style={{ opacity: hasUnpublishedChanges ? 1 : 0.5, cursor: hasUnpublishedChanges ? 'pointer' : 'not-allowed' }}
       >
         <Send size={15} />
-        <span className="btn-label">{hasUnpublishedChanges ? 'Publish to Mobile' : 'Published'}</span>
+        <span className="btn-label">{hasUnpublishedChanges ? 'Salvar Cena' : 'Salvo!'}</span>
       </button>
-      
+
       <div className="toolbar-divider" />
-      
+
       <div className="toolbar-group play-group">
         <button
           className={`play-btn ${isPlaying ? 'playing' : ''}`}

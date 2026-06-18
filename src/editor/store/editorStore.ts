@@ -146,6 +146,14 @@ interface EditorStore {
   showSaveModal: boolean;
   setShowSaveModal: (v: boolean) => void;
 
+  // Toast notifications
+  toast: { message: string; type: 'success' | 'info' | 'error' | 'warning' } | null;
+  showToast: (message: string, type?: 'success' | 'info' | 'error' | 'warning') => void;
+
+  // Projects / Scenes management
+  createNewProject: (name: string) => Promise<void>;
+  renameProject: (id: string, name: string) => Promise<void>;
+
   hasUnpublishedChanges: boolean;
 }
 
@@ -158,6 +166,14 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     activeScene: () => get().scenes[get().activeSceneId],
 
     hasUnpublishedChanges: false,
+
+    toast: null,
+    showToast: (message, type = 'success') => {
+      set({ toast: { message, type } });
+      setTimeout(() => {
+        set((s) => s.toast?.message === message ? { toast: null } : {});
+      }, 3000);
+    },
 
     rigidBodyRefs: {},
     setRigidBodyRef: (id, ref) => {
@@ -467,9 +483,12 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     },
 
     publishToPreview: async () => {
-      const { activeScene, addLog } = get();
-      const scene = activeScene();
+      const { activeScene, addLog, saveCurrentScene, showToast } = get();
       try {
+        // Salva a cena automaticamente antes de publicar
+        await saveCurrentScene();
+
+        const scene = activeScene();
         Object.values(scene.entities).forEach(e => {
           if (e.components.GLTFModel && e.components.GLTFModel.fileName) {
             loadGLTFAsset(e.components.GLTFModel.fileName);
@@ -478,9 +497,11 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         const payload = { ...scene, publishedAt: Date.now() };
         await fetch('/api/sync', { method: 'POST', body: JSON.stringify(payload) });
         addLog('info', '🚀 Jogo publicado para o Preview com sucesso!');
+        showToast('Jogo publicado e salvo com sucesso!');
         set({ hasUnpublishedChanges: false });
       } catch (err) {
         addLog('error', 'Falha ao publicar para o Preview.');
+        showToast('Falha ao publicar para o Preview.', 'error');
       }
     },
 
@@ -639,22 +660,80 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     setShowSaveModal: (v) => set({ showSaveModal: v }),
 
     saveCurrentScene: async () => {
-      const { activeScene, addLog } = get();
+      const { activeScene, addLog, showToast } = get();
       set({ isSaving: true });
       try {
         const scene = activeScene();
         await dbSaveScene(scene);
         addLog('info', `💾 Cena "${scene.name}" salva com sucesso.`);
+        showToast(`Projeto "${scene.name}" salvo com sucesso!`, 'success');
         await get().refreshSavedScenes();
       } catch (err) {
         get().addLog('error', `Falha ao salvar: ${String(err)}`);
+        showToast('Falha ao salvar o projeto!', 'error');
       } finally {
         set({ isSaving: false });
       }
     },
 
+    createNewProject: async (name: string) => {
+      const { refreshSavedScenes, showToast, addLog } = get();
+      try {
+        const newScene = makeDefaultScene();
+        newScene.name = name.trim() || 'Novo Projeto';
+        
+        // Salva imediatamente no banco para registrar
+        await dbSaveScene(newScene);
+        
+        set((s) => ({
+          scenes: { ...s.scenes, [newScene.id]: newScene },
+          activeSceneId: newScene.id,
+          selectedEntityId: null,
+          showSaveModal: false,
+          hasUnpublishedChanges: true,
+        }));
+        
+        addLog('info', `📁 Novo projeto criado: "${newScene.name}"`);
+        showToast(`Projeto "${newScene.name}" criado!`);
+        await refreshSavedScenes();
+      } catch (err) {
+        addLog('error', `Falha ao criar projeto: ${String(err)}`);
+        showToast('Erro ao criar novo projeto', 'error');
+      }
+    },
+
+    renameProject: async (id: string, name: string) => {
+      const { addLog, refreshSavedScenes, showToast } = get();
+      try {
+        const cleanName = name.trim() || 'Sem nome';
+        // Se for a cena ativa em memória
+        if (get().activeSceneId === id) {
+          set((s) => ({
+            scenes: {
+              ...s.scenes,
+              [id]: { ...s.scenes[id], name: cleanName }
+            },
+            hasUnpublishedChanges: true
+          }));
+        }
+
+        // Carrega do IndexedDB, altera o nome e salva de volta
+        const record = await dbLoadScene(id);
+        if (record) {
+          record.scene.name = cleanName;
+          await dbSaveScene(record.scene);
+          addLog('info', `✏️ Projeto renomeado para "${cleanName}".`);
+          showToast(`Projeto renomeado para "${cleanName}"`);
+          await refreshSavedScenes();
+        }
+      } catch (err) {
+        addLog('error', `Falha ao renomear: ${String(err)}`);
+        showToast('Erro ao renomear projeto', 'error');
+      }
+    },
+
     loadSavedScene: async (id) => {
-      const { addLog } = get();
+      const { addLog, showToast } = get();
       try {
         const record = await dbLoadScene(id);
         if (!record) { addLog('warn', 'Cena não encontrada.'); return; }
@@ -681,14 +760,18 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           showSaveModal: false,
         }));
         addLog('info', `📂 Cena "${scene.name}" carregada.`);
+        showToast(`Projeto "${scene.name}" carregado!`);
       } catch (err) {
         get().addLog('error', `Falha ao carregar: ${String(err)}`);
+        showToast('Erro ao carregar o projeto', 'error');
       }
     },
 
     deleteSavedScene: async (id) => {
+      const { refreshSavedScenes, showToast } = get();
       await dbDeleteScene(id);
-      await get().refreshSavedScenes();
+      await refreshSavedScenes();
+      showToast('Projeto removido', 'warning');
       get().addLog('warn', 'Cena deletada do armazenamento.');
     },
 

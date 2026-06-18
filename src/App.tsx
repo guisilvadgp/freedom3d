@@ -7,6 +7,8 @@ import { ConsolePanel } from './editor/panels/ConsolePanel';
 import { AssetBrowser } from './editor/panels/AssetBrowser';
 import { ScriptEditor } from './editor/panels/ScriptEditor';
 import { SaveLoadModal } from './editor/panels/SaveLoadModal';
+import { TitleBar } from './editor/panels/TitleBar';
+import { Toast } from './editor/panels/Toast';
 import { useEditorStore } from './editor/store/editorStore';
 import './index.css';
 import { useEffect } from 'react';
@@ -63,8 +65,30 @@ export default function App() {
     loadLatestScene();
   }, []);
 
+  const saveCurrentScene = useEditorStore(state => state.saveCurrentScene);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      if (
+        activeEl && 
+        (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.classList.contains('inputarea'))
+      ) {
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        saveCurrentScene();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [saveCurrentScene]);
+
   return (
-    <div className="editor-root">
+    <div className="editor-root native-theme">
+      <TitleBar />
       <Toolbar />
       <div className="editor-body">
         <HierarchyPanel />
@@ -95,6 +119,7 @@ export default function App() {
         <InspectorPanel />
       </div>
       <SaveLoadModal />
+      <Toast />
     </div>
   );
 }
