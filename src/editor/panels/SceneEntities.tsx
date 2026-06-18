@@ -77,7 +77,7 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
     let session: any = null;
 
     const handleSelect = () => {
-      const xrCam = gl.xr.isPresenting ? gl.xr.getCamera() : defaultCamera;
+      const xrCam = gl.xr.isPresenting ? (gl.xr.getCamera().cameras?.[0] || gl.xr.getCamera()) : defaultCamera;
       raycaster.current.ray.origin.setFromMatrixPosition(xrCam.matrixWorld);
       xrCam.getWorldDirection(raycaster.current.ray.direction);
 
@@ -176,7 +176,7 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
 
       // VR Gaze (Hovering) — throttle a 10 frames/s e usa cache de rings
       if (isStandalone) {
-        const xrCam = state.gl.xr.getCamera();
+        const xrCam = state.gl.xr.getCamera().cameras?.[0] || state.gl.xr.getCamera();
         const now = performance.now();
         const lastRaycast = (raycaster.current as any).lastTime || 0;
 
@@ -309,7 +309,7 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
           }
         }
 
-        const headCamera = state.camera;
+        const headCamera = state.gl.xr.isPresenting ? (state.gl.xr.getCamera().cameras?.[0] || state.camera) : state.camera;
         const forward = forwardVec.current.set(0, 0, -1).applyQuaternion(headCamera.quaternion);
         const right = rightVec.current.set(1, 0, 0).applyQuaternion(headCamera.quaternion);
         forward.y = 0;
