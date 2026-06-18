@@ -310,11 +310,13 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
         }
 
         const headCamera = state.gl.xr.isPresenting ? (state.gl.xr.getCamera().cameras?.[0] || state.camera) : state.camera;
-        const forward = forwardVec.current.set(0, 0, -1).applyQuaternion(headCamera.quaternion);
-        const right = rightVec.current.set(1, 0, 0).applyQuaternion(headCamera.quaternion);
+        const forward = forwardVec.current;
+        headCamera.getWorldDirection(forward);
         forward.y = 0;
-        right.y = 0;
         forward.normalize();
+
+        const right = rightVec.current;
+        right.crossVectors(forward, new THREE.Vector3(0, 1, 0));
         right.normalize();
 
         const moveSpeed = 4.0;
