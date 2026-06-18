@@ -1,4 +1,4 @@
-import { Suspense, useMemo, useRef, useEffect } from 'react';
+import { Suspense, useMemo, useRef, useEffect, useState } from 'react';
 import { useLoader } from '@react-three/fiber';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { TransformControls, useAnimations } from '@react-three/drei';
@@ -107,78 +107,105 @@ function saveArrayBufferToDB(db: IDBDatabase, key: string, buffer: ArrayBuffer):
 }
 
 const urlCache = new Map<string, string>();
-const urlPromises = new Map<string, Promise<string>>();
 
-function getCachedUrl(src: string): string {
+async function getCachedUrl(src: string): Promise<string> {
   if (typeof window === 'undefined') return src;
   
   if (urlCache.has(src)) {
     return urlCache.get(src)!;
   }
-  
-  if (urlPromises.has(src)) {
-    throw urlPromises.get(src);
-  }
 
-  const promise = (async () => {
-    try {
-      // Intercepta endpoints de assets (/api/asset/ ou /api/project/get-asset)
-      const isAssetUrl = src.includes('/api/asset/') || src.includes('/api/project/get-asset');
-      if (!isAssetUrl) {
-        urlCache.set(src, src);
-        return src;
-      }
+  try {
+    // Intercepta endpoints de assets (/api/asset/ ou /api/project/get-asset)
+    const isAssetUrl = src.includes('/api/asset/') || src.includes('/api/project/get-asset');
+    if (!isAssetUrl) {
+      urlCache.set(src, src);
+      return src;
+    }
 
-      // Tenta extrair um identificador único (nome do arquivo ou hash)
-      let fileKey = '';
-      if (src.includes('/api/asset/')) {
-        fileKey = src.split('/api/asset/')[1]?.split('?')[0] || '';
-      } else if (src.includes('/api/project/get-asset')) {
-        const urlParams = new URL(src, window.location.href);
-        const project = urlParams.searchParams.get('project') || '';
-        const file = urlParams.searchParams.get('file') || '';
-        fileKey = `${project}:${file}`;
-      }
+    // Tenta extrair um identificador único (nome do arquivo ou hash)
+    let fileKey = '';
+    if (src.includes('/api/asset/')) {
+      fileKey = src.split('/api/asset/')[1]?.split('?')[0] || '';
+    } else if (src.includes('/api/project/get-asset')) {
+      const urlParams = new URL(src, window.location.href);
+      const project = urlParams.searchParams.get('project') || '';
+      const file = urlParams.searchParams.get('file') || '';
+      fileKey = `${project}:${file}`;
+    }
 
-      if (!fileKey) {
-        urlCache.set(src, src);
-        return src;
-      }
+    if (!fileKey) {
+      urlCache.set(src, src);
+      return src;
+    }
 
-      const db = await initIndexedDB();
-      const cachedBuffer = await getArrayBufferFromDB(db, fileKey);
-      if (cachedBuffer) {
-        // Reconstrói o Blob a partir do ArrayBuffer armazenado de forma estável
+    const db = await initIndexedDB();
+    const cachedBuffer = await getArrayBufferFromDB(db, fileKey);
+    if (cachedBuffer) {
+      // Valida se o buffer é um GLB ou GLTF válido (previne salvar tela de aviso do ngrok)
+      const header = new Uint8Array(cachedBuffer.slice(0, 4));
+      const magic = String.fromCharCode(header[0], header[1], header[2], header[3]);
+      const isValid = magic === 'glTF' || magic.trim().startsWith('{');
+      
+      if (isValid) {
         const blob = new Blob([cachedBuffer], { type: 'model/gltf-binary' });
         const blobUrl = URL.createObjectURL(blob);
         urlCache.set(src, blobUrl);
         return blobUrl;
+      } else {
+        console.warn('[AssetCache] Cache inválido ou corrompido para', fileKey, '. Deletando...');
+        try {
+          const transaction = db.transaction('assets', 'readwrite');
+          transaction.objectStore('assets').delete(fileKey);
+        } catch (err) {}
       }
-
-      // Se não estiver no IndexedDB, baixa do servidor e salva localmente como ArrayBuffer
-      const res = await fetch(src);
-      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-      const arrayBuffer = await res.arrayBuffer();
-      await saveArrayBufferToDB(db, fileKey, arrayBuffer);
-      
-      const blob = new Blob([arrayBuffer], { type: 'model/gltf-binary' });
-      const blobUrl = URL.createObjectURL(blob);
-      urlCache.set(src, blobUrl);
-      return blobUrl;
-    } catch (e) {
-      console.warn('[AssetCache] Fallback para URL original devido a erro:', e);
-      urlCache.set(src, src);
-      return src;
     }
-  })();
 
-  urlPromises.set(src, promise);
-  throw promise;
+    // Se não estiver no IndexedDB, baixa do servidor
+    const res = await fetch(src);
+    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+    const arrayBuffer = await res.arrayBuffer();
+    
+    // Valida se o conteúdo baixado é um GLB ou GLTF válido antes de salvar
+    const header = new Uint8Array(arrayBuffer.slice(0, 4));
+    const magic = String.fromCharCode(header[0], header[1], header[2], header[3]);
+    const isValid = magic === 'glTF' || magic.trim().startsWith('{');
+    
+    if (!isValid) {
+      throw new Error('Retrieved content is not a valid GLTF/GLB file.');
+    }
+
+    await saveArrayBufferToDB(db, fileKey, arrayBuffer);
+    
+    const blob = new Blob([arrayBuffer], { type: 'model/gltf-binary' });
+    const blobUrl = URL.createObjectURL(blob);
+    urlCache.set(src, blobUrl);
+    return blobUrl;
+  } catch (e) {
+    console.warn('[AssetCache] Fallback para URL original devido a erro:', e);
+    urlCache.set(src, src);
+    return src;
+  }
 }
 
 export function GLTFMesh({ entity }: { entity: Entity }) {
   const model = entity.components.GLTFModel!;
-  const resolvedSrc = getCachedUrl(model.src);
+  const [resolvedSrc, setResolvedSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    getCachedUrl(model.src).then((url) => {
+      if (active) {
+        setResolvedSrc(url);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [model.src]);
+
+  if (!resolvedSrc) return null;
+
   return <GLTFMeshInner entity={entity} resolvedSrc={resolvedSrc} />;
 }
 
