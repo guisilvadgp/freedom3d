@@ -2,6 +2,58 @@ import { useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { SceneView, xrStore } from '../editor/panels/SceneView';
 import { useEditorStore } from '../editor/store/editorStore';
+import { HardDrive, Trash2 } from 'lucide-react';
+
+// Helper para formatar bytes em formato legível
+function formatBytes(bytes: number, decimals = 2) {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+}
+
+// Obter tamanho ocupado no Cache Storage
+async function getCacheSize() {
+  if (typeof window === 'undefined' || !('caches' in window)) return 0;
+  try {
+    const cache = await window.caches.open('freedom3d-assets-cache');
+    const keys = await cache.keys();
+    let totalSize = 0;
+    for (const request of keys) {
+      const response = await cache.match(request);
+      if (response) {
+        const len = response.headers.get('content-length');
+        if (len) {
+          totalSize += parseInt(len, 10);
+        } else {
+          try {
+            const blob = await response.clone().blob();
+            totalSize += blob.size;
+          } catch (err) {
+            // Ignorar falhas ao extrair blob
+          }
+        }
+      }
+    }
+    return totalSize;
+  } catch (e) {
+    console.error('Erro ao obter tamanho do cache:', e);
+    return 0;
+  }
+}
+
+// Limpar Cache Storage e Three.js cache em memória
+async function clearAssetsCache() {
+  if (typeof window === 'undefined' || !('caches' in window)) return;
+  try {
+    await window.caches.delete('freedom3d-assets-cache');
+    THREE.Cache.clear();
+  } catch (e) {
+    console.error('Erro ao limpar cache:', e);
+  }
+}
 
 function DebugUI() {
   const consoleLogs = useEditorStore(state => state.consoleLogs);
@@ -49,6 +101,20 @@ export function StandalonePlayer() {
   const [gameStarted, setGameStarted] = useState(false);
   const [showOverlay, setShowOverlay] = useState(true);
   const [sceneLoaded, setSceneLoaded] = useState(false);
+
+  // Estados do Cache de Assets
+  const [cacheSize, setCacheSize] = useState<number>(0);
+
+  const updateCacheSize = async () => {
+    const size = await getCacheSize();
+    setCacheSize(size);
+  };
+
+  const handleClearCache = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    await clearAssetsCache();
+    await updateCacheSize();
+  };
 
   const handlePlay = (e: React.MouseEvent) => {
     e.stopPropagation(); // Evita conflito com o clique de fullscreen do fundo
@@ -103,6 +169,36 @@ export function StandalonePlayer() {
       origError.apply(console, args);
     };
 
+    // Monkey patch para cachear assets de forma persistente no Cache Storage
+    const originalFetch = window.fetch;
+    window.fetch = async (input, init) => {
+      const urlStr = typeof input === 'string' ? input : (input as Request).url || '';
+      
+      if (urlStr.includes('/api/asset/')) {
+        try {
+          const cache = await window.caches.open('freedom3d-assets-cache');
+          const cachedResponse = await cache.match(input);
+          if (cachedResponse) {
+            return cachedResponse;
+          }
+          
+          const response = await originalFetch(input, init);
+          if (response.status === 200) {
+            await cache.put(input, response.clone());
+            // Atualiza tamanho do cache após salvar novo asset
+            updateCacheSize();
+          }
+          return response;
+        } catch (e) {
+          console.warn('[Cache] Falha ao obter/salvar cache:', e);
+          return originalFetch(input, init);
+        }
+      }
+      return originalFetch(input, init);
+    };
+
+    updateCacheSize();
+
     const handleSceneUpdate = (scene: any) => {
       if (scene && scene.id) {
         // Rewrite blob URLs to network URLs for mobile preview
@@ -150,6 +246,7 @@ export function StandalonePlayer() {
                 .then(r => r.arrayBuffer())
                 .then(buf => {
                   THREE.Cache.add(url, buf);
+                  updateCacheSize();
                   runNext();
                 })
                 .catch(() => {
@@ -200,6 +297,7 @@ export function StandalonePlayer() {
       window.removeEventListener('error', handleError);
       window.removeEventListener('keydown', handleKeyDown);
       console.error = origError;
+      window.fetch = originalFetch;
     };
   }, []);
 
@@ -410,6 +508,109 @@ export function StandalonePlayer() {
                     <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
                   </svg>
                   CONFIGURAR CONTROLE
+                </button>
+              </div>
+            )}
+
+            {/* CARD DE ARMAZENAMENTO E LIMPEZA DE CACHE */}
+            {activeSceneId && (
+              <div style={{
+                marginTop: '30px',
+                background: 'rgba(255, 255, 255, 0.03)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '16px',
+                padding: '14px 20px',
+                width: '320px',
+                margin: '30px auto 0 auto',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '15px',
+                textAlign: 'left',
+                boxShadow: '0 10px 30px rgba(0, 0, 0, 0.2)',
+                transition: 'all 0.3s ease',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{
+                    background: 'rgba(99, 102, 241, 0.1)',
+                    color: '#818cf8',
+                    borderRadius: '10px',
+                    width: '40px',
+                    height: '40px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: '1px solid rgba(99, 102, 241, 0.2)'
+                  }}>
+                    <HardDrive size={20} />
+                  </div>
+                  <div>
+                    <h3 style={{
+                      margin: 0,
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      color: '#f3f4f6',
+                      fontFamily: 'Outfit, sans-serif'
+                    }}>
+                      Cache de Assets
+                    </h3>
+                    <p style={{
+                      margin: '2px 0 0 0',
+                      fontSize: '12px',
+                      color: '#a5b4fc',
+                      fontFamily: 'monospace',
+                      fontWeight: 600
+                    }}>
+                      {formatBytes(cacheSize)}
+                    </p>
+                    <p style={{
+                      margin: '2px 0 0 0',
+                      fontSize: '9px',
+                      color: '#6b7280',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                      fontWeight: 600
+                    }}>
+                      Sem limite de cache
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleClearCache}
+                  disabled={cacheSize === 0}
+                  style={{
+                    background: cacheSize === 0 ? 'rgba(255,255,255,0.02)' : 'rgba(239, 68, 68, 0.08)',
+                    color: cacheSize === 0 ? '#4b5563' : '#f87171',
+                    border: cacheSize === 0 ? '1px solid rgba(255,255,255,0.03)' : '1px solid rgba(239, 68, 68, 0.15)',
+                    borderRadius: '10px',
+                    width: '36px',
+                    height: '36px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: cacheSize === 0 ? 'default' : 'pointer',
+                    transition: 'all 0.2s ease',
+                    outline: 'none'
+                  }}
+                  title="Limpar Cache de Assets"
+                  onMouseEnter={(e) => {
+                    if (cacheSize > 0) {
+                      e.currentTarget.style.background = 'rgba(239, 68, 68, 0.18)';
+                      e.currentTarget.style.color = '#ef4444';
+                      e.currentTarget.style.transform = 'scale(1.05)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (cacheSize > 0) {
+                      e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)';
+                      e.currentTarget.style.color = '#f87171';
+                      e.currentTarget.style.transform = 'scale(1)';
+                    }
+                  }}
+                >
+                  <Trash2 size={16} />
                 </button>
               </div>
             )}
