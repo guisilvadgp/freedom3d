@@ -389,17 +389,26 @@ const liveSyncPlugin = () => {
           return;
         }
 
-        // 8. Get Asset from projects/[name]/assets
+        // 8. Get Asset from projects/[name]/assets or project root
         if (req.url.startsWith('/api/project/get-asset') && req.method === 'GET') {
           const urlParams = new URL(req.url, 'http://localhost');
           const projectName = urlParams.searchParams.get('project') || '';
           const fileName = decodeURIComponent(urlParams.searchParams.get('file') || '');
-          const filePath = path.join(projectsDir, projectName.trim(), 'assets', fileName);
+          let filePath = path.join(projectsDir, projectName.trim(), 'assets', fileName);
+
+          if (!fs.existsSync(filePath)) {
+            filePath = path.join(projectsDir, projectName.trim(), fileName);
+          }
+
           if (fs.existsSync(filePath)) {
             if (fileName.endsWith('.glb') || fileName.endsWith('.gltf')) {
               res.setHeader('Content-Type', 'model/gltf-binary');
             } else if (fileName.endsWith('.mp3')) {
               res.setHeader('Content-Type', 'audio/mpeg');
+            } else if (fileName.endsWith('.wav')) {
+              res.setHeader('Content-Type', 'audio/wav');
+            } else if (fileName.endsWith('.ogg')) {
+              res.setHeader('Content-Type', 'audio/ogg');
             } else {
               res.setHeader('Content-Type', 'application/octet-stream');
             }
