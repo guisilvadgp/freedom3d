@@ -4,8 +4,266 @@ import { useEditorStore } from '../store/editorStore';
 import { 
   FolderOpen, Save, Play, Square, Wifi, Download,
   RotateCcw, RotateCw, Copy, Trash2, Eye, EyeOff, Monitor,
-  Compass, Keyboard, Info, CheckCircle, Film, Plus, Files
+  Compass, Keyboard, Info, CheckCircle, Film, Plus, Files, Code
 } from 'lucide-react';
+
+const DEFAULT_SCRIPTS: Record<string, string> = {
+  FPSController: `// Controle em 1a Pessoa com Gamepad
+export let speed = 5;
+export let jumpForce = 5.5;
+export let crouchSpeed = 2.5;
+export let jumpButton = "A";
+export let crouchButton = "C";
+export let sprintButton = "L3";
+
+let eulerY = 0;
+let eulerX = 0;
+let isCrouching = false;
+
+export function onUpdate(delta) {
+  if (typeof window !== 'undefined' && window.isVRActive) return;
+
+  if (Input.getMouseButton(0)) Input.lockMouse();
+  if (Input.mouse.isLocked) {
+    eulerY -= Input.mouse.movementX * 0.002;
+    eulerX -= Input.mouse.movementY * 0.002;
+  }
+
+  // Eixos do Gamepad (Look Axis: X=2, Y=3)
+  const lookX = Input.getGamepadAxis(2);
+  const lookY = Input.getGamepadAxis(3);
+  if (Math.abs(lookX) > 0.1) eulerY -= lookX * 0.03;
+  if (Math.abs(lookY) > 0.1) eulerX -= lookY * 0.03;
+
+  eulerX = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, eulerX));
+  
+  if (camera) {
+    camera.rotation = [eulerX, 0, 0];
+  }
+  
+  const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, eulerY, 0));
+  if (rigidBody) {
+    rigidBody.setRotation(q, true);
+    
+    const runPressed = Input.getKey('ShiftLeft') || Input.getGamepadButton(sprintButton);
+    const currentSpeed = runPressed ? speed * 1.6 : (isCrouching ? crouchSpeed : speed);
+
+    const crouchPressed = Input.getKey('ControlLeft') || Input.getKey('KeyC') || Input.getGamepadButton(crouchButton);
+    
+    if (crouchPressed && !isCrouching) {
+      isCrouching = true;
+      if (transform) {
+        transform.scale = [1, 0.5, 1];
+        transform.position[1] -= 0.5;
+      }
+    } else if (!crouchPressed && isCrouching) {
+      isCrouching = false;
+      if (transform) {
+        transform.scale = [1, 1, 1];
+        transform.position[1] += 0.5;
+      }
+    }
+
+    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(q);
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(q);
+    const vel = new THREE.Vector3(0, rigidBody.linvel().y, 0);
+    
+    let moveForward = 0;
+    let moveRight = 0;
+    if (Input.getKey('KeyW')) moveForward += 1;
+    if (Input.getKey('KeyS')) moveForward -= 1;
+    if (Input.getKey('KeyA')) moveRight -= 1;
+    if (Input.getKey('KeyD')) moveRight += 1;
+
+    const stickX = Input.getGamepadAxis(0);
+    const stickY = Input.getGamepadAxis(1);
+    if (Math.abs(stickX) > 0.1) moveRight += stickX;
+    if (Math.abs(stickY) > 0.1) moveForward -= stickY;
+
+    const moveDir = new THREE.Vector3();
+    if (moveForward !== 0 || moveRight !== 0) {
+      moveDir.add(forward.clone().multiplyScalar(moveForward));
+      moveDir.add(right.clone().multiplyScalar(moveRight));
+      if (moveDir.lengthSq() > 1) moveDir.normalize();
+      vel.add(moveDir.multiplyScalar(currentSpeed));
+    }
+
+    const jumpPressed = Input.getKey('Space') || Input.getGamepadButton(jumpButton);
+    if (jumpPressed && Math.abs(rigidBody.linvel().y) < 0.05) {
+      vel.y = jumpForce;
+    }
+    
+    rigidBody.setLinvel(vel, true);
+  }
+}`,
+
+  TPSController: `// Controle em 3a Pessoa (Orbital) com Gamepad
+export let speed = 5;
+export let jumpForce = 5.5;
+export let crouchSpeed = 2.5;
+export let jumpButton = "A";
+export let crouchButton = "C";
+export let sprintButton = "L3";
+
+let angleX = 0;
+let angleY = Math.PI / 6;
+let radius = 5;
+let isCrouching = false;
+
+export function onUpdate(delta) {
+  if (Input.getMouseButton(0)) Input.lockMouse();
+  if (Input.mouse.isLocked) {
+    angleX -= Input.mouse.movementX * 0.005;
+    angleY -= Input.mouse.movementY * 0.005;
+  }
+  
+  // Eixos do Gamepad (Look Axis: X=2, Y=3)
+  const lookX = Input.getGamepadAxis(2);
+  const lookY = Input.getGamepadAxis(3);
+  if (Math.abs(lookX) > 0.1) angleX -= lookX * 0.03;
+  if (Math.abs(lookY) > 0.1) angleY -= lookY * 0.03;
+
+  angleY = Math.max(0.1, Math.min(Math.PI / 2 - 0.1, angleY));
+  
+  if (camera) {
+    camera.offset = [
+      Math.sin(angleX) * Math.cos(angleY) * radius,
+      Math.sin(angleY) * radius + 1,
+      Math.cos(angleX) * Math.cos(angleY) * radius
+    ];
+    const lookAtPos = new THREE.Vector3(0, 1, 0);
+    const camPos = new THREE.Vector3(camera.offset[0], camera.offset[1], camera.offset[2]);
+    const m = new THREE.Matrix4().lookAt(camPos, lookAtPos, new THREE.Vector3(0,1,0));
+    const e = new THREE.Euler().setFromRotationMatrix(m);
+    camera.rotation = [e.x, e.y, e.z];
+  }
+  
+  if (rigidBody) {
+    const runPressed = Input.getKey('ShiftLeft') || Input.getGamepadButton(sprintButton);
+    const currentSpeed = runPressed ? speed * 1.6 : (isCrouching ? crouchSpeed : speed);
+
+    const crouchPressed = Input.getKey('ControlLeft') || Input.getKey('KeyC') || Input.getGamepadButton(crouchButton);
+    
+    if (crouchPressed && !isCrouching) {
+      isCrouching = true;
+      if (transform) {
+        transform.scale = [1, 0.5, 1];
+        transform.position[1] -= 0.5;
+      }
+    } else if (!crouchPressed && isCrouching) {
+      isCrouching = false;
+      if (transform) {
+        transform.scale = [1, 1, 1];
+        transform.position[1] += 0.5;
+      }
+    }
+
+    const qCam = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, angleX, 0));
+    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(qCam);
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(qCam);
+    const vel = new THREE.Vector3(0, rigidBody.linvel().y, 0);
+    
+    let isMoving = false;
+    let moveForward = 0;
+    let moveRight = 0;
+
+    if (Input.getKey('KeyW')) moveForward += 1;
+    if (Input.getKey('KeyS')) moveForward -= 1;
+    if (Input.getKey('KeyA')) moveRight -= 1;
+    if (Input.getKey('KeyD')) moveRight += 1;
+
+    const stickX = Input.getGamepadAxis(0);
+    const stickY = Input.getGamepadAxis(1);
+    if (Math.abs(stickX) > 0.1) moveRight += stickX;
+    if (Math.abs(stickY) > 0.1) moveForward -= stickY;
+
+    const moveDir = new THREE.Vector3();
+    if (moveForward !== 0 || moveRight !== 0) {
+      isMoving = true;
+      moveDir.add(forward.clone().multiplyScalar(moveForward));
+      moveDir.add(right.clone().multiplyScalar(moveRight));
+      if (moveDir.lengthSq() > 1) moveDir.normalize();
+      vel.add(moveDir.multiplyScalar(currentSpeed));
+    }
+
+    const jumpPressed = Input.getKey('Space') || Input.getGamepadButton(jumpButton);
+    if (jumpPressed && Math.abs(rigidBody.linvel().y) < 0.05) {
+      vel.y = jumpForce;
+    }
+    
+    rigidBody.setLinvel(vel, true);
+
+    if (isMoving && transform) {
+      const targetAngle = Math.atan2(moveDir.x, moveDir.z);
+      transform.rotation = [0, targetAngle, 0];
+    }
+  }
+}`,
+
+  OrbitCamera: `// Câmera que orbita ao redor do alvo
+export let targetEntityId = "";
+export let radius = 8;
+export let rotationSpeed = 0.5;
+
+let angle = 0;
+
+export function onUpdate(delta) {
+  angle += rotationSpeed * delta;
+  
+  let targetPos = [0, 0, 0];
+  if (targetEntityId) {
+    const target = scene.entities[targetEntityId];
+    if (target && target.components.Transform) {
+      targetPos = target.components.Transform.position;
+    }
+  }
+
+  if (transform) {
+    transform.position = [
+      targetPos[0] + Math.sin(angle) * radius,
+      targetPos[1] + 3,
+      targetPos[2] + Math.cos(angle) * radius
+    ];
+    
+    if (camera) {
+      const lookAtPos = new THREE.Vector3(targetPos[0], targetPos[1], targetPos[2]);
+      const camPos = new THREE.Vector3(transform.position[0], transform.position[1], transform.position[2]);
+      const m = new THREE.Matrix4().lookAt(camPos, lookAtPos, new THREE.Vector3(0, 1, 0));
+      const e = new THREE.Euler().setFromRotationMatrix(m);
+      camera.rotation = [e.x, e.y, e.z];
+    }
+  }
+}`,
+
+  RotateObject: `// Rotaciona o objeto nos eixos X, Y, Z continuamente
+export let speedX = 0;
+export let speedY = 1.0;
+export let speedZ = 0;
+
+export function onUpdate(delta) {
+  if (transform) {
+    transform.rotation[0] += speedX * delta;
+    transform.rotation[1] += speedY * delta;
+    transform.rotation[2] += speedZ * delta;
+  }
+}`,
+
+  LightFlicker: `// Efeito de oscilação em luzes (fogo/vela)
+export let minIntensity = 0.5;
+export let maxIntensity = 2.0;
+export let speed = 10.0;
+
+let time = 0;
+
+export function onUpdate(delta) {
+  time += delta * speed;
+  if (light) {
+    const noise = Math.sin(time) * Math.cos(time * 0.7);
+    const normalized = (noise + 1) / 2; // 0 to 1
+    light.intensity = minIntensity + normalized * (maxIntensity - minIntensity);
+  }
+}`
+};
 
 export function MenuBar() {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
@@ -110,6 +368,25 @@ export function MenuBar() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const applyDefaultScript = (name: string, code: string) => {
+    if (!selectedEntityId) {
+      alert("Por favor, selecione uma entidade na Hierarquia para aplicar este script.");
+      return;
+    }
+    const store = useEditorStore.getState();
+    const entity = store.scenes[store.activeSceneId]?.entities[selectedEntityId];
+    if (!entity) return;
+
+    if (entity.components.Script) {
+      if (confirm(`A entidade já possui um script "${entity.components.Script.scriptName}". Deseja substituí-lo pelo "${name}"?`)) {
+        store.updateComponent(selectedEntityId, 'Script', { scriptName: name, code });
+      }
+    } else {
+      store.addComponent(selectedEntityId, { type: 'Script', scriptName: name, code });
+    }
+    setBottomTab('script');
   };
 
   return (
@@ -289,6 +566,42 @@ export function MenuBar() {
             )}
           </div>
         )}
+
+        {/* SCRIPTS MENU */}
+        <div className={`menubar-item-wrapper ${activeMenu === 'scripts' ? 'open' : ''}`}>
+          <button 
+            className="menubar-btn" 
+            onClick={(e) => toggleMenu('scripts', e)}
+            onMouseEnter={() => handleMenuHover('scripts')}
+          >
+            Scripts
+          </button>
+          {activeMenu === 'scripts' && (
+            <div className="menubar-dropdown" style={{ minWidth: '220px' }}>
+              <div className="dropdown-section-header" style={{ padding: '4px 12px', fontSize: '10px', opacity: 0.5, fontWeight: 'bold' }}>APLICAR SCRIPT PADRÃO</div>
+              <button onClick={() => applyDefaultScript('FPSController', DEFAULT_SCRIPTS.FPSController)}>
+                <Code size={13} style={{ marginRight: '6px', color: '#60a5fa' }} />
+                <span>FPSController (1ª Pessoa)</span>
+              </button>
+              <button onClick={() => applyDefaultScript('TPSController', DEFAULT_SCRIPTS.TPSController)}>
+                <Code size={13} style={{ marginRight: '6px', color: '#60a5fa' }} />
+                <span>TPSController (3ª Pessoa)</span>
+              </button>
+              <button onClick={() => applyDefaultScript('OrbitCamera', DEFAULT_SCRIPTS.OrbitCamera)}>
+                <Code size={13} style={{ marginRight: '6px', color: '#f59e0b' }} />
+                <span>OrbitCamera (Câmera Orbital)</span>
+              </button>
+              <button onClick={() => applyDefaultScript('RotateObject', DEFAULT_SCRIPTS.RotateObject)}>
+                <Code size={13} style={{ marginRight: '6px', color: '#10b981' }} />
+                <span>RotateObject (Rotacionar)</span>
+              </button>
+              <button onClick={() => applyDefaultScript('LightFlicker', DEFAULT_SCRIPTS.LightFlicker)}>
+                <Code size={13} style={{ marginRight: '6px', color: '#f43f5e' }} />
+                <span>LightFlicker (Oscilar Luz)</span>
+              </button>
+            </div>
+          )}
+        </div>
 
         {/* VIEW MENU */}
         <div className={`menubar-item-wrapper ${activeMenu === 'view' ? 'open' : ''}`}>
