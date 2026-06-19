@@ -12,7 +12,9 @@ import {
   Play,
   Square,
   Hexagon,
-  Save
+  Save,
+  Undo2,
+  Redo2
 } from 'lucide-react';
 
 export function Toolbar() {
@@ -23,7 +25,8 @@ export function Toolbar() {
     showGizmos, toggleGizmos,
     snapEnabled, toggleSnap, snapValue, setSnapValue,
     viewMode, setViewMode,
-    saveCurrentScene, isSaving, importGLTF, publishToPreview, hasUnpublishedChanges
+    saveCurrentScene, isSaving, importGLTF, publishToPreview, hasUnpublishedChanges,
+    undo, redo, historyPast, historyFuture
   } = useEditorStore();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -58,6 +61,32 @@ export function Toolbar() {
           <span className="btn-label">Import GLTF</span>
         </button>
         <input type="file" accept=".gltf,.glb" ref={fileInputRef} style={{ display: 'none' }} onChange={handleImport} />
+      </div>
+
+      <div className="toolbar-divider" />
+
+      {/* History Actions */}
+      <div className="toolbar-group">
+        <button 
+          className="toolbar-btn" 
+          onClick={undo} 
+          disabled={historyPast.length === 0}
+          title="Desfazer (Ctrl + Z)"
+          style={{ opacity: historyPast.length > 0 ? 1 : 0.4 }}
+        >
+          <Undo2 size={15} />
+          <span className="btn-label">Desfazer</span>
+        </button>
+        <button 
+          className="toolbar-btn" 
+          onClick={redo} 
+          disabled={historyFuture.length === 0}
+          title="Refazer (Ctrl + Y)"
+          style={{ opacity: historyFuture.length > 0 ? 1 : 0.4 }}
+        >
+          <Redo2 size={15} />
+          <span className="btn-label">Refazer</span>
+        </button>
       </div>
 
       <div className="toolbar-divider" />
