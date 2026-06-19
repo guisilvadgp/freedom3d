@@ -506,7 +506,8 @@ function SpatialAudio({
   volume,
   refDistance,
   rolloffFactor,
-  maxDistance
+  maxDistance,
+  distanceModel
 }: { 
   url: string; 
   loop: boolean; 
@@ -514,13 +515,13 @@ function SpatialAudio({
   refDistance?: number;
   rolloffFactor?: number;
   maxDistance?: number;
+  distanceModel?: 'linear' | 'inverse' | 'exponential';
 }) {
   const camera = useThree(s => s.camera);
   const groupRef = useRef<THREE.Group>(null);
   const audioRef = useRef<THREE.PositionalAudio | null>(null);
 
   useEffect(() => {
-    let isMounted = true;
     // Garante que a câmera tenha o AudioListener global
     let listener = camera.getObjectByName('global-audio-listener') as THREE.AudioListener;
     if (!listener) {
@@ -536,10 +537,12 @@ function SpatialAudio({
     const rDist = typeof refDistance === 'number' ? refDistance : 5;
     const rFactor = typeof rolloffFactor === 'number' ? rolloffFactor : 1;
     const mDist = typeof maxDistance === 'number' ? maxDistance : 100;
+    const model = distanceModel || 'linear';
     
     sound.setRefDistance(rDist);
     sound.setRolloffFactor(rFactor);
     sound.setMaxDistance(mDist);
+    sound.setDistanceModel(model);
     sound.setVolume(volume ?? 1.0);
     sound.setLoop(loop);
 
@@ -557,6 +560,7 @@ function SpatialAudio({
       groupRef.current.add(sound);
     }
 
+    let isMounted = true;
     return () => {
       isMounted = false;
       if (sound.isPlaying) {
@@ -577,12 +581,14 @@ function SpatialAudio({
       const rDist = typeof refDistance === 'number' ? refDistance : 5;
       const rFactor = typeof rolloffFactor === 'number' ? rolloffFactor : 1;
       const mDist = typeof maxDistance === 'number' ? maxDistance : 100;
+      const model = distanceModel || 'linear';
       
       sound.setRefDistance(rDist);
       sound.setRolloffFactor(rFactor);
       sound.setMaxDistance(mDist);
+      sound.setDistanceModel(model);
     }
-  }, [volume, refDistance, rolloffFactor, maxDistance]);
+  }, [volume, refDistance, rolloffFactor, maxDistance, distanceModel]);
 
   return <group ref={groupRef} />;
 }
@@ -598,6 +604,7 @@ interface OrionAudioProps {
   refDistance?: number;
   rolloffFactor?: number;
   maxDistance?: number;
+  distanceModel?: 'linear' | 'inverse' | 'exponential';
 }
 
 function OrionAudioComponent({ 
@@ -610,7 +617,8 @@ function OrionAudioComponent({
   isPlaying,
   refDistance,
   rolloffFactor,
-  maxDistance
+  maxDistance,
+  distanceModel
 }: OrionAudioProps) {
   const [shouldPlay, setShouldPlay] = useState(false);
 
@@ -638,6 +646,7 @@ function OrionAudioComponent({
         refDistance={refDistance}
         rolloffFactor={rolloffFactor}
         maxDistance={maxDistance}
+        distanceModel={distanceModel}
       />
     );
   } else {
@@ -895,6 +904,7 @@ function EntityMesh({ entity, entities }: { entity: Entity; entities: Record<str
             refDistance={audio.refDistance}
             rolloffFactor={audio.rolloffFactor}
             maxDistance={audio.maxDistance}
+            distanceModel={audio.distanceModel}
           />
         )}
         {particles && (
@@ -986,6 +996,7 @@ function EntityMesh({ entity, entities }: { entity: Entity; entities: Record<str
           refDistance={audio.refDistance}
           rolloffFactor={audio.rolloffFactor}
           maxDistance={audio.maxDistance}
+          distanceModel={audio.distanceModel}
         />
       )}
       {/* Particles */}

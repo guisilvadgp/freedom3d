@@ -623,6 +623,19 @@ function AudioInspector({ entityId }: { entityId: string }) {
               style={{ width: '60px' }}
             />
           </div>
+          <div className="field-row">
+            <label className="field-label">Modelo de Distância</label>
+            <select
+              className="field-input select-dark"
+              value={audio.distanceModel || 'linear'}
+              onChange={(e) => updateComponent(entityId, 'Audio', { distanceModel: e.target.value as any })}
+              style={{ flex: 1, padding: '2px 4px', fontSize: '11px', background: '#111122', border: '1px solid var(--border)', color: '#fff', borderRadius: '4px' }}
+            >
+              <option value="linear">Linear (Zera além do limite)</option>
+              <option value="inverse">Inversa (Decai infinitamente)</option>
+              <option value="exponential">Exponencial (Decai rápido)</option>
+            </select>
+          </div>
         </>
       )}
 
@@ -1790,7 +1803,7 @@ export function InspectorPanel({ style }: { style?: React.CSSProperties }) {
           {!entity.components.Audio && (
             <button 
               className="panel-btn" 
-              onClick={() => useEditorStore.getState().addComponent(selectedEntityId, { type: 'Audio', src: '', loop: true, playOnStart: true, volume: 1, is3D: true, delay: 0, refDistance: 5, rolloffFactor: 1, maxDistance: 100 })}
+              onClick={() => useEditorStore.getState().addComponent(selectedEntityId, { type: 'Audio', src: '', loop: true, playOnStart: true, volume: 1, is3D: true, delay: 0, refDistance: 5, rolloffFactor: 1, maxDistance: 100, distanceModel: 'linear' })}
             >
               <Plus size={12} /> Add Audio
             </button>

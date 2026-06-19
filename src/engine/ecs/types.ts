@@ -81,6 +81,7 @@ export interface AudioComponent {
   refDistance?: number;
   rolloffFactor?: number;
   maxDistance?: number;
+  distanceModel?: 'linear' | 'inverse' | 'exponential';
 }
 
 export interface ParticleSystemComponent {
