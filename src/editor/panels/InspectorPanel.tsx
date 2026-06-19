@@ -15,7 +15,8 @@ import {
   Code, 
   Plus, 
   Package,
-  Settings
+  Settings,
+  Trash2
 } from 'lucide-react';
 
 function Vec3Field({
@@ -92,6 +93,9 @@ function MeshRendererInspector({ entityId }: { entityId: string }) {
       <div className="component-header">
         <span className="component-icon"><Box size={14} /></span>
         <span className="component-title">Mesh Renderer</span>
+        <button className="component-remove-btn" onClick={() => useEditorStore.getState().removeComponent(entityId, 'MeshRenderer')} title="Remover Componente">
+          <Trash2 size={12} />
+        </button>
       </div>
       <div className="field-row">
         <label className="field-label">Geometry</label>
@@ -162,6 +166,9 @@ function LightInspector({ entityId }: { entityId: string }) {
       <div className="component-header">
         <span className="component-icon"><Sun size={14} /></span>
         <span className="component-title">Light</span>
+        <button className="component-remove-btn" onClick={() => useEditorStore.getState().removeComponent(entityId, 'Light')} title="Remover Componente">
+          <Trash2 size={12} />
+        </button>
       </div>
       <div className="field-row">
         <label className="field-label">Type</label>
@@ -232,6 +239,9 @@ function GLTFModelInspector({ entityId }: { entityId: string }) {
       <div className="component-header">
         <span className="component-icon"><Layers size={14} /></span>
         <span className="component-title">GLTF Model</span>
+        <button className="component-remove-btn" onClick={() => useEditorStore.getState().removeComponent(entityId, 'GLTFModel')} title="Remover Componente">
+          <Trash2 size={12} />
+        </button>
       </div>
       <div className="field-row">
         <label className="field-label">File Name</label>
@@ -278,6 +288,9 @@ function RigidBodyInspector({ entityId }: { entityId: string }) {
       <div className="component-header">
         <span className="component-icon"><Activity size={14} /></span>
         <span className="component-title">Rigid Body</span>
+        <button className="component-remove-btn" onClick={() => useEditorStore.getState().removeComponent(entityId, 'RigidBody')} title="Remover Componente">
+          <Trash2 size={12} />
+        </button>
       </div>
       <div className="field-row">
         <label className="field-label">Mass</label>
@@ -334,6 +347,9 @@ function AudioInspector({ entityId }: { entityId: string }) {
       <div className="component-header">
         <span className="component-icon"><Volume2 size={14} /></span>
         <span className="component-title">Audio Source</span>
+        <button className="component-remove-btn" onClick={() => useEditorStore.getState().removeComponent(entityId, 'Audio')} title="Remover Componente">
+          <Trash2 size={12} />
+        </button>
       </div>
       <div className="field-row">
         <label className="field-label">File URL</label>
@@ -376,6 +392,9 @@ function ParticleSystemInspector({ entityId }: { entityId: string }) {
       <div className="component-header">
         <span className="component-icon"><Sparkles size={14} /></span>
         <span className="component-title">Particle System</span>
+        <button className="component-remove-btn" onClick={() => useEditorStore.getState().removeComponent(entityId, 'ParticleSystem')} title="Remover Componente">
+          <Trash2 size={12} />
+        </button>
       </div>
       <div className="field-row">
         <label className="field-label">Color</label>
@@ -471,6 +490,9 @@ function AnimatorInspector({ entityId }: { entityId: string }) {
       <div className="component-header">
         <span className="component-icon"><Film size={14} /></span>
         <span className="component-title">Animator</span>
+        <button className="component-remove-btn" onClick={() => useEditorStore.getState().removeComponent(entityId, 'Animator')} title="Remover Componente">
+          <Trash2 size={12} />
+        </button>
       </div>
 
       <div className="field-row">
@@ -629,6 +651,9 @@ function NetworkInspector({ entityId }: { entityId: string }) {
       <div className="component-header">
         <span className="component-icon"><Wifi size={14} /></span>
         <span className="component-title">Network Identity</span>
+        <button className="component-remove-btn" onClick={() => useEditorStore.getState().removeComponent(entityId, 'Network')} title="Remover Componente">
+          <Trash2 size={12} />
+        </button>
       </div>
       <div className="field-row">
         <label className="field-label">Is Local Player</label>
@@ -661,6 +686,9 @@ function CameraInspector({ entityId }: { entityId: string }) {
       <div className="component-header">
         <span className="component-icon"><Video size={14} /></span>
         <span className="component-title">Camera</span>
+        <button className="component-remove-btn" onClick={() => useEditorStore.getState().removeComponent(entityId, 'Camera')} title="Remover Componente">
+          <Trash2 size={12} />
+        </button>
       </div>
       <div className="field-row">
         <label className="field-label">Is Main Camera</label>
@@ -749,6 +777,9 @@ function ScriptInspector({ entityId }: { entityId: string }) {
       <div className="component-header">
         <span className="component-icon"><Code size={14} /></span>
         <span className="component-title">Script</span>
+        <button className="component-remove-btn" onClick={() => useEditorStore.getState().removeComponent(entityId, 'Script')} title="Remover Componente">
+          <Trash2 size={12} />
+        </button>
       </div>
       <div className="field-row">
         <label className="field-label">Name</label>

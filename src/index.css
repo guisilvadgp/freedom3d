@@ -656,6 +656,25 @@ input, select, button, textarea {
   color: var(--text-primary);
 }
 
+.component-remove-btn {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  transition: var(--transition);
+}
+
+.component-remove-btn:hover {
+  color: var(--accent-danger);
+  background: rgba(239, 68, 68, 0.15);
+}
+
 /* Fields */
 .field-row {
   display: flex;
