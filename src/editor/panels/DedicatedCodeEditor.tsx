@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Editor from '@monaco-editor/react';
 import { 
-  FileCode, Sparkles, Save, Code, Wand2 
+  FileCode, Sparkles, Save, Code, Wand2, Check 
 } from 'lucide-react';
 
 interface ScriptItem {
@@ -26,6 +26,7 @@ export function DedicatedCodeEditor() {
   const [models, setModels] = useState<{ id: string; type?: string }[]>([]);
   const [selectedModel, setSelectedModel] = useState('openai');
   const [loadingModels, setLoadingModels] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   
   const handleApiKeyChange = (val: string) => {
     setApiKey(val);
@@ -151,6 +152,8 @@ export function DedicatedCodeEditor() {
   const handleSave = () => {
     if (!selectedEntityId) return;
     
+    setSaveStatus('saving');
+    
     // Atualiza a lista local
     setScripts(prev => prev.map(s => {
       if (s.entityId === selectedEntityId) {
@@ -173,6 +176,13 @@ export function DedicatedCodeEditor() {
     channelRef.current?.postMessage({
       type: 'SAVE_PROJECT_SCENE'
     });
+
+    setSaveStatus('saved');
+    
+    // Voltar para o estado normal após 2 segundos
+    setTimeout(() => {
+      setSaveStatus('idle');
+    }, 2000);
   };
 
   const handleGenerateAI = async () => {
@@ -228,8 +238,22 @@ export function DedicatedCodeEditor() {
           <span className="editor-badge">Unity Mode</span>
         </div>
         <div className="header-actions">
-          <button className="editor-save-btn" onClick={handleSave} disabled={!selectedEntityId}>
-            <Save size={14} /> Salvar e Sincronizar
+          <button 
+            className={`editor-save-btn ${saveStatus === 'saved' ? 'success' : ''}`} 
+            onClick={handleSave} 
+            disabled={!selectedEntityId || saveStatus === 'saving'}
+          >
+            {saveStatus === 'saving' && <span>Salvando...</span>}
+            {saveStatus === 'saved' && (
+              <>
+                <Check size={14} /> Salvo!
+              </>
+            )}
+            {saveStatus === 'idle' && (
+              <>
+                <Save size={14} /> Salvar e Sincronizar
+              </>
+            )}
           </button>
         </div>
       </header>

@@ -2387,6 +2387,11 @@ input[type="checkbox"] {
   box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4);
 }
 
+.editor-save-btn.success {
+  background: linear-gradient(135deg, var(--accent-success), #059669) !important;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3) !important;
+}
+
 .dedicated-editor-body {
   display: flex;
   flex: 1;
