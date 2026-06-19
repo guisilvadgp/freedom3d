@@ -19,9 +19,25 @@ import {
   Video,
   Cpu,
   Edit2,
-  CircleDot,
-  Capsule
+  CircleDot
 } from 'lucide-react';
+
+function CapsuleIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="8" y="3" width="8" height="18" rx="4" ry="4" />
+    </svg>
+  );
+}
 
 const ENTITY_TYPES = [
   { id: 'empty', label: 'Empty', icon: <CircleDot size={14} /> },
@@ -29,7 +45,7 @@ const ENTITY_TYPES = [
   { id: 'sphere', label: 'Sphere', icon: <Circle size={14} /> },
   { id: 'plane', label: 'Plane', icon: <Square size={14} /> },
   { id: 'cylinder', label: 'Cylinder', icon: <Database size={14} /> },
-  { id: 'capsule', label: 'Capsule', icon: <Capsule size={14} /> },
+  { id: 'capsule', label: 'Capsule', icon: <CapsuleIcon size={14} /> },
   { id: 'torus', label: 'Torus', icon: <Disc size={14} /> },
 ];
 
@@ -173,7 +189,7 @@ function HierarchyNode({
     if (entity.components.Camera) return <Video size={14} />;
     if (entity.components.MeshRenderer) {
       if (entity.components.MeshRenderer.geometry === 'capsule') {
-        return <Capsule size={14} />;
+        return <CapsuleIcon size={14} />;
       }
       return <Box size={14} />;
     }
