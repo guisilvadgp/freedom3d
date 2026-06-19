@@ -1145,12 +1145,12 @@ function XRSync() {
       }
     }
 
-    // Se temos a calibração de altura inicial do headset (6DoF), compensamos ela para que a altura de visão 
-    // inicial seja exatamente ePos[1] + offset[1] (a altura configurada do avatar).
-    // Se for 3DoF (ou primeiro frame sem calibração), posicionamos no offset diretamente.
+    // No WebXR (VR), usamos uma altura padrão de 1.6m para a visão inicial, ignorando o offset Y.
+    // Isso permite que o offset Y seja ajustado livremente no editor para a câmera do computador
+    // sem interferir no WebXR do celular.
     const targetY = initialHeadsetHeight.current !== null
-      ? ePos[1] + (offset[1] || 1.6) - initialHeadsetHeight.current
-      : ePos[1] + (offset[1] || 1.6);
+      ? ePos[1] + 1.6 - initialHeadsetHeight.current
+      : ePos[1] + 1.6;
 
     groupRef.current.position.set(
       ePos[0] + offset[0],
