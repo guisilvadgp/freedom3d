@@ -59,31 +59,255 @@ async function clearAssetsCache() {
 
 function DebugUI() {
   const consoleLogs = useEditorStore(state => state.consoleLogs);
+  const clearConsole = useEditorStore(state => state.clearConsole);
+  const [minimized, setMinimized] = useState(false);
+  const [activeTab, setActiveTab] = useState<'perf' | 'logs'>('perf');
+  const [fps, setFps] = useState(60);
+  const [webglInfo, setWebglInfo] = useState<any>({ drawCalls: 0, triangles: 0, geometries: 0, textures: 0 });
+  const [ramUsage, setRamUsage] = useState<string>('N/A');
+
+  useEffect(() => {
+    let lastTime = performance.now();
+    let frames = 0;
+    let animId: number;
+
+    const updateStats = () => {
+      const now = performance.now();
+      frames++;
+      
+      if (now >= lastTime + 1000) {
+        setFps(Math.round((frames * 1000) / (now - lastTime)));
+        frames = 0;
+        lastTime = now;
+      }
+
+      if ((window as any).__freedom3d_webgl_info) {
+        setWebglInfo((window as any).__freedom3d_webgl_info);
+      }
+
+      const mem = (performance as any).memory;
+      if (mem && mem.usedJSHeapSize) {
+        setRamUsage((mem.usedJSHeapSize / 1024 / 1024).toFixed(1) + ' MB');
+      }
+
+      animId = requestAnimationFrame(updateStats);
+    };
+
+    animId = requestAnimationFrame(updateStats);
+    return () => cancelAnimationFrame(animId);
+  }, []);
 
   const handleCopy = () => {
-    const text = consoleLogs.map(l => l.message).join('\n');
+    const text = consoleLogs.map(l => `[${l.type.toUpperCase()}] ${l.message}`).join('\n');
     navigator.clipboard.writeText(text);
-    alert('Log copiado para a area de transferencia!');
+    alert('Logs copiados para a área de transferência!');
   };
+
+  if (minimized) {
+    return (
+      <button
+        onClick={() => setMinimized(false)}
+        style={{
+          position: 'absolute',
+          top: '20px',
+          left: '20px',
+          zIndex: 99999,
+          background: 'rgba(99, 102, 241, 0.95)',
+          color: '#fff',
+          border: '1px solid rgba(255,255,255,0.2)',
+          borderRadius: '20px',
+          padding: '8px 16px',
+          fontSize: '12px',
+          fontWeight: 700,
+          cursor: 'pointer',
+          boxShadow: '0 4px 15px rgba(99, 102, 241, 0.4)',
+          fontFamily: 'sans-serif',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          transition: 'transform 0.2s',
+          outline: 'none'
+        }}
+      >
+        <span style={{ display: 'inline-block', width: '8px', height: '8px', background: '#22c55e', borderRadius: '50%' }} />
+        STATS: {fps} FPS
+      </button>
+    );
+  }
 
   return (
     <div style={{
-      position: 'absolute', top: '50px', right: '10px', width: '300px', height: '400px',
-      background: 'rgba(0,0,0,0.8)', color: '#0f0', fontFamily: 'monospace', fontSize: '12px',
-      padding: '10px', borderRadius: '8px', zIndex: 9999, display: 'flex', flexDirection: 'column'
+      position: 'absolute',
+      top: '20px',
+      left: '20px',
+      width: '320px',
+      maxHeight: '420px',
+      background: 'rgba(10, 15, 30, 0.85)',
+      backdropFilter: 'blur(16px)',
+      border: '1px solid rgba(255, 255, 255, 0.08)',
+      color: '#e2e8f0',
+      fontFamily: 'sans-serif',
+      borderRadius: '16px',
+      zIndex: 99999,
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden',
+      boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5)'
     }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-        <strong>Console Logs</strong>
-        <button onClick={handleCopy} style={{ background: '#555', color: '#fff', border: 'none', padding: '4px 8px', cursor: 'pointer', borderRadius: '4px' }}>
-          Copiar
+      {/* Header */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '12px 16px',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+        background: 'rgba(255, 255, 255, 0.02)'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ width: '8px', height: '8px', background: '#6366f1', borderRadius: '50%' }} />
+          <span style={{ fontWeight: 700, fontSize: '13px', letterSpacing: '0.5px' }}>TELEMETRIA ORION</span>
+        </div>
+        <button
+          onClick={() => setMinimized(true)}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: '#94a3b8',
+            cursor: 'pointer',
+            fontSize: '11px',
+            fontWeight: 600,
+            padding: '4px 8px',
+            borderRadius: '4px',
+            transition: 'color 0.2s',
+            outline: 'none'
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.color = '#fff'}
+          onMouseLeave={(e) => e.currentTarget.style.color = '#94a3b8'}
+        >
+          Minimizar
         </button>
       </div>
-      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-        {consoleLogs.map(log => (
-          <div key={log.id} style={{ color: log.type === 'error' ? '#f44' : log.type === 'warn' ? '#fd4' : '#0f0' }}>
-            {log.message}
+
+      {/* Tabs */}
+      <div style={{ display: 'flex', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
+        <button
+          onClick={() => setActiveTab('perf')}
+          style={{
+            flex: 1,
+            padding: '10px',
+            background: activeTab === 'perf' ? 'rgba(99, 102, 241, 0.15)' : 'none',
+            border: 'none',
+            color: activeTab === 'perf' ? '#a5b4fc' : '#94a3b8',
+            fontSize: '12px',
+            fontWeight: 600,
+            cursor: 'pointer',
+            borderBottom: activeTab === 'perf' ? '2px solid #6366f1' : 'none',
+            outline: 'none'
+          }}
+        >
+          Performance
+        </button>
+        <button
+          onClick={() => setActiveTab('logs')}
+          style={{
+            flex: 1,
+            padding: '10px',
+            background: activeTab === 'logs' ? 'rgba(99, 102, 241, 0.15)' : 'none',
+            border: 'none',
+            color: activeTab === 'logs' ? '#a5b4fc' : '#94a3b8',
+            fontSize: '12px',
+            fontWeight: 600,
+            cursor: 'pointer',
+            borderBottom: activeTab === 'logs' ? '2px solid #6366f1' : 'none',
+            outline: 'none'
+          }}
+        >
+          Console Logs
+        </button>
+      </div>
+
+      {/* Content */}
+      <div style={{ flex: 1, padding: '16px', overflowY: 'auto', fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        {activeTab === 'perf' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontFamily: 'monospace' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 8px', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '6px' }}>
+              <span style={{ color: '#94a3b8' }}>Taxa de Quadros:</span>
+              <span style={{ color: fps >= 55 ? '#22c55e' : fps >= 30 ? '#eab308' : '#ef4444', fontWeight: 'bold' }}>{fps} FPS</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 8px', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '6px' }}>
+              <span style={{ color: '#94a3b8' }}>Memória RAM JS:</span>
+              <span style={{ color: '#38bdf8' }}>{ramUsage}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 8px', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '6px' }}>
+              <span style={{ color: '#94a3b8' }}>Draw Calls:</span>
+              <span style={{ color: '#a78bfa' }}>{webglInfo.drawCalls}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 8px', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '6px' }}>
+              <span style={{ color: '#94a3b8' }}>Triângulos:</span>
+              <span style={{ color: '#a78bfa' }}>{webglInfo.triangles.toLocaleString()}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 8px', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '6px' }}>
+              <span style={{ color: '#94a3b8' }}>Texturas GPU:</span>
+              <span style={{ color: '#f43f5e' }}>{webglInfo.textures}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 8px', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '6px' }}>
+              <span style={{ color: '#94a3b8' }}>Geometrias:</span>
+              <span style={{ color: '#fb923c' }}>{webglInfo.geometries}</span>
+            </div>
           </div>
-        ))}
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: '180px' }}>
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', fontFamily: 'monospace', fontSize: '11px', maxHeight: '180px', padding: '4px' }}>
+              {consoleLogs.length === 0 ? (
+                <div style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>Nenhum log registrado.</div>
+              ) : (
+                consoleLogs.map(log => (
+                  <div key={log.id} style={{ color: log.type === 'error' ? '#f43f5e' : log.type === 'warn' ? '#fbbf24' : '#34d399', wordBreak: 'break-all' }}>
+                    [{log.type.toUpperCase()}] {log.message}
+                  </div>
+                ))
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '12px', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '10px' }}>
+              <button
+                onClick={handleCopy}
+                style={{
+                  flex: 1,
+                  background: 'rgba(255,255,255,0.06)',
+                  color: '#fff',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  padding: '6px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '11px',
+                  outline: 'none'
+                }}
+              >
+                Copiar
+              </button>
+              <button
+                onClick={() => {
+                  if (typeof clearConsole === 'function') {
+                    clearConsole();
+                  }
+                }}
+                style={{
+                  flex: 1,
+                  background: 'rgba(244,63,94,0.1)',
+                  color: '#f43f5e',
+                  border: '1px solid rgba(244,63,94,0.2)',
+                  padding: '6px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '11px',
+                  outline: 'none'
+                }}
+              >
+                Limpar
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

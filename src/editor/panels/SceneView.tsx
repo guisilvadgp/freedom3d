@@ -127,6 +127,15 @@ function EditorCameraHandler() {
   }, [focusTrigger]);
 
   useFrame((state) => {
+    // Expõe telemetria do WebGL Renderer para o Profiler/DebugUI
+    const gl = state.gl;
+    (window as any).__freedom3d_webgl_info = {
+      drawCalls: gl.info.render.calls,
+      triangles: gl.info.render.triangles,
+      geometries: gl.info.memory.geometries,
+      textures: gl.info.memory.textures
+    };
+
     if (animateTo.current && targetPos.current) {
       if (controls) {
         const orbit = controls as any;
