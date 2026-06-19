@@ -829,87 +829,328 @@ function ControlConfigModal({ onClose }: { onClose: () => void }) {
     localStorage.setItem('freedom3d_gamepad_config', JSON.stringify(defaults));
   };
 
-  const getFieldLabel = (field: keyof GamepadConfig) => {
-    switch (field) {
-      case 'triggerButton': return 'Gatilho / Clique (Teleporte)';
-      case 'moveAxisX': return 'Analógico X (Esquerda/Direita)';
-      case 'moveAxisY': return 'Analógico Y (Frente/Trás)';
-      case 'buttonA': return 'Botão A';
-      case 'buttonB': return 'Botão B';
-      case 'buttonC': return 'Botão C';
-      case 'buttonD': return 'Botão D';
-    }
+  const getLineStroke = (field: keyof GamepadConfig) => {
+    return bindingField === field ? '#f59e0b' : 'rgba(129, 140, 248, 0.4)';
   };
-
-  const isAxis = (field: keyof GamepadConfig) => {
-    return field === 'moveAxisX' || field === 'moveAxisY';
+  const getLineDash = (field: keyof GamepadConfig) => {
+    return bindingField === field ? 'none' : '4';
+  };
+  const getLineStrength = (field: keyof GamepadConfig) => {
+    return bindingField === field ? '3' : '1.5';
   };
 
   return (
     <div style={{
       position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-      background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(10px)',
+      background: 'rgba(10, 15, 30, 0.9)', backdropFilter: 'blur(16px)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000,
-      fontFamily: 'sans-serif', padding: '20px'
+      fontFamily: 'system-ui, -apple-system, sans-serif', padding: '20px'
     }} onClick={onClose}>
       <div style={{
-        background: 'rgba(30, 41, 59, 0.95)', border: '1px solid rgba(255, 255, 255, 0.1)',
-        borderRadius: '20px', width: '100%', maxWidth: '500px', padding: '30px',
-        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)', color: '#fff',
-        display: 'flex', flexDirection: 'column', gap: '20px'
+        background: 'rgba(15, 23, 42, 0.95)', border: '1px solid rgba(129, 140, 248, 0.2)',
+        borderRadius: '24px', width: '100%', maxWidth: '960px', padding: '30px',
+        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7), inset 0 0 20px rgba(129, 140, 248, 0.05)', color: '#fff',
+        display: 'flex', flexDirection: 'column', gap: '24px'
       }} onClick={e => e.stopPropagation()}>
         
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: '#f8fafc' }}>
-            Configurar Controles Bluetooth
-          </h2>
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '16px' }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.025em', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 10px #10b981' }}></span>
+              Configurar Controles Bluetooth
+            </h2>
+            <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#64748b' }}>Mapeie os eixos e botões do seu controle de PS4 gamepad</p>
+          </div>
           <button onClick={onClose} style={{
-            background: 'none', border: 'none', color: '#94a3b8', fontSize: '24px', cursor: 'pointer', outline: 'none'
-          }}>&times;</button>
+            background: 'none', border: 'none', color: '#64748b', fontSize: '28px', cursor: 'pointer', outline: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '50%', transition: 'all 0.2s'
+          }}
+          onMouseEnter={e => e.currentTarget.style.color = '#fff'}
+          onMouseLeave={e => e.currentTarget.style.color = '#64748b'}
+          >&times;</button>
         </div>
 
+        {/* HUD de Controle Conectado */}
         <div style={{
-          background: 'rgba(255,255,255,0.03)', borderRadius: '12px', padding: '15px',
-          border: '1px solid rgba(255,255,255,0.05)', fontSize: '13px', color: '#94a3b8'
+          background: 'rgba(99, 102, 241, 0.05)', borderRadius: '14px', padding: '12px 18px',
+          border: '1px solid rgba(99, 102, 241, 0.15)', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'space-between'
         }}>
-          <strong>Controle Ativo:</strong>
-          <div style={{ color: '#818cf8', marginTop: '4px', fontWeight: 600 }}>{activeGamepadName}</div>
+          <div>
+            <span style={{ color: '#64748b', textTransform: 'uppercase', fontSize: '10px', fontWeight: 700, letterSpacing: '0.05em' }}>Controle Conectado</span>
+            <div style={{ color: '#818cf8', marginTop: '2px', fontWeight: 600, fontSize: '14px' }}>{activeGamepadName}</div>
+          </div>
+          <div style={{ padding: '4px 10px', borderRadius: '8px', background: activeGamepadName.includes('Nenhum') ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)', color: activeGamepadName.includes('Nenhum') ? '#f87171' : '#34d399', fontSize: '11px', fontWeight: 700 }}>
+            {activeGamepadName.includes('Nenhum') ? 'OFFLINE' : 'ONLINE'}
+          </div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '350px', overflowY: 'auto', paddingRight: '5px' }}>
-          {(Object.keys(config) as Array<keyof GamepadConfig>)
-            .filter(field => field !== 'invertX' && field !== 'invertY')
-            .map((field) => (
-              <div key={field} style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                padding: '10px 14px', background: 'rgba(255,255,255,0.02)',
-                borderRadius: '10px', border: '1px solid rgba(255,255,255,0.03)'
-              }}>
-                <span style={{ fontSize: '14px', fontWeight: 500, color: '#cbd5e1' }}>
-                  {getFieldLabel(field)}
-                </span>
+        {/* Corpo principal em colunas flutuantes */}
+        <div style={{ position: 'relative', width: '100%', height: '380px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          
+          {/* Card Esquerda - Analógico e Gatilho */}
+          <div style={{ position: 'absolute', left: 0, width: '220px', display: 'flex', flexDirection: 'column', gap: '20px', zIndex: 10 }}>
+            
+            {/* Gatilho Esquerdo */}
+            <div style={{
+              background: bindingField === 'triggerButton' ? 'rgba(245, 158, 11, 0.08)' : 'rgba(30, 41, 59, 0.5)',
+              border: bindingField === 'triggerButton' ? '1px solid #f59e0b' : '1px solid rgba(255,255,255,0.06)',
+              borderRadius: '12px', padding: '12px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+            }}>
+              <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Gatilho (L2/R2)</div>
+              <div style={{ fontSize: '14px', fontWeight: 600, color: '#f1f5f9', marginTop: '2px' }}>Teleporte</div>
+              <button
+                onClick={() => setBindingField('triggerButton')}
+                style={{
+                  width: '100%', marginTop: '8px', padding: '6px 12px', fontSize: '12px', fontWeight: 700, borderRadius: '8px', cursor: 'pointer', border: 'none',
+                  background: bindingField === 'triggerButton' ? '#f59e0b' : 'rgba(99, 102, 241, 0.15)',
+                  color: bindingField === 'triggerButton' ? '#000' : '#818cf8',
+                  transition: 'all 0.2s'
+                }}
+              >
+                {bindingField === 'triggerButton' ? 'Aguardando...' : `Botão ${config.triggerButton}`}
+              </button>
+            </div>
+
+            {/* Analógico L */}
+            <div style={{
+              background: bindingField === 'moveAxisX' || bindingField === 'moveAxisY' ? 'rgba(245, 158, 11, 0.08)' : 'rgba(30, 41, 59, 0.5)',
+              border: bindingField === 'moveAxisX' || bindingField === 'moveAxisY' ? '1px solid #f59e0b' : '1px solid rgba(255,255,255,0.06)',
+              borderRadius: '12px', padding: '12px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+            }}>
+              <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Analógico Esquerdo (L)</div>
+              <div style={{ fontSize: '14px', fontWeight: 600, color: '#f1f5f9', marginTop: '2px' }}>Movimento (X/Y)</div>
+              
+              <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
                 <button
-                  onClick={() => setBindingField(field)}
+                  onClick={() => setBindingField('moveAxisX')}
                   style={{
-                    background: bindingField === field ? '#f59e0b' : 'rgba(99, 102, 241, 0.15)',
-                    color: bindingField === field ? '#000' : '#818cf8',
-                    border: bindingField === field ? 'none' : '1px solid rgba(99, 102, 241, 0.3)',
-                    padding: '6px 16px', fontSize: '13px', fontWeight: 600,
-                    borderRadius: '6px', cursor: 'pointer', minWidth: '120px', textAlign: 'center',
-                    transition: 'all 0.2s ease', outline: 'none'
+                    flex: 1, padding: '6px', fontSize: '11px', fontWeight: 700, borderRadius: '6px', cursor: 'pointer', border: 'none',
+                    background: bindingField === 'moveAxisX' ? '#f59e0b' : 'rgba(99, 102, 241, 0.1)',
+                    color: bindingField === 'moveAxisX' ? '#000' : '#818cf8'
                   }}
                 >
-                  {bindingField === field 
-                    ? (isAxis(field) ? 'Mova analógico...' : 'Pressione botão...') 
-                    : (isAxis(field) ? `Eixo ${config[field]}` : `Botão ${config[field]}`)}
+                  {bindingField === 'moveAxisX' ? 'Eixo X...' : `X: ${config.moveAxisX}`}
+                </button>
+                <button
+                  onClick={() => setBindingField('moveAxisY')}
+                  style={{
+                    flex: 1, padding: '6px', fontSize: '11px', fontWeight: 700, borderRadius: '6px', cursor: 'pointer', border: 'none',
+                    background: bindingField === 'moveAxisY' ? '#f59e0b' : 'rgba(99, 102, 241, 0.1)',
+                    color: bindingField === 'moveAxisY' ? '#000' : '#818cf8'
+                  }}
+                >
+                  {bindingField === 'moveAxisY' ? 'Eixo Y...' : `Y: ${config.moveAxisY}`}
                 </button>
               </div>
-            ))}
+            </div>
 
-          {/* Inversão de Eixos */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '12px 14px', background: 'rgba(255,255,255,0.02)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.03)', marginTop: '4px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '14px', cursor: 'pointer', color: '#cbd5e1' }}>
-              <span>Inverter Horizontal (Eixo X)</span>
+          </div>
+
+          {/* SVG Centralizado do Controle PS4 */}
+          <div style={{ width: '480px', height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg viewBox="0 0 480 300" width="100%" height="100%">
+              {/* Definições de Gradientes e Filtros */}
+              <defs>
+                <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="#818cf8" stopOpacity="0.15" />
+                  <stop offset="100%" stopColor="#818cf8" stopOpacity="0" />
+                </radialGradient>
+              </defs>
+
+              {/* Fundo Glow de Neon */}
+              <circle cx="240" cy="150" r="180" fill="url(#glow)" />
+
+              {/* Linhas de conexão esquemáticas */}
+              {/* Linha Gatilho Esquerdo */}
+              <path d="M 115 50 L 50 50" fill="none" stroke={getLineStroke('triggerButton')} strokeWidth={getLineStrength('triggerButton')} strokeDasharray={getLineDash('triggerButton')} />
+              <circle cx="115" cy="50" r="3.5" fill={getLineStroke('triggerButton')} />
+
+              {/* Linha Analógico Esquerdo */}
+              <path d="M 190 190 L 50 190" fill="none" stroke={bindingField === 'moveAxisX' || bindingField === 'moveAxisY' ? '#f59e0b' : 'rgba(129, 140, 248, 0.4)'} strokeWidth={bindingField === 'moveAxisX' || bindingField === 'moveAxisY' ? '3' : '1.5'} strokeDasharray={bindingField === 'moveAxisX' || bindingField === 'moveAxisY' ? 'none' : '4'} />
+              <circle cx="190" cy="190" r="3.5" fill={bindingField === 'moveAxisX' || bindingField === 'moveAxisY' ? '#f59e0b' : 'rgba(129, 140, 248, 0.4)'} />
+
+              {/* Linha Botão Triângulo (Ação D) */}
+              <path d="M 350 115 L 430 115" fill="none" stroke={getLineStroke('buttonD')} strokeWidth={getLineStrength('buttonD')} strokeDasharray={getLineDash('buttonD')} />
+              <circle cx="350" cy="115" r="3.5" fill={getLineStroke('buttonD')} />
+
+              {/* Linha Botão Círculo (Ação B) */}
+              <path d="M 375 140 L 430 140" fill="none" stroke={getLineStroke('buttonB')} strokeWidth={getLineStrength('buttonB')} strokeDasharray={getLineDash('buttonB')} />
+              <circle cx="375" cy="140" r="3.5" fill={getLineStroke('buttonB')} />
+
+              {/* Linha Botão X (Ação A) */}
+              <path d="M 350 165 L 430 165" fill="none" stroke={getLineStroke('buttonA')} strokeWidth={getLineStrength('buttonA')} strokeDasharray={getLineDash('buttonA')} />
+              <circle cx="350" cy="165" r="3.5" fill={getLineStroke('buttonA')} />
+
+              {/* Linha Botão Quadrado (Ação C) */}
+              <path d="M 325 140 L 430 200" fill="none" stroke={getLineStroke('buttonC')} strokeWidth={getLineStrength('buttonC')} strokeDasharray={getLineDash('buttonC')} />
+              <circle cx="325" cy="140" r="3.5" fill={getLineStroke('buttonC')} />
+
+
+              {/* CONTROLE - PARTE FÍSICA */}
+              {/* Gatilho L1/L2 */}
+              <path d="M 90 70 C 90 40, 130 40, 140 70 Z" fill="#1e293b" stroke="#334155" strokeWidth="2" />
+              {/* Gatilho R1/R2 */}
+              <path d="M 340 70 C 350 40, 390 40, 390 70 Z" fill="#1e293b" stroke="#334155" strokeWidth="2" />
+
+              {/* Corpo Principal do DualShock 4 */}
+              <path d="M 120 70 
+                       C 90 70, 70 95, 60 130 
+                       C 40 200, 50 255, 75 270 
+                       C 95 280, 130 250, 155 220 
+                       C 185 205, 295 205, 325 220 
+                       C 350 250, 385 280, 405 270 
+                       C 430 255, 440 200, 420 130 
+                       C 410 95, 390 70, 360 70 
+                       Z" 
+                    fill="#151f32" stroke="#25354e" strokeWidth="3" />
+
+              {/* Touchpad Central */}
+              <rect x="160" y="72" width="160" height="65" rx="6" fill="#0f172a" stroke="#1e293b" strokeWidth="2" />
+              {/* Lightbar Decorativa (Neon Azul) */}
+              <rect x="190" y="68" width="100" height="4" rx="2" fill="#00d8ff" style={{ filter: 'drop-shadow(0 0 4px #00d8ff)' }} />
+
+              {/* D-Pad (Direcional) */}
+              <path d="M 100 135 H 115 V 120 H 125 V 135 H 140 V 145 H 125 V 160 H 115 V 145 H 100 Z" fill="#1e293b" stroke="#334155" strokeWidth="1.5" />
+
+              {/* Botões de Ação na Direita */}
+              <circle cx="350" cy="140" r="35" fill="#0c1322" stroke="#1e293b" strokeWidth="2" />
+              
+              {/* Triângulo */}
+              <circle cx="350" cy="115" r="9" fill="#1e293b" stroke="#334155" />
+              <path d="M 350 111 L 354 118 L 346 118 Z" fill="none" stroke="#2dd4bf" strokeWidth="1.5" />
+              
+              {/* Círculo */}
+              <circle cx="375" cy="140" r="9" fill="#1e293b" stroke="#334155" />
+              <circle cx="375" cy="140" r="4.5" fill="none" stroke="#f87171" strokeWidth="1.5" />
+              
+              {/* X */}
+              <circle cx="350" cy="165" r="9" fill="#1e293b" stroke="#334155" />
+              <path d="M 347 162 L 353 168 M 353 162 L 347 168" fill="none" stroke="#60a5fa" strokeWidth="1.5" />
+              
+              {/* Quadrado */}
+              <circle cx="325" cy="140" r="9" fill="#1e293b" stroke="#334155" />
+              <rect x="321" y="136" width="8" height="8" fill="none" stroke="#f472b6" strokeWidth="1.5" />
+
+              {/* Analógico Esquerdo (L) */}
+              <circle cx="190" cy="190" r="26" fill="#0f172a" stroke="#1e293b" strokeWidth="2" />
+              <circle cx="190" cy="190" r="20" fill="#1e293b" stroke="#334155" strokeWidth="1.5" />
+              <circle cx="190" cy="190" r="12" fill="#0f172a" />
+              <text x="190" y="194" fill="#334155" fontSize="11" fontWeight="800" textAnchor="middle">L</text>
+
+              {/* Analógico Direito (R) */}
+              <circle cx="290" cy="190" r="26" fill="#0f172a" stroke="#1e293b" strokeWidth="2" />
+              <circle cx="290" cy="190" r="20" fill="#1e293b" stroke="#334155" strokeWidth="1.5" />
+              <circle cx="290" cy="190" r="12" fill="#0f172a" />
+              <text x="290" y="194" fill="#334155" fontSize="11" fontWeight="800" textAnchor="middle">R</text>
+
+            </svg>
+          </div>
+
+          {/* Card Direita - Botões de Ação */}
+          <div style={{ position: 'absolute', right: 0, width: '220px', display: 'flex', flexDirection: 'column', gap: '12px', zIndex: 10 }}>
+            
+            {/* Triângulo */}
+            <div style={{
+              background: bindingField === 'buttonD' ? 'rgba(245, 158, 11, 0.08)' : 'rgba(30, 41, 59, 0.5)',
+              border: bindingField === 'buttonD' ? '1px solid #f59e0b' : '1px solid rgba(255,255,255,0.06)',
+              borderRadius: '10px', padding: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px'
+            }}>
+              <div>
+                <div style={{ fontSize: '10px', color: '#2dd4bf', fontWeight: 800 }}>TRIÂNGULO (🔺)</div>
+                <div style={{ fontSize: '13px', color: '#e2e8f0', fontWeight: 600 }}>Ação D</div>
+              </div>
+              <button
+                onClick={() => setBindingField('buttonD')}
+                style={{
+                  padding: '6px 12px', fontSize: '11px', fontWeight: 700, borderRadius: '6px', cursor: 'pointer', border: 'none',
+                  background: bindingField === 'buttonD' ? '#f59e0b' : 'rgba(99, 102, 241, 0.15)',
+                  color: bindingField === 'buttonD' ? '#000' : '#818cf8',
+                  minWidth: '80px'
+                }}
+              >
+                {bindingField === 'buttonD' ? '...' : `B${config.buttonD}`}
+              </button>
+            </div>
+
+            {/* Círculo */}
+            <div style={{
+              background: bindingField === 'buttonB' ? 'rgba(245, 158, 11, 0.08)' : 'rgba(30, 41, 59, 0.5)',
+              border: bindingField === 'buttonB' ? '1px solid #f59e0b' : '1px solid rgba(255,255,255,0.06)',
+              borderRadius: '10px', padding: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px'
+            }}>
+              <div>
+                <div style={{ fontSize: '10px', color: '#f87171', fontWeight: 800 }}>CÍRCULO (🔴)</div>
+                <div style={{ fontSize: '13px', color: '#e2e8f0', fontWeight: 600 }}>Ação B / Voltar</div>
+              </div>
+              <button
+                onClick={() => setBindingField('buttonB')}
+                style={{
+                  padding: '6px 12px', fontSize: '11px', fontWeight: 700, borderRadius: '6px', cursor: 'pointer', border: 'none',
+                  background: bindingField === 'buttonB' ? '#f59e0b' : 'rgba(99, 102, 241, 0.15)',
+                  color: bindingField === 'buttonB' ? '#000' : '#818cf8',
+                  minWidth: '80px'
+                }}
+              >
+                {bindingField === 'buttonB' ? '...' : `B${config.buttonB}`}
+              </button>
+            </div>
+
+            {/* X */}
+            <div style={{
+              background: bindingField === 'buttonA' ? 'rgba(245, 158, 11, 0.08)' : 'rgba(30, 41, 59, 0.5)',
+              border: bindingField === 'buttonA' ? '1px solid #f59e0b' : '1px solid rgba(255,255,255,0.06)',
+              borderRadius: '10px', padding: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px'
+            }}>
+              <div>
+                <div style={{ fontSize: '10px', color: '#60a5fa', fontWeight: 800 }}>CRUZ / X (❌)</div>
+                <div style={{ fontSize: '13px', color: '#e2e8f0', fontWeight: 600 }}>Ação A / Pular</div>
+              </div>
+              <button
+                onClick={() => setBindingField('buttonA')}
+                style={{
+                  padding: '6px 12px', fontSize: '11px', fontWeight: 700, borderRadius: '6px', cursor: 'pointer', border: 'none',
+                  background: bindingField === 'buttonA' ? '#f59e0b' : 'rgba(99, 102, 241, 0.15)',
+                  color: bindingField === 'buttonA' ? '#000' : '#818cf8',
+                  minWidth: '80px'
+                }}
+              >
+                {bindingField === 'buttonA' ? '...' : `B${config.buttonA}`}
+              </button>
+            </div>
+
+            {/* Quadrado */}
+            <div style={{
+              background: bindingField === 'buttonC' ? 'rgba(245, 158, 11, 0.08)' : 'rgba(30, 41, 59, 0.5)',
+              border: bindingField === 'buttonC' ? '1px solid #f59e0b' : '1px solid rgba(255,255,255,0.06)',
+              borderRadius: '10px', padding: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px'
+            }}>
+              <div>
+                <div style={{ fontSize: '10px', color: '#f472b6', fontWeight: 800 }}>QUADRADO (⬜)</div>
+                <div style={{ fontSize: '13px', color: '#e2e8f0', fontWeight: 600 }}>Ação C</div>
+              </div>
+              <button
+                onClick={() => setBindingField('buttonC')}
+                style={{
+                  padding: '6px 12px', fontSize: '11px', fontWeight: 700, borderRadius: '6px', cursor: 'pointer', border: 'none',
+                  background: bindingField === 'buttonC' ? '#f59e0b' : 'rgba(99, 102, 241, 0.15)',
+                  color: bindingField === 'buttonC' ? '#000' : '#818cf8',
+                  minWidth: '80px'
+                }}
+              >
+                {bindingField === 'buttonC' ? '...' : `B${config.buttonC}`}
+              </button>
+            </div>
+
+          </div>
+
+        </div>
+
+        {/* Rodapé - Inversões e Ações Globais */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '20px', marginTop: '10px' }}>
+          
+          {/* Inversões de eixos */}
+          <div style={{ display: 'flex', gap: '20px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: '#cbd5e1', cursor: 'pointer' }}>
               <input 
                 type="checkbox" 
                 checked={config.invertX || false} 
@@ -918,11 +1159,11 @@ function ControlConfigModal({ onClose }: { onClose: () => void }) {
                   setConfig(next);
                   localStorage.setItem('freedom3d_gamepad_config', JSON.stringify(next));
                 }}
-                style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#818cf8' }}
+                style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#818cf8' }}
               />
+              Inverter Horizontal (Eixo X)
             </label>
-            <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '14px', cursor: 'pointer', color: '#cbd5e1', marginTop: '4px' }}>
-              <span>Inverter Vertical (Eixo Y)</span>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: '#cbd5e1', cursor: 'pointer' }}>
               <input 
                 type="checkbox" 
                 checked={config.invertY || false} 
@@ -931,33 +1172,44 @@ function ControlConfigModal({ onClose }: { onClose: () => void }) {
                   setConfig(next);
                   localStorage.setItem('freedom3d_gamepad_config', JSON.stringify(next));
                 }}
-                style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#818cf8' }}
+                style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#818cf8' }}
               />
+              Inverter Vertical (Eixo Y)
             </label>
           </div>
-        </div>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', marginTop: '10px' }}>
-          <button onClick={handleReset} style={{
-            background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8',
-            padding: '10px 20px', borderRadius: '10px', fontSize: '13px', fontWeight: 600,
-            cursor: 'pointer', transition: 'background 0.2s ease', outline: 'none'
-          }}
-          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-          onMouseLeave={e => e.currentTarget.style.background = 'none'}
-          >
-            Resetar Padrão
-          </button>
-          <button onClick={onClose} style={{
-            background: 'linear-gradient(135deg, #6366f1, #4f46e5)', border: 'none', color: '#fff',
-            padding: '10px 25px', borderRadius: '10px', fontSize: '13px', fontWeight: 700,
-            cursor: 'pointer', boxShadow: '0 4px 12px rgba(99, 102, 241, 0.2)', outline: 'none'
-          }}>
-            Salvar e Fechar
-          </button>
+          {/* Botões de Ação */}
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button onClick={handleReset} style={{
+              background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8',
+              padding: '10px 20px', borderRadius: '10px', fontSize: '13px', fontWeight: 600,
+              cursor: 'pointer', transition: 'all 0.2s', outline: 'none'
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+              e.currentTarget.style.color = '#fff';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'none';
+              e.currentTarget.style.color = '#94a3b8';
+            }}
+            >
+              Resetar Padrão
+            </button>
+            <button onClick={onClose} style={{
+              background: 'linear-gradient(135deg, #6366f1, #4f46e5)', border: 'none', color: '#fff',
+              padding: '10px 25px', borderRadius: '10px', fontSize: '13px', fontWeight: 700,
+              cursor: 'pointer', boxShadow: '0 4px 14px rgba(99, 102, 241, 0.3)', outline: 'none', transition: 'all 0.2s'
+            }}
+            onMouseEnter={e => e.currentTarget.style.boxShadow = '0 6px 20px rgba(99, 102, 241, 0.45)'}
+            onMouseLeave={e => e.currentTarget.style.boxShadow = '0 4px 14px rgba(99, 102, 241, 0.3)'}
+            >
+              Salvar e Fechar
+            </button>
         </div>
 
       </div>
     </div>
+  </div>
   );
 }
