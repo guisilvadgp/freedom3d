@@ -198,6 +198,11 @@ export function GameLoop() {
                   getPosition: (id: string): [number, number, number] | null => {
                     return getEntityPosition(id);
                   },
+                  getChildren: (parentId: string) => {
+                    const parent = scene.entities[parentId];
+                    if (!parent) return [];
+                    return parent.childrenIds.map(id => scene.entities[id]).filter(Boolean);
+                  },
                   updateComponent: (id: string, type: string, patch: any) => {
                     if (updComp) {
                       updComp(id, type as any, patch);

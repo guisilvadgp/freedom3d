@@ -147,6 +147,7 @@ export function createTorus(name = 'Torus'): Entity {
 
 export function createFirstPersonPlayer(name = 'First Person Player'): Entity {
   const e = createEntity(name);
+  e.tags.push('player');
   e.components.Transform!.position = [0, 2, 0];
   e.components.MeshRenderer = {
     type: 'MeshRenderer',
@@ -162,14 +163,6 @@ export function createFirstPersonPlayer(name = 'First Person Player'): Entity {
     isStatic: false,
     useGravity: true,
     collider: 'cuboid',
-  };
-  e.components.Camera = {
-    type: 'Camera',
-    fov: 75,
-    near: 0.1,
-    far: 1000,
-    isMain: true,
-    offset: [0, 0.4, 0],
   };
   e.components.Script = {
     type: 'Script',
@@ -203,8 +196,13 @@ export function onUpdate(delta) {
 
   eulerX = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, eulerX));
   
-  if (camera) {
-    camera.rotation = [eulerX, 0, 0];
+  // Rotaciona a câmera filha
+  const children = engine.getChildren ? engine.getChildren(entity.id) : [];
+  const camEntity = children.find(c => c.components && c.components.Camera);
+  if (camEntity) {
+    engine.updateComponent(camEntity.id, 'Transform', {
+      rotation: [eulerX * 180 / Math.PI, 0, 0]
+    });
   }
   
   const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, eulerY, 0));
