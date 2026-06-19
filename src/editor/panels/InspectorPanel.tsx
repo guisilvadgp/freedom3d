@@ -371,7 +371,7 @@ function AudioInspector({ entityId }: { entityId: string }) {
     let active = true;
     const fetchAudio = async () => {
       try {
-        const res = await fetch(`/api/explorer/list-audio?project=${encodeURIComponent(sceneName)}`);
+        const res = await fetch(`/api/explorer-audio/list?project=${encodeURIComponent(sceneName)}`);
         if (res.ok && active) {
           const files = await res.json();
           setAudioFiles(files);

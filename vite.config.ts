@@ -860,7 +860,7 @@ const liveSyncPlugin = () => {
         }
 
         // 8. Listar Arquivos de Áudio recursivamente do projeto
-        if (req.url.startsWith('/api/explorer/list-audio') && req.method === 'GET') {
+        if (req.url.startsWith('/api/explorer-audio/list') && req.method === 'GET') {
           try {
             const urlParams = new URL(req.url, 'http://localhost');
             const projectName = urlParams.searchParams.get('project') || '';
