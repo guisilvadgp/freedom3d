@@ -96,9 +96,10 @@ export function GameLoop() {
               let camera;
               let getEntityPosition;
               let threeCamera;
+              let engine;
               ${varDeclarations}
 
-              function updateFrameData(_entity, _delta, _updateComponent, _Input, _rigidBody, _camera, _getEntityPosition, _threeCamera${varParams ? ', ' + varParams : ''}) {
+              function updateFrameData(_entity, _delta, _updateComponent, _Input, _rigidBody, _camera, _getEntityPosition, _threeCamera, _engine${varParams ? ', ' + varParams : ''}) {
                 entity = _entity;
                 delta = _delta;
                 updateComponent = _updateComponent;
@@ -107,6 +108,7 @@ export function GameLoop() {
                 camera = _camera;
                 getEntityPosition = _getEntityPosition;
                 threeCamera = _threeCamera;
+                engine = _engine;
                 ${varAssignments}
               }
 
@@ -186,6 +188,23 @@ export function GameLoop() {
                   return v.value;
                 });
 
+                const engineAPI = {
+                  find: (name: string) => {
+                    return Object.values(scene.entities).find(e => e && e.name === name) || null;
+                  },
+                  findByTag: (tag: string) => {
+                    return Object.values(scene.entities).find(e => e && e.tags && e.tags.includes(tag)) || null;
+                  },
+                  getPosition: (id: string): [number, number, number] | null => {
+                    return getEntityPosition(id);
+                  },
+                  updateComponent: (id: string, type: string, patch: any) => {
+                    if (updComp) {
+                      updComp(id, type as any, patch);
+                    }
+                  }
+                };
+
                 inst.compiled.updateFrameData(
                   entity, 
                   0, 
@@ -195,6 +214,7 @@ export function GameLoop() {
                   entity.components.Camera,
                   getEntityPosition,
                   state.camera,
+                  engineAPI,
                   ...varValues
                 );
                 inst.compiled.onAwake();
@@ -261,6 +281,23 @@ export function GameLoop() {
                 }
               });
 
+              const engineAPI = {
+                find: (name: string) => {
+                  return Object.values(scene.entities).find(e => e && e.name === name) || null;
+                },
+                findByTag: (tag: string) => {
+                  return Object.values(scene.entities).find(e => e && e.tags && e.tags.includes(tag)) || null;
+                },
+                getPosition: (id: string): [number, number, number] | null => {
+                  return getEntityPosition(id);
+                },
+                updateComponent: (id: string, type: string, patch: any) => {
+                  if (updComp) {
+                    updComp(id, type as any, patch);
+                  }
+                }
+              };
+
               inst.compiled.updateFrameData(
                 entity, 
                 delta, 
@@ -270,6 +307,7 @@ export function GameLoop() {
                 entity.components.Camera,
                 getEntityPosition,
                 state.camera,
+                engineAPI,
                 ...varValues
               );
               inst.compiled.onUpdate(delta);

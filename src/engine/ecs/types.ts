@@ -99,6 +99,13 @@ export interface GLTFModelComponent {
   modelScale: number;
   castShadow: boolean;
   receiveShadow: boolean;
+  overrideMaterial?: 'none' | 'standard' | 'basic' | 'phong' | 'emissive';
+  color?: string;
+  roughness?: number;
+  metalness?: number;
+  textureUrl?: string;
+  normalMapUrl?: string;
+  normalScale?: number;
 }
 
 export interface AnimatorComponent {

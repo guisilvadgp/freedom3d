@@ -868,6 +868,50 @@ const liveSyncPlugin = () => {
           return;
         }
 
+        // 8b. Listar Arquivos de Imagem recursivamente do projeto
+        if (req.url.startsWith('/api/explorer-image/list') && req.method === 'GET') {
+          try {
+            const urlParams = new URL(req.url, 'http://localhost');
+            const projectName = urlParams.searchParams.get('project') || '';
+            const projectPath = path.join(projectsDir, projectName.trim());
+
+            if (!fs.existsSync(projectPath)) {
+              res.statusCode = 404;
+              res.end('Project not found');
+              return;
+            }
+
+            const imageExtensions = ['.png', '.jpg', '.jpeg', '.hdr', '.webp', '.tga', '.dds'];
+            const findImageFiles = (dir: string): string[] => {
+              let results: string[] = [];
+              const items = fs.readdirSync(dir);
+              for (const item of items) {
+                const fullPath = path.join(dir, item);
+                const stat = fs.statSync(fullPath);
+                if (stat.isDirectory()) {
+                  results = results.concat(findImageFiles(fullPath));
+                } else {
+                  const ext = path.extname(item).toLowerCase();
+                  if (imageExtensions.includes(ext)) {
+                    const relativePath = path.relative(projectPath, fullPath).replace(/\\/g, '/');
+                    results.push(relativePath);
+                  }
+                }
+              }
+              return results;
+            };
+
+            const imageFiles = findImageFiles(projectPath);
+            res.setHeader('Content-Type', 'application/json');
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.end(JSON.stringify(imageFiles));
+          } catch (e: any) {
+            res.statusCode = 500;
+            res.end(JSON.stringify({ error: e.message }));
+          }
+          return;
+        }
+
         // 8. Listar Arquivos de Áudio recursivamente do projeto
         if (req.url.startsWith('/api/explorer-audio/list') && req.method === 'GET') {
           try {

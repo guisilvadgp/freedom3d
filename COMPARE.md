@@ -323,6 +323,8 @@ Fase 4 – XR (3 meses)        ████████░░   80% concluído (
 - ✅ Desativação do cache de RAM interno (THREE.Cache) para liberação de buffers de modelos 3D pesados no navegador
 - ✅ Limite de tamanho de 15MB e bloqueio de modelos 3D no cache persistente para prevenir gargalos em túneis ngrok no mobile
 - ✅ Otimização de re-render na tela de carregamento usando referências DOM nativas (useRef) sem atualizar estados concorrentes no React
+- ✅ API Pública de scripts implementando objeto global `engine` com os métodos `engine.find(name)`, `engine.findByTag(tag)`, `engine.getPosition(id)` e `engine.updateComponent(id, type, patch)`
+- ✅ Suporte completo a Material Override no componente GLTFModel (Standard, Basic, Phong, Emissive) permitindo manipular cores Albedo, Rugosidade (Roughness), Metalness e Mapeamento de Texturas (Albedo, Normal Maps, Normal Scale) em tempo real diretamente pelo Inspector do Editor e em execução de builds standalone
 
 ---
 

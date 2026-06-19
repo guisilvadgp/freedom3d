@@ -122,6 +122,10 @@ function GLTFMesh({ entity }: { entity: Entity }) {
         if (mesh.material) {
           const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
           materials.forEach((mat: any) => {
+            // Salva o material original
+            if (!mesh.userData.originalMaterial) {
+              mesh.userData.originalMaterial = mat;
+            }
             const textureKeys = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap'];
             textureKeys.forEach((key) => {
               if (mat[key] && mat[key].isTexture) {
@@ -136,6 +140,124 @@ function GLTFMesh({ entity }: { entity: Entity }) {
     });
     return clone;
   }, [gltf.scene, model.castShadow, model.receiveShadow, isStandalone]);
+
+  // Efeito reativo para modificar materiais e texturas do clone em tempo real sem clonar a cena inteira novamente
+  useEffect(() => {
+    if (!clonedScene) return;
+
+    const getTextureUrl = (fileName: string) => {
+      if (!fileName) return '';
+      if (fileName.startsWith('/') || fileName.startsWith('http') || fileName.startsWith('blob:') || fileName.startsWith('data:')) {
+        return fileName;
+      }
+      const sceneActive = useEditorStore.getState().scenes[useEditorStore.getState().activeSceneId];
+      const projectName = sceneActive?.name || 'default';
+      
+      if (isStandalone) {
+        const isOffline = (window as any).__freedom3d_standalone__;
+        return isOffline ? './assets/' + fileName : `/api/asset/${encodeURIComponent(fileName)}`;
+      }
+      
+      return `/api/project/get-asset?project=${encodeURIComponent(projectName)}&file=${encodeURIComponent(fileName)}`;
+    };
+
+    clonedScene.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        const mesh = child as THREE.Mesh;
+        
+        if (mesh.material) {
+          let materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+          
+          const newMaterials = materials.map((origMat: any) => {
+            let mat = origMat;
+            
+            // Se o usuário optou por um material de override diferente de 'none'
+            if (model.overrideMaterial && model.overrideMaterial !== 'none') {
+              const cacheKey = `overrideMaterial_${model.overrideMaterial}`;
+              if (!mesh.userData[cacheKey]) {
+                let newMat;
+                switch (model.overrideMaterial) {
+                  case 'basic':
+                    newMat = new THREE.MeshBasicMaterial();
+                    break;
+                  case 'phong':
+                    newMat = new THREE.MeshPhongMaterial();
+                    break;
+                  case 'emissive':
+                    newMat = new THREE.MeshStandardMaterial({
+                      emissive: new THREE.Color('#ffffff'),
+                      emissiveIntensity: 1.0
+                    });
+                    break;
+                  case 'standard':
+                  default:
+                    newMat = new THREE.MeshStandardMaterial();
+                    break;
+                }
+                newMat.name = 'orion-override-material';
+                mesh.userData[cacheKey] = newMat;
+              }
+              mat = mesh.userData[cacheKey];
+            } else {
+              // Se voltou para 'none', restaura o material original do GLTF
+              mat = mesh.userData.originalMaterial || origMat;
+            }
+
+            // Aplica cor (albedo)
+            if (model.color) {
+              if (mat.color) mat.color.set(model.color);
+            }
+
+            // Rugosidade e Metal
+            if (typeof model.roughness === 'number') {
+              if ('roughness' in mat) mat.roughness = model.roughness;
+            }
+            if (typeof model.metalness === 'number') {
+              if ('metalness' in mat) mat.metalness = model.metalness;
+            }
+
+            // Carrega e atribui mapa de albedo (textura)
+            if (model.textureUrl) {
+              const texUrl = getTextureUrl(model.textureUrl);
+              new THREE.TextureLoader().load(texUrl, (tex) => {
+                tex.wrapS = THREE.RepeatWrapping;
+                tex.wrapT = THREE.RepeatWrapping;
+                shrinkTexture(tex, 512); // Otimização
+                mat.map = tex;
+                mat.needsUpdate = true;
+              });
+            } else if (model.textureUrl === '') {
+              mat.map = null;
+              mat.needsUpdate = true;
+            }
+
+            // Carrega e atribui mapa de normais
+            if (model.normalMapUrl) {
+              const normUrl = getTextureUrl(model.normalMapUrl);
+              new THREE.TextureLoader().load(normUrl, (tex) => {
+                tex.wrapS = THREE.RepeatWrapping;
+                tex.wrapT = THREE.RepeatWrapping;
+                shrinkTexture(tex, 512);
+                mat.normalMap = tex;
+                if (typeof model.normalScale === 'number' && mat.normalScale) {
+                  mat.normalScale.set(model.normalScale, model.normalScale);
+                }
+                mat.needsUpdate = true;
+              });
+            } else if (model.normalMapUrl === '') {
+              mat.normalMap = null;
+              mat.needsUpdate = true;
+            }
+
+            mat.needsUpdate = true;
+            return mat;
+          });
+
+          mesh.material = Array.isArray(mesh.material) ? newMaterials : newMaterials[0];
+        }
+      }
+    });
+  }, [clonedScene, model.color, model.roughness, model.metalness, model.overrideMaterial, model.textureUrl, model.normalMapUrl, model.normalScale]);
 
   const pos = transform.position as [number, number, number];
   const rot = (transform.rotation as [number, number, number]).map(

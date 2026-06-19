@@ -253,6 +253,30 @@ function GLTFModelInspector({ entityId }: { entityId: string }) {
   if (!entity) return null;
   const m = entity.components.GLTFModel as GLTFModelComponent;
 
+  const activeSceneId = useEditorStore(s => s.activeSceneId);
+  const activeScene = useEditorStore(s => s.scenes[activeSceneId]);
+  const sceneName = activeScene?.name || 'default';
+
+  const [imageFiles, setImageFiles] = useState<string[]>([]);
+
+  // Carrega lista de texturas/imagens do projeto
+  useEffect(() => {
+    let active = true;
+    const fetchImages = async () => {
+      try {
+        const res = await fetch(`/api/explorer-image/list?project=${encodeURIComponent(sceneName)}`);
+        if (res.ok && active) {
+          const files = await res.json();
+          setImageFiles(files);
+        }
+      } catch (err) {
+        console.error('Error fetching image files in GLTFModelInspector:', err);
+      }
+    };
+    fetchImages();
+    return () => { active = false; };
+  }, [sceneName]);
+
   return (
     <div className="component-block">
       <div className="component-header">
@@ -292,6 +316,124 @@ function GLTFModelInspector({ entityId }: { entityId: string }) {
           onChange={(e) => updateComponent(entityId, 'GLTFModel', { receiveShadow: e.target.checked })}
         />
       </div>
+
+      <div style={{ margin: '8px 0', borderTop: '1px solid #333', paddingTop: '8px' }}>
+        <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Material & Texturas</span>
+      </div>
+
+      <div className="field-row">
+        <label className="field-label">Override Material</label>
+        <select
+          className="field-input select-dark"
+          value={m.overrideMaterial || 'none'}
+          onChange={(e) => updateComponent(entityId, 'GLTFModel', { overrideMaterial: e.target.value as any })}
+          style={{ width: '100%', padding: '4px', fontSize: '11px', background: '#111122', border: '1px solid var(--border)', color: '#fff', borderRadius: '4px' }}
+        >
+          <option value="none">Nenhum (Manter original)</option>
+          <option value="standard">Standard Material</option>
+          <option value="basic">Basic Material</option>
+          <option value="phong">Phong Material</option>
+          <option value="emissive">Emissive Material</option>
+        </select>
+      </div>
+
+      <div className="field-row">
+        <label className="field-label">Albedo Color</label>
+        <input
+          type="color"
+          className="field-input"
+          value={m.color || '#ffffff'}
+          onChange={(e) => updateComponent(entityId, 'GLTFModel', { color: e.target.value })}
+          style={{ padding: '0px', height: '24px', cursor: 'pointer' }}
+        />
+      </div>
+
+      {m.overrideMaterial && m.overrideMaterial !== 'none' && m.overrideMaterial !== 'basic' && (
+        <>
+          <div className="field-row">
+            <label className="field-label">Roughness</label>
+            <div style={{ display: 'flex', alignItems: 'center', width: '100%', gap: '8px' }}>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                className="field-input"
+                value={m.roughness ?? 0.5}
+                onChange={(e) => updateComponent(entityId, 'GLTFModel', { roughness: parseFloat(e.target.value) })}
+                style={{ flex: 1 }}
+              />
+              <span style={{ fontSize: '10px', width: '28px', textAlign: 'right' }}>{(m.roughness ?? 0.5).toFixed(2)}</span>
+            </div>
+          </div>
+
+          <div className="field-row">
+            <label className="field-label">Metalness</label>
+            <div style={{ display: 'flex', alignItems: 'center', width: '100%', gap: '8px' }}>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                className="field-input"
+                value={m.metalness ?? 0.1}
+                onChange={(e) => updateComponent(entityId, 'GLTFModel', { metalness: parseFloat(e.target.value) })}
+                style={{ flex: 1 }}
+              />
+              <span style={{ fontSize: '10px', width: '28px', textAlign: 'right' }}>{(m.metalness ?? 0.1).toFixed(2)}</span>
+            </div>
+          </div>
+        </>
+      )}
+
+      <div className="field-row" style={{ marginTop: '8px' }}>
+        <label className="field-label">Albedo Texture</label>
+        <select
+          className="field-input select-dark"
+          value={m.textureUrl || ''}
+          onChange={(e) => updateComponent(entityId, 'GLTFModel', { textureUrl: e.target.value })}
+          style={{ width: '100%', padding: '4px', fontSize: '11px', background: '#111122', border: '1px solid var(--border)', color: '#fff', borderRadius: '4px' }}
+        >
+          <option value="">(Nenhuma / Usar original)</option>
+          {imageFiles.map((file) => (
+            <option key={file} value={file}>
+              {file}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="field-row">
+        <label className="field-label">Normal Map</label>
+        <select
+          className="field-input select-dark"
+          value={m.normalMapUrl || ''}
+          onChange={(e) => updateComponent(entityId, 'GLTFModel', { normalMapUrl: e.target.value })}
+          style={{ width: '100%', padding: '4px', fontSize: '11px', background: '#111122', border: '1px solid var(--border)', color: '#fff', borderRadius: '4px' }}
+        >
+          <option value="">(Nenhum)</option>
+          {imageFiles.map((file) => (
+            <option key={file} value={file}>
+              {file}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {m.normalMapUrl && (
+        <div className="field-row">
+          <label className="field-label">Normal Scale</label>
+          <input
+            type="number"
+            className="field-input"
+            value={m.normalScale ?? 1}
+            step={0.1}
+            min={0}
+            max={5}
+            onChange={(e) => updateComponent(entityId, 'GLTFModel', { normalScale: parseFloat(e.target.value) || 1 })}
+          />
+        </div>
+      )}
     </div>
   );
 }
