@@ -954,45 +954,103 @@ function ScriptInspector({ entityId }: { entityId: string }) {
               )}
 
               {v.type === 'number' && (
-                <input 
-                  type="number"
-                  value={v.value}
-                  onChange={(e) => {
-                    const copy = [...variablesList];
-                    copy[idx] = { ...v, value: e.target.value };
-                    onUpdateVars(copy);
-                  }}
-                  style={{
-                    width: '100%',
-                    background: 'var(--bg-panel)',
-                    border: '1px solid var(--border)',
-                    color: 'white',
-                    padding: '2px 4px',
-                    fontSize: '11px',
-                    borderRadius: '2px'
-                  }}
-                />
+                v.name.toLowerCase().endsWith('axis') ? (
+                  <select
+                    value={v.value}
+                    onChange={(e) => {
+                      const copy = [...variablesList];
+                      copy[idx] = { ...v, value: Number(e.target.value) };
+                      onUpdateVars(copy);
+                    }}
+                    style={{
+                      width: '100%',
+                      background: 'var(--bg-panel)',
+                      border: '1px solid var(--border)',
+                      color: 'white',
+                      padding: '2px 4px',
+                      fontSize: '11px',
+                      borderRadius: '2px'
+                    }}
+                  >
+                    <option value={0}>Eixo 0 (Mov. Analógico L - X)</option>
+                    <option value={1}>Eixo 1 (Mov. Analógico L - Y)</option>
+                    <option value={2}>Eixo 2 (Câmera Analógico R - X)</option>
+                    <option value={3}>Eixo 3 (Câmera Analógico R - Y)</option>
+                  </select>
+                ) : (
+                  <input 
+                    type="number"
+                    value={v.value}
+                    onChange={(e) => {
+                      const copy = [...variablesList];
+                      copy[idx] = { ...v, value: e.target.value };
+                      onUpdateVars(copy);
+                    }}
+                    style={{
+                      width: '100%',
+                      background: 'var(--bg-panel)',
+                      border: '1px solid var(--border)',
+                      color: 'white',
+                      padding: '2px 4px',
+                      fontSize: '11px',
+                      borderRadius: '2px'
+                    }}
+                  />
+                )
               )}
 
               {v.type === 'string' && (
-                <input 
-                  type="text"
-                  value={v.value}
-                  onChange={(e) => {
-                    const copy = [...variablesList];
-                    copy[idx] = { ...v, value: e.target.value };
-                    onUpdateVars(copy);
-                  }}
-                  style={{
-                    width: '100%',
-                    background: 'var(--bg-panel)',
-                    border: '1px solid var(--border)',
-                    color: 'white',
-                    padding: '2px 4px',
-                    fontSize: '11px',
-                    borderRadius: '2px'
-                  }}
-                />
+                v.name.toLowerCase().endsWith('button') ? (
+                  <select
+                    value={v.value}
+                    onChange={(e) => {
+                      const copy = [...variablesList];
+                      copy[idx] = { ...v, value: e.target.value };
+                      onUpdateVars(copy);
+                    }}
+                    style={{
+                      width: '100%',
+                      background: 'var(--bg-panel)',
+                      border: '1px solid var(--border)',
+                      color: 'white',
+                      padding: '2px 4px',
+                      fontSize: '11px',
+                      borderRadius: '2px'
+                    }}
+                  >
+                    <option value="A">Cruz / A (❌)</option>
+                    <option value="B">Círculo / B (🔴)</option>
+                    <option value="C">Quadrado / C (⬜)</option>
+                    <option value="D">Triângulo / D (🔺)</option>
+                    <option value="L1">L1 (Ombro Esq.)</option>
+                    <option value="R1">R1 (Ombro Dir.)</option>
+                    <option value="L2">L2 (Gatilho Esq.)</option>
+                    <option value="R2">R2 (Gatilho Dir.)</option>
+                    <option value="L3">L3 (Analógico L Clique)</option>
+                    <option value="R3">R3 (Analógico R Clique)</option>
+                    <option value="Share">Share (Compartilhar)</option>
+                    <option value="Options">Options (Opções)</option>
+                  </select>
+                ) : (
+                  <input 
+                    type="text"
+                    value={v.value}
+                    onChange={(e) => {
+                      const copy = [...variablesList];
+                      copy[idx] = { ...v, value: e.target.value };
+                      onUpdateVars(copy);
+                    }}
+                    style={{
+                      width: '100%',
+                      background: 'var(--bg-panel)',
+                      border: '1px solid var(--border)',
+                      color: 'white',
+                      padding: '2px 4px',
+                      fontSize: '11px',
+                      borderRadius: '2px'
+                    }}
+                  />
+                )
               )}
 
               {v.type === 'boolean' && (
@@ -1050,10 +1108,45 @@ function ScriptInspector({ entityId }: { entityId: string }) {
           <label className="field-label" style={{ fontWeight: 'bold', marginBottom: '8px', display: 'block' }}>Variáveis Públicas (Código)</label>
           {Object.keys(vars).map(key => {
             const { type, value } = vars[key];
+            const isButtonField = key.toLowerCase().endsWith('button');
+            const isAxisField = key.toLowerCase().endsWith('axis');
+            
             return (
               <div key={key} className="field-row" style={{ marginBottom: '4px' }}>
-                <label className="field-label" style={{ width: '80px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{key}</label>
-                {type === 'boolean' ? (
+                <label className="field-label" style={{ width: '80px', overflow: 'hidden', textOverflow: 'ellipsis' }} title={key}>{key}</label>
+                {isButtonField ? (
+                  <select 
+                    className="field-input"
+                    value={value} 
+                    onChange={e => updateVariable(key, e.target.value, 'string')}
+                    style={{ flex: 1, padding: '2px 4px', fontSize: '11px', borderRadius: '3px' }}
+                  >
+                    <option value="A">Cruz / A (❌)</option>
+                    <option value="B">Círculo / B (🔴)</option>
+                    <option value="C">Quadrado / C (⬜)</option>
+                    <option value="D">Triângulo / D (🔺)</option>
+                    <option value="L1">L1 (Ombro Esq.)</option>
+                    <option value="R1">R1 (Ombro Dir.)</option>
+                    <option value="L2">L2 (Gatilho Esq.)</option>
+                    <option value="R2">R2 (Gatilho Dir.)</option>
+                    <option value="L3">L3 (Analógico L Clique)</option>
+                    <option value="R3">R3 (Analógico R Clique)</option>
+                    <option value="Share">Share (Compartilhar)</option>
+                    <option value="Options">Options (Opções)</option>
+                  </select>
+                ) : isAxisField ? (
+                  <select 
+                    className="field-input"
+                    value={value} 
+                    onChange={e => updateVariable(key, Number(e.target.value), 'number')}
+                    style={{ flex: 1, padding: '2px 4px', fontSize: '11px', borderRadius: '3px' }}
+                  >
+                    <option value={0}>Eixo 0 (Mov. Analógico L - X)</option>
+                    <option value={1}>Eixo 1 (Mov. Analógico L - Y)</option>
+                    <option value={2}>Eixo 2 (Câmera Analógico R - X)</option>
+                    <option value={3}>Eixo 3 (Câmera Analógico R - Y)</option>
+                  </select>
+                ) : type === 'boolean' ? (
                   <input 
                     type="checkbox" 
                     checked={value} 

@@ -174,10 +174,17 @@ export function createFirstPersonPlayer(name = 'First Person Player'): Entity {
   e.components.Script = {
     type: 'Script',
     scriptName: 'FPSController',
-    code: `// Controle em 1a Pessoa
+    code: `// Controle em 1a Pessoa com Gamepad
+export let speed = 5;
+export let jumpForce = 5.5;
+export let crouchSpeed = 2.5;
+export let jumpButton = "A";
+export let crouchButton = "C";
+export let sprintButton = "L3";
+
 let eulerY = 0;
 let eulerX = 0;
-const speed = 5;
+let isCrouching = false;
 
 export function onUpdate(delta) {
   if (typeof window !== 'undefined' && window.isVRActive) return;
@@ -186,9 +193,15 @@ export function onUpdate(delta) {
   if (Input.mouse.isLocked) {
     eulerY -= Input.mouse.movementX * 0.002;
     eulerX -= Input.mouse.movementY * 0.002;
-    // Limite o angulo vertical da camera (Pitch) para nao virar de cabeca para baixo
-    eulerX = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, eulerX));
   }
+
+  // Eixos do Gamepad (Look Axis: X=2, Y=3)
+  const lookX = Input.getGamepadAxis(2);
+  const lookY = Input.getGamepadAxis(3);
+  if (Math.abs(lookX) > 0.1) eulerY -= lookX * 0.03;
+  if (Math.abs(lookY) > 0.1) eulerX -= lookY * 0.03;
+
+  eulerX = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, eulerX));
   
   if (camera) {
     camera.rotation = [eulerX, 0, 0];
@@ -198,15 +211,53 @@ export function onUpdate(delta) {
   if (rigidBody) {
     rigidBody.setRotation(q, true);
     
+    const runPressed = Input.getKey('ShiftLeft') || Input.getGamepadButton(sprintButton);
+    const currentSpeed = runPressed ? speed * 1.6 : (isCrouching ? crouchSpeed : speed);
+
+    const crouchPressed = Input.getKey('ControlLeft') || Input.getKey('KeyC') || Input.getGamepadButton(crouchButton);
+    
+    if (crouchPressed && !isCrouching) {
+      isCrouching = true;
+      if (transform) {
+        transform.scale = [1, 0.5, 1];
+        transform.position[1] -= 0.5;
+      }
+    } else if (!crouchPressed && isCrouching) {
+      isCrouching = false;
+      if (transform) {
+        transform.scale = [1, 1, 1];
+        transform.position[1] += 0.5;
+      }
+    }
+
     const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(q);
     const right = new THREE.Vector3(1, 0, 0).applyQuaternion(q);
     const vel = new THREE.Vector3(0, rigidBody.linvel().y, 0);
     
-    if (Input.getKey('KeyW')) vel.add(forward.clone().multiplyScalar(speed));
-    if (Input.getKey('KeyS')) vel.add(forward.clone().multiplyScalar(-speed));
-    if (Input.getKey('KeyA')) vel.add(right.clone().multiplyScalar(-speed));
-    if (Input.getKey('KeyD')) vel.add(right.clone().multiplyScalar(speed));
-    if (Input.getKey('Space') && Math.abs(vel.y) < 0.1) vel.y = 5;
+    let moveForward = 0;
+    let moveRight = 0;
+    if (Input.getKey('KeyW')) moveForward += 1;
+    if (Input.getKey('KeyS')) moveForward -= 1;
+    if (Input.getKey('KeyA')) moveRight -= 1;
+    if (Input.getKey('KeyD')) moveRight += 1;
+
+    const stickX = Input.getGamepadAxis(0);
+    const stickY = Input.getGamepadAxis(1);
+    if (Math.abs(stickX) > 0.1) moveRight += stickX;
+    if (Math.abs(stickY) > 0.1) moveForward -= stickY;
+
+    const moveDir = new THREE.Vector3();
+    if (moveForward !== 0 || moveRight !== 0) {
+      moveDir.add(forward.clone().multiplyScalar(moveForward));
+      moveDir.add(right.clone().multiplyScalar(moveRight));
+      if (moveDir.lengthSq() > 1) moveDir.normalize();
+      vel.add(moveDir.multiplyScalar(currentSpeed));
+    }
+
+    const jumpPressed = Input.getKey('Space') || Input.getGamepadButton(jumpButton);
+    if (jumpPressed && Math.abs(rigidBody.linvel().y) < 0.05) {
+      vel.y = jumpForce;
+    }
     
     rigidBody.setLinvel(vel, true);
   }
@@ -244,28 +295,40 @@ export function createThirdPersonPlayer(name = 'Third Person Player'): Entity {
   e.components.Script = {
     type: 'Script',
     scriptName: 'TPSController',
-    code: `// Controle em 3a Pessoa (Orbital)
+    code: `// Controle em 3a Pessoa (Orbital) com Gamepad
+export let speed = 5;
+export let jumpForce = 5.5;
+export let crouchSpeed = 2.5;
+export let jumpButton = "A";
+export let crouchButton = "C";
+export let sprintButton = "L3";
+
 let angleX = 0;
-let angleY = Math.PI / 6; // angulo inicial da camera
+let angleY = Math.PI / 6;
 let radius = 5;
-const speed = 5;
+let isCrouching = false;
 
 export function onUpdate(delta) {
   if (Input.getMouseButton(0)) Input.lockMouse();
   if (Input.mouse.isLocked) {
     angleX -= Input.mouse.movementX * 0.005;
     angleY -= Input.mouse.movementY * 0.005;
-    angleY = Math.max(0.1, Math.min(Math.PI / 2 - 0.1, angleY));
   }
   
-  // Posiciona a camera orbital ao redor do player
+  // Eixos do Gamepad (Look Axis: X=2, Y=3)
+  const lookX = Input.getGamepadAxis(2);
+  const lookY = Input.getGamepadAxis(3);
+  if (Math.abs(lookX) > 0.1) angleX -= lookX * 0.03;
+  if (Math.abs(lookY) > 0.1) angleY -= lookY * 0.03;
+
+  angleY = Math.max(0.1, Math.min(Math.PI / 2 - 0.1, angleY));
+  
   if (camera) {
     camera.offset = [
       Math.sin(angleX) * Math.cos(angleY) * radius,
-      Math.sin(angleY) * radius + 1, // +1 para focar acima do chao
+      Math.sin(angleY) * radius + 1,
       Math.cos(angleX) * Math.cos(angleY) * radius
     ];
-    // Faz a camera olhar para o centro do player (0, 0, 0 relativo)
     const lookAtPos = new THREE.Vector3(0, 1, 0);
     const camPos = new THREE.Vector3(camera.offset[0], camera.offset[1], camera.offset[2]);
     const m = new THREE.Matrix4().lookAt(camPos, lookAtPos, new THREE.Vector3(0,1,0));
@@ -274,20 +337,58 @@ export function onUpdate(delta) {
   }
   
   if (rigidBody) {
-    // Movimentacao relativa a direcao da camera
+    const runPressed = Input.getKey('ShiftLeft') || Input.getGamepadButton(sprintButton);
+    const currentSpeed = runPressed ? speed * 1.6 : (isCrouching ? crouchSpeed : speed);
+
+    const crouchPressed = Input.getKey('ControlLeft') || Input.getKey('KeyC') || Input.getGamepadButton(crouchButton);
+    
+    if (crouchPressed && !isCrouching) {
+      isCrouching = true;
+      if (transform) {
+        transform.scale = [1, 0.5, 1];
+        transform.position[1] -= 0.5;
+      }
+    } else if (!crouchPressed && isCrouching) {
+      isCrouching = false;
+      if (transform) {
+        transform.scale = [1, 1, 1];
+        transform.position[1] += 0.5;
+      }
+    }
+
     const qCam = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, angleX, 0));
     const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(qCam);
     const right = new THREE.Vector3(1, 0, 0).applyQuaternion(qCam);
     const vel = new THREE.Vector3(0, rigidBody.linvel().y, 0);
     
     let isMoving = false;
-    if (Input.getKey('KeyW')) { vel.add(forward.clone().multiplyScalar(speed)); isMoving = true; }
-    if (Input.getKey('KeyS')) { vel.add(forward.clone().multiplyScalar(-speed)); isMoving = true; }
-    if (Input.getKey('KeyA')) { vel.add(right.clone().multiplyScalar(-speed)); isMoving = true; }
-    if (Input.getKey('KeyD')) { vel.add(right.clone().multiplyScalar(speed)); isMoving = true; }
-    if (Input.getKey('Space') && Math.abs(vel.y) < 0.1) vel.y = 5;
+    let moveForward = 0;
+    let moveRight = 0;
+
+    if (Input.getKey('KeyW')) moveForward += 1;
+    if (Input.getKey('KeyS')) moveForward -= 1;
+    if (Input.getKey('KeyA')) moveRight -= 1;
+    if (Input.getKey('KeyD')) moveRight += 1;
+
+    const stickX = Input.getGamepadAxis(0);
+    const stickY = Input.getGamepadAxis(1);
+    if (Math.abs(stickX) > 0.1) moveRight += stickX;
+    if (Math.abs(stickY) > 0.1) moveForward -= stickY;
+
+    const moveDir = new THREE.Vector3();
+    if (moveForward !== 0 || moveRight !== 0) {
+      moveDir.add(forward.clone().multiplyScalar(moveForward));
+      moveDir.add(right.clone().multiplyScalar(moveRight));
+      if (moveDir.lengthSq() > 1) moveDir.normalize();
+      vel.add(moveDir.multiplyScalar(currentSpeed));
+      isMoving = true;
+    }
     
-    // Rotaciona o personagem para onde ele esta andando
+    const jumpPressed = Input.getKey('Space') || Input.getGamepadButton(jumpButton);
+    if (jumpPressed && Math.abs(rigidBody.linvel().y) < 0.05) {
+      vel.y = jumpForce;
+    }
+    
     if (isMoving) {
       const targetAngle = Math.atan2(vel.x, vel.z);
       const qRot = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, targetAngle, 0));
