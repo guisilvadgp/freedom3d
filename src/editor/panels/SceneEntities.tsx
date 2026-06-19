@@ -1004,9 +1004,9 @@ function EntityMesh({ entity, entities }: { entity: Entity; entities: Record<str
             colliders={rigidBody.collider === 'none' || rigidBody.collider === 'trimesh' ? false : (rigidBody.collider || 'cuboid')}
           >
             {emptyMesh}
-            {rigidBody.collider === 'trimesh' && (
+            {rigidBody.collider === 'trimesh' && (meshRef.current as any)?.geometry && (
               <MeshCollider type="trimesh">
-                <mesh geometry={(meshRef.current as any)?.geometry}>
+                <mesh geometry={(meshRef.current as any).geometry}>
                   <meshBasicMaterial />
                 </mesh>
               </MeshCollider>
