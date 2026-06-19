@@ -42,7 +42,7 @@ const XR_TYPES = [
   { id: 'vr-position', label: 'VR Position', icon: <Target size={14} /> },
 ];
 
-export function HierarchyPanel() {
+export function HierarchyPanel({ style }: { style?: React.CSSProperties }) {
   const {
     activeScene,
     createEntity,
@@ -71,7 +71,7 @@ export function HierarchyPanel() {
   };
 
   return (
-    <div className="panel hierarchy-panel">
+    <div className="panel hierarchy-panel" style={style}>
       <div className="panel-header">
         <span className="panel-title">Hierarchy</span>
         <button

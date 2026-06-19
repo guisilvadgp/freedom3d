@@ -2266,3 +2266,36 @@ input[type="checkbox"] {
   color: #f8fafc;
   cursor: pointer;
 }
+
+/* Resizer Splitter Styles */
+.resizer-col {
+  width: 6px;
+  cursor: col-resize;
+  background: transparent;
+  align-self: stretch;
+  transition: background 0.15s;
+  z-index: 50;
+  margin: 0 -3px;
+  flex-shrink: 0;
+}
+
+.resizer-col:hover,
+.resizer-col:active {
+  background: var(--accent-primary);
+}
+
+.resizer-row {
+  height: 6px;
+  cursor: row-resize;
+  background: transparent;
+  width: 100%;
+  transition: background 0.15s;
+  z-index: 50;
+  margin: -3px 0;
+  flex-shrink: 0;
+}
+
+.resizer-row:hover,
+.resizer-row:active {
+  background: var(--accent-primary);
+}

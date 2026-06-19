@@ -809,14 +809,14 @@ function ScriptInspector({ entityId }: { entityId: string }) {
   );
 }
 
-export function InspectorPanel() {
+export function InspectorPanel({ style }: { style?: React.CSSProperties }) {
   const { selectedEntity, selectedEntityId, activeScene, updateSceneSettings, createPrefab } = useEditorStore();
   const entity = selectedEntity();
   const scene = activeScene();
 
   if (!selectedEntityId || !entity) {
     return (
-      <div className="panel inspector-panel">
+      <div className="panel inspector-panel" style={style}>
         <div className="panel-header">
           <span className="panel-title">Inspector</span>
         </div>
@@ -874,7 +874,7 @@ export function InspectorPanel() {
   }
 
   return (
-    <div className="panel inspector-panel">
+    <div className="panel inspector-panel" style={style}>
       <div className="panel-header">
         <span className="panel-title">Inspector</span>
       </div>

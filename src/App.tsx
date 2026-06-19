@@ -12,7 +12,7 @@ import { MenuBar } from './editor/panels/MenuBar';
 import { Toast } from './editor/panels/Toast';
 import { useEditorStore } from './editor/store/editorStore';
 import './index.css';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Terminal, FolderOpen, Code } from 'lucide-react';
 
 export default function App() {
@@ -20,6 +20,67 @@ export default function App() {
     return <StandalonePlayer />;
   }
   const { bottomTab, setBottomTab } = useEditorStore();
+
+  const [hierarchyWidth, setHierarchyWidth] = useState(260);
+  const [inspectorWidth, setInspectorWidth] = useState(300);
+  const [bottomHeight, setBottomHeight] = useState(220);
+
+  const handleHierarchyResize = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = hierarchyWidth;
+
+    const doDrag = (moveEvent: MouseEvent) => {
+      const newWidth = Math.max(180, Math.min(500, startWidth + (moveEvent.clientX - startX)));
+      setHierarchyWidth(newWidth);
+    };
+
+    const stopDrag = () => {
+      document.removeEventListener('mousemove', doDrag);
+      document.removeEventListener('mouseup', stopDrag);
+    };
+
+    document.addEventListener('mousemove', doDrag);
+    document.addEventListener('mouseup', stopDrag);
+  };
+
+  const handleInspectorResize = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = inspectorWidth;
+
+    const doDrag = (moveEvent: MouseEvent) => {
+      const newWidth = Math.max(200, Math.min(600, startWidth - (moveEvent.clientX - startX)));
+      setInspectorWidth(newWidth);
+    };
+
+    const stopDrag = () => {
+      document.removeEventListener('mousemove', doDrag);
+      document.removeEventListener('mouseup', stopDrag);
+    };
+
+    document.addEventListener('mousemove', doDrag);
+    document.addEventListener('mouseup', stopDrag);
+  };
+
+  const handleBottomResize = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startHeight = bottomHeight;
+
+    const doDrag = (moveEvent: MouseEvent) => {
+      const newHeight = Math.max(100, Math.min(500, startHeight - (moveEvent.clientY - startY)));
+      setBottomHeight(newHeight);
+    };
+
+    const stopDrag = () => {
+      document.removeEventListener('mousemove', doDrag);
+      document.removeEventListener('mouseup', stopDrag);
+    };
+
+    document.addEventListener('mousemove', doDrag);
+    document.addEventListener('mouseup', stopDrag);
+  };
 
   useEffect(() => {
     const loadProjectsList = async () => {
@@ -165,10 +226,13 @@ export default function App() {
       <MenuBar />
       <Toolbar />
       <div className="editor-body">
-        <HierarchyPanel />
+        <HierarchyPanel style={{ width: hierarchyWidth }} />
+        <div className="resizer-col" onMouseDown={handleHierarchyResize} />
+
         <div className="editor-center">
           <SceneView />
-          <div className="bottom-panel">
+          <div className="resizer-row" onMouseDown={handleBottomResize} />
+          <div className="bottom-panel" style={{ height: bottomHeight }}>
             <div className="bottom-tabs">
               {(['console', 'assets', 'script'] as const).map((tab) => (
                 <button
@@ -190,7 +254,9 @@ export default function App() {
             </div>
           </div>
         </div>
-        <InspectorPanel />
+
+        <div className="resizer-col" onMouseDown={handleInspectorResize} />
+        <InspectorPanel style={{ width: inspectorWidth }} />
       </div>
       <SaveLoadModal />
       <Toast />
