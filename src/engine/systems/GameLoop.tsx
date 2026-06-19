@@ -77,7 +77,12 @@ export function GameLoop() {
         
         const compileSingleScript = (name: string, code: string, variables: any[] = []) => {
           try {
-            const cleanCode = code.replace(/export function/g, 'function');
+            const cleanCode = code
+              .replace(/export\s+function\s+/g, 'function ')
+              .replace(/export\s+const\s+/g, 'const ')
+              .replace(/export\s+let\s+/g, 'let ')
+              .replace(/export\s+var\s+/g, 'var ')
+              .replace(/export\s+class\s+/g, 'class ');
             const varDeclarations = variables.map((v: any) => `let ${v.name};`).join('\n');
             const varParams = variables.map((v: any) => `_${v.name}`).join(', ');
             const varAssignments = variables.map((v: any) => `${v.name} = _${v.name};`).join('\n');
