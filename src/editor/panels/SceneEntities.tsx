@@ -1095,6 +1095,7 @@ function XRSync() {
 
   const eulerTemp = useRef(new THREE.Euler());
   const quatTemp = useRef(new THREE.Quaternion());
+  const initialHeadsetHeight = useRef<number | null>(null);
 
   useFrame((state) => {
     if (!groupRef.current) return;
@@ -1133,16 +1134,23 @@ function XRSync() {
       const xrCam = (state.gl.xr as any).getCamera(state.camera);
       if (xrCam) {
         xrCamHeight = xrCam.position.y;
+        // Calibra a altura do headset uma única vez no início da sessão (quando o tracking estiver ativo)
+        if (initialHeadsetHeight.current === null && xrCamHeight >= 0.5) {
+          initialHeadsetHeight.current = xrCamHeight;
+        }
+      }
+    } else {
+      // Reseta se a sessão for encerrada
+      if (initialHeadsetHeight.current !== null) {
+        initialHeadsetHeight.current = null;
       }
     }
 
-    // Se o dispositivo tem tracking de altura (6DoF), a altura é maior que 0.5m.
-    // Nesse caso, o XROrigin deve ficar exatamente no chão (ePos[1]).
-    // Se for 3DoF (ou primeiro frame/celular simples), a altura é ~0,
-    // então posicionamos no offset da câmera do player (ePos[1] + offset[1])
-    // para compensar e manter o ponto de vista na altura dos olhos do avatar.
-    const targetY = xrCamHeight >= 0.5 
-      ? ePos[1] 
+    // Se temos a calibração de altura inicial do headset (6DoF), compensamos ela para que a altura de visão 
+    // inicial seja exatamente ePos[1] + offset[1] (a altura configurada do avatar).
+    // Se for 3DoF (ou primeiro frame sem calibração), posicionamos no offset diretamente.
+    const targetY = initialHeadsetHeight.current !== null
+      ? ePos[1] + (offset[1] || 1.6) - initialHeadsetHeight.current
       : ePos[1] + (offset[1] || 1.6);
 
     groupRef.current.position.set(
