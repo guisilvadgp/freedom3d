@@ -318,6 +318,11 @@ Fase 4 – XR (3 meses)        ████████░░   80% concluído (
 - ✅ UX na Hierarquia com botão de renomear e foco de câmera interpolado em objetos 3D
 - ✅ Integração da câmera do Three.js (threeCamera) aos scripts para rastreamento de olhar/direção e raycast dinâmico em WebXR
 - ✅ Controles de atenuação do Som Espacial (Distância Mínima, Fator de Rolloff e Distância Máxima) com padrão de 5 metros configurável no Inspector
+- ✅ Controle do modelo de atenuação de áudio (distanceModel) com dropdown linear, inverse e exponential no Inspector
+- ✅ Prevenção de crashes Out Of Memory (OOM) no mobile por meio de streaming nativo de áudio HTML5 para som 2D e Som Espacial 3D (evitando decodificação PCM inteira na RAM)
+- ✅ Desativação do cache de RAM interno (THREE.Cache) para liberação de buffers de modelos 3D pesados no navegador
+- ✅ Limite de tamanho de 15MB e bloqueio de modelos 3D no cache persistente para prevenir gargalos em túneis ngrok no mobile
+- ✅ Otimização de re-render na tela de carregamento usando referências DOM nativas (useRef) sem atualizar estados concorrentes no React
 
 ---
 
