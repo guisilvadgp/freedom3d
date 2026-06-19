@@ -22,6 +22,7 @@ function getGlobalAudioListener(): THREE.AudioListener {
 
 function GlobalAudioListenerHandler() {
   const camera = useThree(s => s.camera);
+  const scene = useThree(s => s.scene);
   
   useEffect(() => {
     const listener = getGlobalAudioListener();
@@ -38,17 +39,22 @@ function GlobalAudioListenerHandler() {
       window.addEventListener('touchstart', resumeContext);
     }
 
-    if (listener.parent !== camera) {
-      camera.add(listener);
+    // Adiciona o listener diretamente à cena raiz
+    if (listener.parent !== scene) {
+      scene.add(listener);
     }
-  }, [camera]);
+  }, [scene]);
 
-  // Atualiza manualmente a matriz mundial do listener a cada frame
-  // Isso é vital no WebXR, pois a ArrayCamera do XR não faz parte da árvore da cena
-  // e seus filhos não recebem atualizações automáticas de matriz mundial pelo Three.js
+  // Sincroniza a posição e rotação mundial do listener com a câmera ativa a cada frame.
+  // Isso desvincula o listener de hierarquias de câmeras problemáticas (como a ArrayCamera do XR, 
+  // que não reside na árvore da cena) e garante que o áudio seja espacializado perfeitamente 
+  // com base nas coordenadas mundiais reais de onde o jogador e o headset estão.
   useFrame(() => {
     const listener = getGlobalAudioListener();
-    if (listener.parent) {
+    if (listener.parent === scene) {
+      camera.updateMatrixWorld(true);
+      camera.getWorldPosition(listener.position);
+      camera.getWorldQuaternion(listener.quaternion);
       listener.updateMatrixWorld(true);
     }
   });
