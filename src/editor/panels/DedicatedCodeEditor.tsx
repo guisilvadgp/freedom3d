@@ -11,6 +11,7 @@ interface ScriptItem {
   scriptName: string;
   code: string;
   isAdditional?: boolean;
+  variables?: any[];
 }
 
 export function DedicatedCodeEditor() {
@@ -199,6 +200,38 @@ export function DedicatedCodeEditor() {
     setIsGenerating(true);
     setAiResponse('');
     try {
+      // Coleta o script selecionado atualmente para passar seu contexto
+      const activeScript = scripts.find(s => s.entityId === selectedEntityId && s.scriptId === selectedScriptId);
+      
+      // Constrói uma descrição de todas as entidades e scripts na cena para dar contexto do projeto à IA
+      const sceneContext = scripts.map(s => {
+        const varsText = (s.variables && s.variables.length > 0)
+          ? ` (variáveis: ${s.variables.map((v: any) => `${v.name} [tipo: ${v.type}, valor: ${v.value || 'vazio'}]`).join(', ')})`
+          : '';
+        return `- Entidade: "${s.entityName}" / Script: "${s.scriptName}.js" (id: ${s.scriptId})${varsText}`;
+      }).join('\n');
+
+      const systemPrompt = `Você é um assistente de IA especialista em programação para o motor de jogo Freedom3D (que usa Three.js e React). 
+Crie scripts Javascript compatíveis com as funções onAwake() e onUpdate(delta). 
+
+API e Regras de Scripting do Freedom3D:
+1. Os scripts residem em um ECS. Eles definem funções como 'onAwake()' (executado ao iniciar) e 'onUpdate(delta)' (executado a cada quadro).
+2. Variáveis/referências associadas no Inspector são assimiladas e injetadas no escopo global ou local do script como variáveis globais do mesmo nome declaradas (ex: se o script possui uma variável com o nome 'target', você pode usar 'target' diretamente no código para ler e alterar suas propriedades).
+3. A própria entidade associada ao script é fornecida de forma implícita, e seu RigidBody (se houver) está disponível via 'rigidbody'.
+4. Para mover uma entidade por física, use métodos do Rapier (ex: 'rigidbody.setTranslation(vec, true)', 'rigidbody.setLinvel(vec, true)').
+5. Para acessar o transform ou propriedades do Three.js, use a entidade direta (ex: 'entity.components.Transform.position').
+
+Informações do Script Atual sendo Editado:
+- Nome do Script: "${activeScript?.scriptName || 'Sem nome'}"
+- Entidade Associada: "${activeScript?.entityName || 'Sem nome'}"
+- Variáveis Declaradas para este Script:
+${(activeScript?.variables || []).map((v: any) => `  * ${v.name} (tipo: ${v.type}, valor: ${v.value || 'vazio'})`).join('\n') || '  Nenhuma variável declarada.'}
+
+Estrutura completa da cena atual (Entidades e Scripts disponíveis no projeto):
+${sceneContext || 'Nenhuma outra entidade/script na cena.'}
+
+Retorne APENAS o código JavaScript puro contendo as funções onAwake e/ou onUpdate, sem explicações em markdown, sem delimitadores, sem tags, sem conversa inicial ou final. Apenas o JavaScript puro.`;
+
       const headers: Record<string, string> = {
         'Content-Type': 'application/json'
       };
@@ -214,7 +247,7 @@ export function DedicatedCodeEditor() {
           messages: [
             { 
               role: 'system', 
-              content: 'Você é um assistente de IA especialista em programação para o motor de jogo Freedom3D (que usa Three.js e React). Crie scripts Javascript compatíveis com as funções onAwake() e onUpdate(delta). Retorne SOMENTE o código JavaScript puro, sem explicações ou introduções. Apenas o código JavaScript pronto.' 
+              content: systemPrompt
             },
             { role: 'user', content: prompt }
           ]

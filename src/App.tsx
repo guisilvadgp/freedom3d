@@ -44,7 +44,8 @@ export default function App() {
         entityName: e.name,
         scriptId: 'main',
         scriptName: mainScript.scriptName || 'Main',
-        code: mainScript.code || ''
+        code: mainScript.code || '',
+        variables: mainScript.variables || []
       });
 
       if (mainScript.scripts && Array.isArray(mainScript.scripts)) {
@@ -55,6 +56,7 @@ export default function App() {
             scriptId: s.id,
             scriptName: s.scriptName,
             code: s.code || '',
+            variables: s.variables || [],
             isAdditional: true
           });
         }
@@ -164,7 +166,8 @@ export default function App() {
             entityName: e.name,
             scriptId: 'main',
             scriptName: mainScript.scriptName || 'Main',
-            code: mainScript.code || ''
+            code: mainScript.code || '',
+            variables: mainScript.variables || []
           });
 
           // Adiciona os scripts adicionais se houver
@@ -176,6 +179,7 @@ export default function App() {
                 scriptId: s.id,
                 scriptName: s.scriptName,
                 code: s.code || '',
+                variables: s.variables || [],
                 isAdditional: true
               });
             }
@@ -191,7 +195,8 @@ export default function App() {
             entityName: currentEntity.name,
             scriptId: 'main',
             scriptName: mainScript.scriptName || 'Main',
-            code: mainScript.code || ''
+            code: mainScript.code || '',
+            variables: mainScript.variables || []
           };
         }
 
