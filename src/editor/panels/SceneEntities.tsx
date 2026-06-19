@@ -9,6 +9,22 @@ import { useShallow } from 'zustand/react/shallow';
 import type { Entity } from '../../engine/ecs/types';
 import { attemptTeleport } from './SceneView';
 
+// ── Audio Listener Global Singleton ──────────────────────────
+const globalAudioListener = new THREE.AudioListener();
+globalAudioListener.name = 'global-audio-listener';
+
+function GlobalAudioListenerHandler() {
+  const camera = useThree(s => s.camera);
+  
+  useEffect(() => {
+    if (globalAudioListener.parent !== camera) {
+      camera.add(globalAudioListener);
+    }
+  }, [camera]);
+
+  return null;
+}
+
 // ── Perspective Camera Wrapper ──────────────────────────────
 // Updates position and rotation on every frame (60fps) directly in Three.js
 // avoiding React re-renders while keeping script mutations synchronized.
@@ -463,17 +479,9 @@ function VRTeleportRing({ entity }: { entity: Entity }) {
 
 // ── Audio Helper Components (Spatial and 2D with volume and delay) ──
 function Audio2D({ url, loop, volume }: { url: string; loop: boolean; volume: number }) {
-  const camera = useThree(s => s.camera);
   const audioElRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    let listener = camera.getObjectByName('global-audio-listener') as THREE.AudioListener;
-    if (!listener) {
-      listener = new THREE.AudioListener();
-      listener.name = 'global-audio-listener';
-      camera.add(listener);
-    }
-
     const audioEl = document.createElement('audio');
     audioEl.src = url;
     audioEl.loop = loop;
@@ -481,7 +489,7 @@ function Audio2D({ url, loop, volume }: { url: string; loop: boolean; volume: nu
     audioEl.preload = 'auto';
     audioElRef.current = audioEl;
 
-    const sound = new THREE.Audio(listener);
+    const sound = new THREE.Audio(globalAudioListener);
     sound.setMediaElementSource(audioEl);
     sound.setVolume(volume);
 
@@ -495,7 +503,7 @@ function Audio2D({ url, loop, volume }: { url: string; loop: boolean; volume: nu
       audioEl.src = '';
       sound.disconnect();
     };
-  }, [url, loop, camera]);
+  }, [url, loop]);
 
   // Atualiza volume em tempo real
   useEffect(() => {
@@ -524,20 +532,11 @@ function SpatialAudio({
   maxDistance?: number;
   distanceModel?: 'linear' | 'inverse' | 'exponential';
 }) {
-  const camera = useThree(s => s.camera);
   const groupRef = useRef<THREE.Group>(null);
   const audioRef = useRef<THREE.PositionalAudio | null>(null);
   const audioElRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    // Garante que a câmera tenha o AudioListener global
-    let listener = camera.getObjectByName('global-audio-listener') as THREE.AudioListener;
-    if (!listener) {
-      listener = new THREE.AudioListener();
-      listener.name = 'global-audio-listener';
-      camera.add(listener);
-    }
-
     const audioEl = document.createElement('audio');
     audioEl.src = url;
     audioEl.loop = loop;
@@ -545,7 +544,7 @@ function SpatialAudio({
     audioEl.preload = 'auto';
     audioElRef.current = audioEl;
 
-    const sound = new THREE.PositionalAudio(listener);
+    const sound = new THREE.PositionalAudio(globalAudioListener);
     sound.setMediaElementSource(audioEl);
 
     // Configurações iniciais de espacialização
@@ -578,7 +577,7 @@ function SpatialAudio({
       }
       sound.disconnect();
     };
-  }, [url, loop, camera]);
+  }, [url, loop]);
 
   // Efeito para atualizar volume e parâmetros em tempo real sem recarregar o áudio
   useEffect(() => {
@@ -1176,6 +1175,7 @@ export function SceneEntities() {
 
   return (
     <>
+      <GlobalAudioListenerHandler />
       {isStandalone && <XRSync />}
       {scene.rootEntityIds.map(id => {
         const entity = scene.entities[id];
