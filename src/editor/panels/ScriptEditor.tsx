@@ -1,8 +1,8 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Editor from '@monaco-editor/react';
 import { useEditorStore } from '../store/editorStore';
 import type { ScriptComponent } from '../../engine/ecs/types';
-import { FileCode, Plus } from 'lucide-react';
+import { FileCode, Plus, ExternalLink } from 'lucide-react';
 
 const defaultCode = `// O objeto 'entity' contem a referencia para esta entidade.
 // O objeto 'engine' contem referencias para cena e controle.
@@ -77,12 +77,23 @@ export function ScriptEditor() {
         <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
           <FileCode size={14} /> {entity.name} / {scriptComponent.scriptName}.js
         </span>
-        <input 
-          type="text" 
-          value={scriptComponent.scriptName}
-          onChange={(e) => updateComponent(entity.id, 'Script', { scriptName: e.target.value })}
-          style={{ background: 'var(--bg-base)', border: '1px solid var(--border-bright)', color: 'white', padding: '4px 8px', borderRadius: '4px', fontSize: '12px' }}
-        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <input 
+            type="text" 
+            value={scriptComponent.scriptName}
+            onChange={(e) => updateComponent(entity.id, 'Script', { scriptName: e.target.value })}
+            style={{ background: 'var(--bg-base)', border: '1px solid var(--border-bright)', color: 'white', padding: '4px 8px', borderRadius: '4px', fontSize: '12px' }}
+          />
+          <button 
+            className="panel-btn primary small"
+            onClick={() => {
+              window.open(`/code-editor?entityId=${entity.id}`, 'Freedom3DCodeEditor', 'width=1100,height=750');
+            }}
+            style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', padding: '4px 10px' }}
+          >
+            <ExternalLink size={12} /> Abrir Janela Externa
+          </button>
+        </div>
       </div>
       <div style={{ flex: 1, minHeight: 0 }}>
         <Editor

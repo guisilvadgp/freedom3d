@@ -11,6 +11,7 @@ import { TitleBar } from './editor/panels/TitleBar';
 import { MenuBar } from './editor/panels/MenuBar';
 import { Toast } from './editor/panels/Toast';
 import { useEditorStore } from './editor/store/editorStore';
+import { DedicatedCodeEditor } from './editor/panels/DedicatedCodeEditor';
 import './index.css';
 import { useEffect, useState } from 'react';
 import { Terminal, FolderOpen, Code } from 'lucide-react';
@@ -18,6 +19,9 @@ import { Terminal, FolderOpen, Code } from 'lucide-react';
 export default function App() {
   if (window.location.pathname.startsWith('/preview') || (window as any).__freedom3d_standalone__) {
     return <StandalonePlayer />;
+  }
+  if (window.location.pathname.startsWith('/code-editor')) {
+    return <DedicatedCodeEditor />;
   }
   const { bottomTab, setBottomTab } = useEditorStore();
 
@@ -92,6 +96,61 @@ export default function App() {
       }
     };
     loadProjectsList();
+  }, []);
+
+  useEffect(() => {
+    const channel = new BroadcastChannel('freedom3d-editor-sync');
+    
+    const handleMessage = (event: MessageEvent) => {
+      const store = useEditorStore.getState();
+      
+      if (event.data.type === 'REQUEST_INITIAL_DATA') {
+        const scene = store.activeScene();
+        if (!scene) return;
+        
+        const scriptsList = Object.values(scene.entities)
+          .filter(e => e.components.Script)
+          .map(e => ({
+            entityId: e.id,
+            entityName: e.name,
+            scriptName: (e.components.Script as any).scriptName,
+            code: (e.components.Script as any).code
+          }));
+        
+        const currentEntity = store.selectedEntity();
+        const currentScript = currentEntity && currentEntity.components.Script ? {
+          entityId: currentEntity.id,
+          entityName: currentEntity.name,
+          scriptName: (currentEntity.components.Script as any).scriptName,
+          code: (currentEntity.components.Script as any).code
+        } : null;
+
+        channel.postMessage({
+          type: 'INITIAL_DATA',
+          scriptsList,
+          currentScript
+        });
+      } else if (event.data.type === 'UPDATE_SCRIPT') {
+        const { entityId, patch } = event.data;
+        store.updateComponent(entityId, 'Script', patch);
+        
+        channel.postMessage({
+          type: 'SCRIPT_UPDATED_IN_EDITOR',
+          entityId,
+          code: patch.code,
+          scriptName: patch.scriptName
+        });
+      } else if (event.data.type === 'SAVE_PROJECT_SCENE') {
+        store.saveCurrentScene();
+      }
+    };
+
+    channel.addEventListener('message', handleMessage);
+
+    return () => {
+      channel.removeEventListener('message', handleMessage);
+      channel.close();
+    };
   }, []);
 
 
