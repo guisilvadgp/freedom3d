@@ -198,55 +198,91 @@ function GLTFMesh({ entity }: { entity: Entity }) {
                 mesh.userData[cacheKey] = newMat;
               }
               mat = mesh.userData[cacheKey];
+
+              // Aplica cor (albedo)
+              if (model.color) {
+                if (mat.color) mat.color.set(model.color);
+              }
+
+              // Rugosidade e Metal
+              if (typeof model.roughness === 'number') {
+                if ('roughness' in mat) mat.roughness = model.roughness;
+              }
+              if (typeof model.metalness === 'number') {
+                if ('metalness' in mat) mat.metalness = model.metalness;
+              }
+
+              // Carrega e atribui mapa de albedo (textura)
+              if (model.textureUrl) {
+                const texUrl = getTextureUrl(model.textureUrl);
+                new THREE.TextureLoader().load(texUrl, (tex) => {
+                  tex.wrapS = THREE.RepeatWrapping;
+                  tex.wrapT = THREE.RepeatWrapping;
+                  shrinkTexture(tex, 512); // Otimização
+                  mat.map = tex;
+                  mat.needsUpdate = true;
+                });
+              } else if (model.textureUrl === '') {
+                mat.map = null;
+                mat.needsUpdate = true;
+              }
+
+              // Carrega e atribui mapa de normais
+              if (model.normalMapUrl) {
+                const normUrl = getTextureUrl(model.normalMapUrl);
+                new THREE.TextureLoader().load(normUrl, (tex) => {
+                  tex.wrapS = THREE.RepeatWrapping;
+                  tex.wrapT = THREE.RepeatWrapping;
+                  shrinkTexture(tex, 512);
+                  mat.normalMap = tex;
+                  if (typeof model.normalScale === 'number' && mat.normalScale) {
+                    mat.normalScale.set(model.normalScale, model.normalScale);
+                  }
+                  mat.needsUpdate = true;
+                });
+              } else if (model.normalMapUrl === '') {
+                mat.normalMap = null;
+                mat.needsUpdate = true;
+              }
             } else {
               // Se voltou para 'none', restaura o material original do GLTF
               mat = mesh.userData.originalMaterial || origMat;
-            }
 
-            // Aplica cor (albedo)
-            if (model.color) {
-              if (mat.color) mat.color.set(model.color);
-            }
-
-            // Rugosidade e Metal
-            if (typeof model.roughness === 'number') {
-              if ('roughness' in mat) mat.roughness = model.roughness;
-            }
-            if (typeof model.metalness === 'number') {
-              if ('metalness' in mat) mat.metalness = model.metalness;
-            }
-
-            // Carrega e atribui mapa de albedo (textura)
-            if (model.textureUrl) {
-              const texUrl = getTextureUrl(model.textureUrl);
-              new THREE.TextureLoader().load(texUrl, (tex) => {
-                tex.wrapS = THREE.RepeatWrapping;
-                tex.wrapT = THREE.RepeatWrapping;
-                shrinkTexture(tex, 512); // Otimização
-                mat.map = tex;
-                mat.needsUpdate = true;
-              });
-            } else if (model.textureUrl === '') {
-              mat.map = null;
-              mat.needsUpdate = true;
-            }
-
-            // Carrega e atribui mapa de normais
-            if (model.normalMapUrl) {
-              const normUrl = getTextureUrl(model.normalMapUrl);
-              new THREE.TextureLoader().load(normUrl, (tex) => {
-                tex.wrapS = THREE.RepeatWrapping;
-                tex.wrapT = THREE.RepeatWrapping;
-                shrinkTexture(tex, 512);
-                mat.normalMap = tex;
-                if (typeof model.normalScale === 'number' && mat.normalScale) {
-                  mat.normalScale.set(model.normalScale, model.normalScale);
+              // No material original, só aplicamos textura customizada se o usuário especificou uma
+              if (model.textureUrl) {
+                const texUrl = getTextureUrl(model.textureUrl);
+                new THREE.TextureLoader().load(texUrl, (tex) => {
+                  tex.wrapS = THREE.RepeatWrapping;
+                  tex.wrapT = THREE.RepeatWrapping;
+                  shrinkTexture(tex, 512);
+                  mat.map = tex;
+                  mat.needsUpdate = true;
+                });
+              } else {
+                // Se textureUrl for vazia ou nula, garante que a textura original do GLTF seja mantida
+                if (mesh.userData.originalMaterial) {
+                  mat.map = mesh.userData.originalMaterial.map;
                 }
-                mat.needsUpdate = true;
-              });
-            } else if (model.normalMapUrl === '') {
-              mat.normalMap = null;
-              mat.needsUpdate = true;
+              }
+
+              // Só aplicamos normal map customizado se o usuário especificou um
+              if (model.normalMapUrl) {
+                const normUrl = getTextureUrl(model.normalMapUrl);
+                new THREE.TextureLoader().load(normUrl, (tex) => {
+                  tex.wrapS = THREE.RepeatWrapping;
+                  tex.wrapT = THREE.RepeatWrapping;
+                  shrinkTexture(tex, 512);
+                  mat.normalMap = tex;
+                  if (typeof model.normalScale === 'number' && mat.normalScale) {
+                    mat.normalScale.set(model.normalScale, model.normalScale);
+                  }
+                  mat.needsUpdate = true;
+                });
+              } else {
+                if (mesh.userData.originalMaterial) {
+                  mat.normalMap = mesh.userData.originalMaterial.normalMap;
+                }
+              }
             }
 
             mat.needsUpdate = true;
