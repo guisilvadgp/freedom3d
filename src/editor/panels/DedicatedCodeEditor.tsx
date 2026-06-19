@@ -22,6 +22,12 @@ export function DedicatedCodeEditor() {
   const [aiResponse, setAiResponse] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [showAiPanel] = useState(true);
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem('pollinations_api_key') || '');
+  
+  const handleApiKeyChange = (val: string) => {
+    setApiKey(val);
+    localStorage.setItem('pollinations_api_key', val);
+  };
   
   const channelRef = useRef<BroadcastChannel | null>(null);
 
@@ -130,11 +136,16 @@ export function DedicatedCodeEditor() {
     setIsGenerating(true);
     setAiResponse('');
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      if (apiKey) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+      }
+
       const response = await fetch('https://text.pollinations.ai/', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers,
         body: JSON.stringify({
           messages: [
             { 
@@ -249,6 +260,24 @@ export function DedicatedCodeEditor() {
             <div className="ai-panel-header">
               <Sparkles size={16} className="ai-icon" />
               <h2>Assistente IA (Pollinations)</h2>
+            </div>
+            <div className="ai-key-section" style={{ padding: '0 16px 8px 16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Chave de API Pollinations (Opcional):</label>
+              <input 
+                type="password" 
+                placeholder="sk_..."
+                value={apiKey}
+                onChange={(e) => handleApiKeyChange(e.target.value)}
+                style={{
+                  background: 'var(--bg-base)',
+                  border: '1px solid var(--border-bright)',
+                  color: 'white',
+                  padding: '6px 10px',
+                  borderRadius: '4px',
+                  fontSize: '11px',
+                  outline: 'none'
+                }}
+              />
             </div>
             <div className="ai-panel-body">
               <textarea 
