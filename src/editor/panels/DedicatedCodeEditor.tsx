@@ -241,15 +241,19 @@ CRITICAL ENGINE API & ARCHITECTURE GUIDELINES:
      updateComponent(entity.id, 'Transform', { position: [x, y, z] });
    - Changing light intensity:
      updateComponent(entity.id, 'Light', { intensity: 2.5, color: '#00ff00' });
-3. RAPIER PHYSICS: If the entity has a 'RigidBody' component, the global 'rigidBody' instance is available during play. Use Rapier methods for physics-based movement:
+3. RAPIER PHYSICS (CRITICAL): If the entity has a 'RigidBody' component, the global 'rigidBody' instance is available during play. Use Rapier methods for physics-based movement:
    - Teleport: rigidBody.setTranslation({ x, y, z }, true);
    - Linear velocity: rigidBody.setLinvel({ x, y, z }, true);
-   NEVER use 'updateComponent' to move dynamic/kinematic physics objects; always interact through 'rigidBody'.
-4. INPUT & CONTROLS: Use the global 'Input' object to check keys and mouse (e.g. 'Input.getKey("KeyW")', 'Input.getMouseButton(0)').
-   - For Gamepad/VR controllers, check buttons/axes:
-     - Buttons: Input.getGamepadButton('A' | 'B' | 'C' | 'D' | 'L1' | 'R1' | 'L2' | 'R2' | 'L3' | 'R3' | 'Share' | 'Options')
-     - Axes: Input.getGamepadAxis(0 | 1 | 2 | 3) (0/1 for Left Stick, 2/3 for Right Stick/Look).
-5. LOCAL VARIABLES & PERSISTENCE: Declare local state variables in the outer scope of the script (outside functions). They persist correctly through closure. Do NOT use 'this', 'globalThis', 'window', or function properties (e.g. 'onUpdate._t').
+   NEVER use 'updateComponent' to move dynamic/kinematic physics objects; always interact through the global 'rigidBody' if it is defined. If you use 'updateComponent' on a rigid body, it will jitter and break the physics simulation.
+4. INPUT & CONTROLS (CRITICAL):
+   - ALWAYS use 'Input.getKey("KeyName")' (e.g., 'Input.getKey("Space")', 'Input.getKey("KeyW")') for keyboard checks.
+   - ALWAYS use 'Input.getGamepadButton("ButtonName")' (e.g., 'Input.getGamepadButton("L1")', 'Input.getGamepadButton("A")') for gamepad/VR controller button checks.
+   - NEVER use non-existent methods like 'Input.isKeyPressed', 'Input.isMouseButtonPressed', 'Input.getKeyPressed', etc. Only 'getKey', 'getMouseButton', and 'getGamepadButton' are valid.
+5. DEGREES TO RADIANS CONVERSION (CRITICAL): The entity's 'Transform.rotation' components are stored in DEGREES (e.g. [pitch, yaw, roll] in degrees). JavaScript trigonometric functions (Math.sin, Math.cos) expect RADIANS. You MUST convert degrees to radians:
+   const yawRad = yawDeg * (Math.PI / 180);
+   Then use Math.sin(yawRad) and Math.cos(yawRad).
+6. LERP & MOVEMENT STATES: Ensure clean animation state tracking. If animating a sequence like advancing and returning, store target coordinates in separate variables (e.g., 'targetPos') rather than interpolating from basePos to basePos.
+7. LOCAL VARIABLES & PERSISTENCE: Declare local state variables in the outer scope of the script (outside functions). They persist correctly through closure. Do NOT use 'this', 'globalThis', 'window', or function properties (e.g. 'onUpdate._t').
 
 WEBXR & VR ELABORATION (MANDATORY):
 - Keep WebXR and VR compatibility in mind. Check if VR is active using the global flag: 'window.isVRActive'.
