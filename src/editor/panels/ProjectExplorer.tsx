@@ -22,10 +22,14 @@ export function ProjectExplorer() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Estados do Modal do Editor
+  // Estados do Modal do Editor de Arquivos
   const [editingFile, setEditingFile] = useState<ExplorerItem | null>(null);
   const [fileContent, setFileContent] = useState('');
   const [savingFile, setSavingFile] = useState(false);
+
+  // Estados dos Modais de Criação e Confirmação de Exclusão (Substitutos de prompt/confirm)
+  const [createModal, setCreateModal] = useState<{ type: 'folder' | 'file'; value: string } | null>(null);
+  const [deleteModal, setDeleteModal] = useState<ExplorerItem | null>(null);
 
   const fetchItems = async () => {
     setLoading(true);
@@ -56,63 +60,62 @@ export function ProjectExplorer() {
     fetchItems();
   }, [sceneName, currentSubpath]);
 
-  // Criar Pasta
-  const handleCreateFolder = async () => {
-    const folderName = prompt('Nome da nova pasta:');
-    if (!folderName) return;
+  // Abre modal para criar pasta
+  const handleCreateFolderClick = () => {
+    setCreateModal({ type: 'folder', value: '' });
+  };
+
+  // Abre modal para criar arquivo
+  const handleCreateFileClick = () => {
+    setCreateModal({ type: 'file', value: '' });
+  };
+
+  // Confirma a criação de pasta ou arquivo
+  const submitCreate = async () => {
+    if (!createModal || !createModal.value.trim()) return;
+    const { type, value } = createModal;
 
     try {
-      const res = await fetch('/api/explorer/create-folder', {
+      const endpoint = type === 'folder' ? '/api/explorer/create-folder' : '/api/explorer/create-file';
+      const body: any = {
+        project: sceneName,
+        subpath: currentSubpath
+      };
+
+      if (type === 'folder') {
+        body.folderName = value.trim();
+      } else {
+        body.fileName = value.trim();
+        body.content = '';
+      }
+
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          project: sceneName,
-          subpath: currentSubpath,
-          folderName
-        })
+        body: JSON.stringify(body)
       });
+
       if (res.ok) {
+        setCreateModal(null);
         fetchItems();
       } else {
-        alert('Falha ao criar pasta');
+        alert(type === 'folder' ? 'Falha ao criar pasta' : 'Falha ao criar arquivo');
       }
     } catch (err) {
       console.error(err);
-      alert('Erro ao criar pasta');
+      alert('Erro ao realizar operação');
     }
   };
 
-  // Criar Arquivo
-  const handleCreateFile = async () => {
-    const fileName = prompt('Nome do novo arquivo (ex: script.js):');
-    if (!fileName) return;
-
-    try {
-      const res = await fetch('/api/explorer/create-file', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          project: sceneName,
-          subpath: currentSubpath,
-          fileName,
-          content: ''
-        })
-      });
-      if (res.ok) {
-        fetchItems();
-      } else {
-        alert('Falha ao criar arquivo');
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Erro ao criar arquivo');
-    }
-  };
-
-  // Excluir Item
-  const handleDeleteItem = async (item: ExplorerItem, e: React.MouseEvent) => {
+  // Abre modal para confirmar exclusão
+  const handleDeleteClick = (item: ExplorerItem, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm(`Deseja realmente excluir "${item.name}"?`)) return;
+    setDeleteModal(item);
+  };
+
+  // Confirma exclusão
+  const submitDelete = async () => {
+    if (!deleteModal) return;
 
     try {
       const res = await fetch('/api/explorer/delete', {
@@ -120,10 +123,11 @@ export function ProjectExplorer() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           project: sceneName,
-          subpath: item.path
+          subpath: deleteModal.path
         })
       });
       if (res.ok) {
+        setDeleteModal(null);
         fetchItems();
       } else {
         alert('Falha ao excluir item');
@@ -219,10 +223,10 @@ export function ProjectExplorer() {
           </span>
         </div>
         <div style={{ display: 'flex', gap: '6px' }}>
-          <button className="panel-btn small" onClick={handleCreateFolder}>
+          <button className="panel-btn small" onClick={handleCreateFolderClick}>
             <FolderPlus size={13} /> Nova Pasta
           </button>
-          <button className="panel-btn small" onClick={handleCreateFile}>
+          <button className="panel-btn small" onClick={handleCreateFileClick}>
             <FilePlus size={13} /> Novo Arquivo
           </button>
           <button className="panel-btn icon-only" onClick={fetchItems} title="Atualizar">
@@ -284,7 +288,7 @@ export function ProjectExplorer() {
                     )}
                     <button 
                       className="panel-btn icon-only small danger" 
-                      onClick={(e) => handleDeleteItem(item, e)} 
+                      onClick={(e) => handleDeleteClick(item, e)} 
                       title="Excluir"
                     >
                       <Trash2 size={12} />
@@ -296,6 +300,160 @@ export function ProjectExplorer() {
           </table>
         )}
       </div>
+
+      {/* MODAL REACT: Criar Pasta ou Arquivo */}
+      {createModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          backgroundColor: 'rgba(0, 0, 0, 0.75)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000,
+          padding: '16px'
+        }}>
+          <div style={{
+            width: '100%',
+            maxWidth: '400px',
+            backgroundColor: '#1a1a2e',
+            border: '1px solid var(--border)',
+            borderRadius: '8px',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.5)'
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '12px 16px',
+              backgroundColor: '#161626',
+              borderBottom: '1px solid var(--border)'
+            }}>
+              <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#fff' }}>
+                {createModal.type === 'folder' ? 'Criar Nova Pasta' : 'Criar Novo Arquivo'}
+              </span>
+              <button 
+                onClick={() => setCreateModal(null)}
+                style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }}
+              >
+                <X size={14} />
+              </button>
+            </div>
+            <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <input 
+                type="text" 
+                placeholder={createModal.type === 'folder' ? 'Nome da pasta' : 'ex: script.js'}
+                value={createModal.value}
+                onChange={(e) => setCreateModal({ ...createModal, value: e.target.value })}
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') submitCreate();
+                  if (e.key === 'Escape') setCreateModal(null);
+                }}
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  backgroundColor: '#111122',
+                  border: '1px solid var(--border)',
+                  borderRadius: '4px',
+                  color: '#fff',
+                  fontSize: '12px',
+                  outline: 'none',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '10px',
+              padding: '12px 16px',
+              backgroundColor: '#161626',
+              borderTop: '1px solid var(--border)'
+            }}>
+              <button className="panel-btn" onClick={() => setCreateModal(null)} style={{ fontSize: '11px', padding: '5px 10px' }}>
+                Cancelar
+              </button>
+              <button className="panel-btn primary" onClick={submitCreate} style={{ fontSize: '11px', padding: '5px 12px' }}>
+                Criar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL REACT: Confirmar Exclusão */}
+      {deleteModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          backgroundColor: 'rgba(0, 0, 0, 0.75)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000,
+          padding: '16px'
+        }}>
+          <div style={{
+            width: '100%',
+            maxWidth: '400px',
+            backgroundColor: '#1a1a2e',
+            border: '1px solid var(--border)',
+            borderRadius: '8px',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.5)'
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '12px 16px',
+              backgroundColor: '#161626',
+              borderBottom: '1px solid var(--border)'
+            }}>
+              <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#fff' }}>
+                Confirmar Exclusão
+              </span>
+              <button 
+                onClick={() => setDeleteModal(null)}
+                style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }}
+              >
+                <X size={14} />
+              </button>
+            </div>
+            <div style={{ padding: '16px', color: '#fff', fontSize: '12px' }}>
+              Tem certeza que deseja excluir permanentemente o item <strong style={{ color: 'var(--accent)' }}>"{deleteModal.name}"</strong>?
+              {deleteModal.isDir && <div style={{ color: '#ff4d4d', marginTop: '6px', fontSize: '11px' }}>Aviso: Isso excluirá recursivamente todo o conteúdo desta pasta!</div>}
+            </div>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '10px',
+              padding: '12px 16px',
+              backgroundColor: '#161626',
+              borderTop: '1px solid var(--border)'
+            }}>
+              <button className="panel-btn" onClick={() => setDeleteModal(null)} style={{ fontSize: '11px', padding: '5px 10px' }}>
+                Cancelar
+              </button>
+              <button className="panel-btn primary danger" onClick={submitDelete} style={{ fontSize: '11px', padding: '5px 12px', backgroundColor: '#d9534f', borderColor: '#d43f3a' }}>
+                Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal Premium do Editor de Código para Arquivos */}
       {editingFile && (
