@@ -146,6 +146,16 @@ interface EditorStore {
   createNewProject: (name: string) => Promise<void>;
   renameProject: (id: string, name: string) => Promise<void>;
 
+  // Project Scenes
+  currentProjectName: string;
+  activeSceneName: string;
+  projectScenes: string[];
+  refreshProjectScenes: () => Promise<void>;
+  createNewScene: (sceneName: string) => Promise<void>;
+  loadProjectScene: (sceneName: string) => Promise<void>;
+  deleteProjectScene: (sceneName: string) => Promise<void>;
+  duplicateProjectScene: (sceneName: string) => Promise<void>;
+
   hasUnpublishedChanges: boolean;
 
   historyPast: Scene[];
@@ -160,6 +170,10 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     scenes: {},
     activeSceneId: '',
     activeScene: () => get().scenes[get().activeSceneId],
+
+    currentProjectName: '',
+    activeSceneName: 'Main Scene',
+    projectScenes: [],
 
     hasUnpublishedChanges: false,
 
@@ -723,7 +737,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     setShowSaveModal: (v) => set({ showSaveModal: v }),
 
     saveCurrentScene: async () => {
-      const { activeScene, addLog, showToast } = get();
+      const { activeScene, currentProjectName, activeSceneName, addLog, showToast } = get();
       set({ isSaving: true });
       try {
         const scene = activeScene();
@@ -742,17 +756,25 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           rootEntityIds: scene.rootEntityIds.filter(id => !id.startsWith('ghost-'))
         };
 
+        const finalProjName = currentProjectName || scene.name;
+        const finalSceneName = activeSceneName || 'Main Scene';
+
         const response = await fetch('/api/project/save-scene', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ projectName: scene.name, scene: cleanedScene })
+          body: JSON.stringify({ 
+            projectName: finalProjName, 
+            sceneName: finalSceneName,
+            scene: cleanedScene 
+          })
         });
         if (!response.ok) throw new Error('Falha ao salvar no servidor');
 
-        addLog('info', `💾 Projeto "${scene.name}" salvo no disco com sucesso.`);
-        showToast(`Projeto "${scene.name}" salvo com sucesso!`, 'success');
+        addLog('info', `💾 Projeto "${finalProjName}" (Cena: "${finalSceneName}") salvo no disco com sucesso.`);
+        showToast(`Cena "${finalSceneName}" salva com sucesso!`, 'success');
         set({ hasUnpublishedChanges: false });
         await get().refreshSavedScenes();
+        await get().refreshProjectScenes();
       } catch (err) {
         get().addLog('error', `Falha ao salvar no disco: ${String(err)}`);
         showToast('Falha ao salvar o projeto!', 'error');
@@ -784,13 +806,15 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         const saveResponse = await fetch('/api/project/save-scene', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ projectName: finalName, scene: newScene })
+          body: JSON.stringify({ projectName: finalName, sceneName: 'Main Scene', scene: newScene })
         });
         if (!saveResponse.ok) throw new Error('Erro ao inicializar scene.json do projeto');
         
         set((s) => ({
           scenes: { ...s.scenes, [finalName]: newScene },
           activeSceneId: finalName,
+          currentProjectName: finalName,
+          activeSceneName: 'Main Scene',
           selectedEntityId: null,
           showSaveModal: false,
           hasUnpublishedChanges: false,
@@ -799,6 +823,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         addLog('info', `📁 Novo projeto criado no disco: "${finalName}"`);
         showToast(`Projeto "${finalName}" criado!`);
         await refreshSavedScenes();
+        await get().refreshProjectScenes();
       } catch (err) {
         addLog('error', `Falha ao criar projeto no disco: ${String(err)}`);
         showToast('Erro ao criar novo projeto', 'error');
@@ -819,8 +844,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         const data = await response.json();
         const finalNewName = data.name;
 
-        if (get().activeSceneId === id) {
-          const currentScene = get().scenes[id];
+        if (get().activeSceneId === id || get().currentProjectName === id) {
+          const currentScene = get().scenes[id] || get().activeScene();
           const updatedScene = { ...currentScene, id: finalNewName, name: finalNewName };
           set((s) => ({
             scenes: {
@@ -828,6 +853,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
               [finalNewName]: updatedScene
             },
             activeSceneId: finalNewName,
+            currentProjectName: finalNewName,
             hasUnpublishedChanges: false
           }));
         }
@@ -844,7 +870,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     loadSavedScene: async (id) => {
       const { addLog, showToast } = get();
       try {
-        const response = await fetch(`/api/project/load-scene?name=${encodeURIComponent(id)}`);
+        // Carrega Main Scene por padrão ao carregar o projeto
+        const response = await fetch(`/api/project/load-scene?name=${encodeURIComponent(id)}&sceneName=Main Scene`);
         if (!response.ok) throw new Error('Projeto não encontrado no disco');
         const scene = await response.json();
 
@@ -859,15 +886,161 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         set((s) => ({
           scenes: { ...s.scenes, [scene.id]: scene },
           activeSceneId: scene.id,
+          currentProjectName: id,
+          activeSceneName: 'Main Scene',
           selectedEntityId: null,
           showSaveModal: false,
           hasUnpublishedChanges: false
         }));
-        addLog('info', `📂 Projeto "${scene.name}" carregado do disco.`);
-        showToast(`Projeto "${scene.name}" carregado!`);
+        addLog('info', `📂 Projeto "${id}" carregado.`);
+        showToast(`Projeto "${id}" carregado!`);
+        await get().refreshProjectScenes();
       } catch (err) {
         get().addLog('error', `Falha ao carregar do disco: ${String(err)}`);
         showToast('Erro ao carregar o projeto', 'error');
+      }
+    },
+
+    refreshProjectScenes: async () => {
+      const { currentProjectName } = get();
+      if (!currentProjectName) return;
+      try {
+        const response = await fetch(`/api/project/scenes?project=${encodeURIComponent(currentProjectName)}`);
+        if (response.ok) {
+          const list = await response.json();
+          set({ projectScenes: list });
+        }
+      } catch (_) {}
+    },
+
+    createNewScene: async (sceneName: string) => {
+      const { currentProjectName, addLog, showToast, refreshProjectScenes } = get();
+      if (!currentProjectName) return;
+      
+      const sceneNameClean = sceneName.replace(/[^a-zA-Z0-9_\-\s]/g, '').trim() || 'Nova Cena';
+      
+      const newScene = makeDefaultScene();
+      newScene.id = uuidv4();
+      newScene.name = sceneNameClean;
+
+      try {
+        const response = await fetch('/api/project/save-scene', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            projectName: currentProjectName, 
+            sceneName: sceneNameClean, 
+            scene: newScene 
+          })
+        });
+        if (!response.ok) throw new Error('Erro ao salvar nova cena no servidor');
+        
+        set((s) => ({
+          scenes: { ...s.scenes, [newScene.id]: newScene },
+          activeSceneId: newScene.id,
+          activeSceneName: sceneNameClean,
+          selectedEntityId: null,
+          hasUnpublishedChanges: false
+        }));
+
+        addLog('info', `🎬 Nova cena "${sceneNameClean}" criada no projeto "${currentProjectName}".`);
+        showToast(`Cena "${sceneNameClean}" criada!`, 'success');
+        await refreshProjectScenes();
+      } catch (err) {
+        addLog('error', `Falha ao criar cena: ${String(err)}`);
+        showToast('Erro ao criar cena', 'error');
+      }
+    },
+
+    loadProjectScene: async (sceneName: string) => {
+      const { currentProjectName, addLog, showToast } = get();
+      if (!currentProjectName) return;
+      try {
+        const response = await fetch(`/api/project/load-scene?name=${encodeURIComponent(currentProjectName)}&sceneName=${encodeURIComponent(sceneName)}`);
+        if (!response.ok) throw new Error('Cena não encontrada no disco');
+        const scene = await response.json();
+
+        // Reidrata blob URLs de modelos GLTF apontando para o endpoint do projeto
+        for (const entity of Object.values(scene.entities) as any[]) {
+          if (entity.components.GLTFModel) {
+            const { fileName } = entity.components.GLTFModel;
+            entity.components.GLTFModel.src = `/api/project/get-asset?project=${encodeURIComponent(currentProjectName)}&file=${encodeURIComponent(fileName)}`;
+          }
+        }
+
+        set((s) => ({
+          scenes: { ...s.scenes, [scene.id]: scene },
+          activeSceneId: scene.id,
+          activeSceneName: sceneName,
+          selectedEntityId: null,
+          hasUnpublishedChanges: false
+        }));
+        addLog('info', `🎬 Cena "${sceneName}" carregada.`);
+        showToast(`Cena "${sceneName}" carregada!`);
+      } catch (err) {
+        addLog('error', `Falha ao carregar cena: ${String(err)}`);
+        showToast('Erro ao carregar cena', 'error');
+      }
+    },
+
+    deleteProjectScene: async (sceneName: string) => {
+      const { currentProjectName, activeSceneName, refreshProjectScenes, addLog, showToast } = get();
+      if (!currentProjectName) return;
+      if (sceneName === 'Main Scene' || sceneName === activeSceneName) {
+        showToast('Não é possível excluir a cena ativa ou a cena principal', 'error');
+        return;
+      }
+      try {
+        const response = await fetch('/api/project/delete-scene', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ projectName: currentProjectName, sceneName })
+        });
+        if (!response.ok) throw new Error('Erro ao deletar cena');
+
+        await refreshProjectScenes();
+        showToast(`Cena "${sceneName}" removida`, 'warning');
+        addLog('warn', `Cena "${sceneName}" excluída do projeto.`);
+      } catch (err) {
+        addLog('error', `Falha ao excluir cena: ${String(err)}`);
+        showToast('Erro ao excluir cena', 'error');
+      }
+    },
+
+    duplicateProjectScene: async (newSceneName: string) => {
+      const { activeScene, currentProjectName, addLog, showToast, refreshProjectScenes } = get();
+      if (!currentProjectName) return;
+      const cleanName = newSceneName.replace(/[^a-zA-Z0-9_\-\s]/g, '').trim() || 'Cena Duplicada';
+      const scene = activeScene();
+      const clonedScene = {
+        ...scene,
+        id: uuidv4(),
+        name: cleanName
+      };
+      try {
+        const response = await fetch('/api/project/save-scene', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            projectName: currentProjectName, 
+            sceneName: cleanName, 
+            scene: clonedScene 
+          })
+        });
+        if (!response.ok) throw new Error('Erro ao salvar cena duplicada');
+        set((s) => ({
+          scenes: { ...s.scenes, [clonedScene.id]: clonedScene },
+          activeSceneId: clonedScene.id,
+          activeSceneName: cleanName,
+          selectedEntityId: null,
+          hasUnpublishedChanges: false
+        }));
+        addLog('info', `🎬 Cena duplicada com sucesso para "${cleanName}" no projeto "${currentProjectName}".`);
+        showToast(`Cena duplicada como "${cleanName}"!`, 'success');
+        await refreshProjectScenes();
+      } catch (err) {
+        addLog('error', `Falha ao duplicar cena: ${String(err)}`);
+        showToast('Erro ao duplicar cena', 'error');
       }
     },
 

@@ -251,20 +251,32 @@ const liveSyncPlugin = () => {
           return;
         }
 
-        // 5. Save Scene to scene.json
+        // 5. Save Scene to scene.json or scenes/[sceneName].json
         if (req.url.startsWith('/api/project/save-scene') && req.method === 'POST') {
           let body = '';
           req.on('data', (chunk: any) => { body += chunk; });
           req.on('end', () => {
             try {
-              const { projectName, scene } = JSON.parse(body);
+              const { projectName, sceneName, scene } = JSON.parse(body);
               const projectPath = path.join(projectsDir, projectName.trim());
               if (!fs.existsSync(projectPath)) {
                 fs.mkdirSync(projectPath, { recursive: true });
                 fs.mkdirSync(path.join(projectPath, 'assets'), { recursive: true });
               }
-              const scenePath = path.join(projectPath, 'scene.json');
+
+              const scenesDir = path.join(projectPath, 'scenes');
+              if (!fs.existsSync(scenesDir)) {
+                fs.mkdirSync(scenesDir, { recursive: true });
+              }
+
+              const sceneNameClean = (sceneName || 'Main Scene').replace(/[^a-zA-Z0-9_\-\s]/g, '').trim();
+              const scenePath = path.join(scenesDir, `${sceneNameClean}.json`);
               fs.writeFileSync(scenePath, JSON.stringify(scene, null, 2), 'utf8');
+
+              // Retrocompatibilidade: Se for Main Scene ou o nome do próprio projeto, salva no scene.json da raiz
+              if (!sceneName || sceneNameClean === 'Main Scene' || sceneNameClean === projectName) {
+                fs.writeFileSync(path.join(projectPath, 'scene.json'), JSON.stringify(scene, null, 2), 'utf8');
+              }
               
               activeSceneState = JSON.stringify(scene);
               clients.forEach(client => {
@@ -282,11 +294,19 @@ const liveSyncPlugin = () => {
           return;
         }
 
-        // 6. Load Scene from scene.json
+        // 6. Load Scene from scene.json or scenes/[sceneName].json
         if (req.url.startsWith('/api/project/load-scene') && req.method === 'GET') {
           const urlParams = new URL(req.url, 'http://localhost');
           const name = urlParams.searchParams.get('name') || '';
-          const scenePath = path.join(projectsDir, name.trim(), 'scene.json');
+          const sceneName = urlParams.searchParams.get('sceneName') || '';
+          const projectPath = path.join(projectsDir, name.trim());
+          const sceneNameClean = sceneName.replace(/[^a-zA-Z0-9_\-\s]/g, '').trim();
+
+          let scenePath = path.join(projectPath, 'scenes', `${sceneNameClean}.json`);
+          if (!sceneName || !fs.existsSync(scenePath)) {
+            scenePath = path.join(projectPath, 'scene.json');
+          }
+
           if (fs.existsSync(scenePath)) {
             const content = fs.readFileSync(scenePath, 'utf8');
             res.setHeader('Content-Type', 'application/json');
@@ -296,6 +316,53 @@ const liveSyncPlugin = () => {
             res.statusCode = 404;
             res.end('Scene not found');
           }
+          return;
+        }
+
+        // 6b. List Scenes in a Project
+        if (req.url.startsWith('/api/project/scenes') && req.method === 'GET') {
+          const urlParams = new URL(req.url, 'http://localhost');
+          const projectName = urlParams.searchParams.get('project') || '';
+          const projectPath = path.join(projectsDir, projectName.trim());
+          const scenesDir = path.join(projectPath, 'scenes');
+          let scenesList: string[] = [];
+          
+          if (fs.existsSync(scenesDir)) {
+            scenesList = fs.readdirSync(scenesDir)
+              .filter(f => f.endsWith('.json'))
+              .map(f => f.replace('.json', ''));
+          }
+
+          if (scenesList.length === 0 && fs.existsSync(path.join(projectPath, 'scene.json'))) {
+            scenesList.push('Main Scene');
+          }
+
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.end(JSON.stringify(scenesList));
+          return;
+        }
+
+        // 6c. Delete Scene in a Project
+        if (req.url.startsWith('/api/project/delete-scene') && req.method === 'POST') {
+          let body = '';
+          req.on('data', (chunk: any) => { body += chunk; });
+          req.on('end', () => {
+            try {
+              const { projectName, sceneName } = JSON.parse(body);
+              const sceneNameClean = sceneName.replace(/[^a-zA-Z0-9_\-\s]/g, '').trim();
+              const scenePath = path.join(projectsDir, projectName.trim(), 'scenes', `${sceneNameClean}.json`);
+              if (fs.existsSync(scenePath)) {
+                fs.unlinkSync(scenePath);
+              }
+              res.setHeader('Content-Type', 'application/json');
+              res.setHeader('Access-Control-Allow-Origin', '*');
+              res.end(JSON.stringify({ success: true }));
+            } catch (e) {
+              res.statusCode = 500;
+              res.end('Error deleting scene');
+            }
+          });
           return;
         }
 

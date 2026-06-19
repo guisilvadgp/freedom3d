@@ -4,7 +4,7 @@ import { useEditorStore } from '../store/editorStore';
 import { 
   FolderOpen, Save, Play, Square, Wifi, Download,
   RotateCcw, RotateCw, Copy, Trash2, Eye, EyeOff, Monitor,
-  Compass, Keyboard, Info, CheckCircle
+  Compass, Keyboard, Info, CheckCircle, Film, Plus
 } from 'lucide-react';
 
 export function MenuBar() {
@@ -31,7 +31,14 @@ export function MenuBar() {
     bottomTab,
     setBottomTab,
     isPlaying,
-    togglePlay
+    togglePlay,
+    currentProjectName,
+    activeSceneName,
+    projectScenes,
+    createNewScene,
+    loadProjectScene,
+    deleteProjectScene,
+    duplicateProjectScene
   } = useEditorStore(useShallow(state => ({
     activeScene: state.activeSceneId ? state.scenes[state.activeSceneId] : null,
     saveCurrentScene: state.saveCurrentScene,
@@ -51,7 +58,14 @@ export function MenuBar() {
     bottomTab: state.bottomTab,
     setBottomTab: state.setBottomTab,
     isPlaying: state.isPlaying,
-    togglePlay: state.togglePlay
+    togglePlay: state.togglePlay,
+    currentProjectName: state.currentProjectName,
+    activeSceneName: state.activeSceneName,
+    projectScenes: state.projectScenes,
+    createNewScene: state.createNewScene,
+    loadProjectScene: state.loadProjectScene,
+    deleteProjectScene: state.deleteProjectScene,
+    duplicateProjectScene: state.duplicateProjectScene
   })));
 
   // Fecha o menu se clicar fora
@@ -209,6 +223,72 @@ export function MenuBar() {
             </div>
           )}
         </div>
+
+        {/* SCENE MENU */}
+        {currentProjectName && (
+          <div className={`menubar-item-wrapper ${activeMenu === 'scenes' ? 'open' : ''}`}>
+            <button 
+              className="menubar-btn" 
+              onClick={(e) => toggleMenu('scenes', e)}
+              onMouseEnter={() => handleMenuHover('scenes')}
+            >
+              Cenas ({activeSceneName})
+            </button>
+            {activeMenu === 'scenes' && (
+              <div className="menubar-dropdown" style={{ minWidth: '200px' }}>
+                <div className="dropdown-section-header" style={{ padding: '4px 12px', fontSize: '10px', opacity: 0.5, fontWeight: 'bold' }}>CARREGAR CENA</div>
+                {projectScenes.map(sceneName => (
+                  <button 
+                    key={sceneName}
+                    onClick={() => loadProjectScene(sceneName)} 
+                    className={activeSceneName === sceneName ? 'checked' : ''}
+                  >
+                    <Film size={13} style={{ marginRight: '6px', color: activeSceneName === sceneName ? '#10b981' : 'inherit' }} />
+                    <span style={{ fontWeight: activeSceneName === sceneName ? 'bold' : 'normal' }}>{sceneName}</span>
+                    {activeSceneName === sceneName && <CheckCircle size={12} style={{ marginLeft: 'auto', color: '#10b981' }} />}
+                  </button>
+                ))}
+                
+                <div className="menu-divider" />
+                <button onClick={() => {
+                  const name = prompt('Digite o nome da nova cena:');
+                  if (name) createNewScene(name);
+                }}>
+                  <Plus size={13} />
+                  <span>Criar Nova Cena</span>
+                </button>
+                <button onClick={() => {
+                  const name = prompt('Digite o nome para a cena duplicada:', `${activeSceneName} Copy`);
+                  if (name) duplicateProjectScene(name);
+                }}>
+                  <Copy size={13} />
+                  <span>Duplicar Cena Atual</span>
+                </button>
+
+                {projectScenes.filter(s => s !== 'Main Scene' && s !== activeSceneName).length > 0 && (
+                  <>
+                    <div className="menu-divider" />
+                    <div className="dropdown-section-header" style={{ padding: '4px 12px', fontSize: '10px', opacity: 0.5, fontWeight: 'bold', color: '#ef4444' }}>EXCLUIR CENA</div>
+                    {projectScenes.filter(s => s !== 'Main Scene' && s !== activeSceneName).map(sceneName => (
+                      <button 
+                        key={`delete-${sceneName}`}
+                        onClick={() => {
+                          if (confirm(`Tem certeza que deseja excluir a cena "${sceneName}" permanentemente do disco?`)) {
+                            deleteProjectScene(sceneName);
+                          }
+                        }}
+                        className="danger"
+                      >
+                        <Trash2 size={13} />
+                        <span>{sceneName}</span>
+                      </button>
+                    ))}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* VIEW MENU */}
         <div className={`menubar-item-wrapper ${activeMenu === 'view' ? 'open' : ''}`}>

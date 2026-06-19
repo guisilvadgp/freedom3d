@@ -147,7 +147,7 @@
 | Feature | Status | Detalhe |
 |---------|--------|---------|
 | Estrutura de Scene | ✅ | `Scene` com entities, rootEntityIds, background, ambient, fog |
-| Múltiplas cenas | 🟡 | Store suporta `Record<SceneId, Scene>`, mas UI de troca ainda não existe |
+| Múltiplas cenas | ✅ | Suporte a criar, carregar, duplicar e excluir múltiplas cenas no projeto com interface dedicada no MenuBar |
 | Carregamento assíncrono | ✅ | Deserialização assíncrona de cena com reidratação de blobs GLTF |
 | Streaming de mundo | ❌ | Fase 3 |
 

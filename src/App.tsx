@@ -24,6 +24,51 @@ export default function App() {
     return <DedicatedCodeEditor />;
   }
   const { bottomTab, setBottomTab } = useEditorStore();
+  const activeSceneId = useEditorStore(state => state.activeSceneId);
+
+  useEffect(() => {
+    if (!activeSceneId) return;
+    const store = useEditorStore.getState();
+    const scene = store.activeScene();
+    if (!scene) return;
+
+    const channel = new BroadcastChannel('freedom3d-editor-sync');
+    
+    const scriptsList: any[] = [];
+    for (const e of Object.values(scene.entities)) {
+      if (!e.components.Script) continue;
+      
+      const mainScript = e.components.Script as any;
+      scriptsList.push({
+        entityId: e.id,
+        entityName: e.name,
+        scriptId: 'main',
+        scriptName: mainScript.scriptName || 'Main',
+        code: mainScript.code || ''
+      });
+
+      if (mainScript.scripts && Array.isArray(mainScript.scripts)) {
+        for (const s of mainScript.scripts) {
+          scriptsList.push({
+            entityId: e.id,
+            entityName: e.name,
+            scriptId: s.id,
+            scriptName: s.scriptName,
+            code: s.code || '',
+            isAdditional: true
+          });
+        }
+      }
+    }
+
+    channel.postMessage({
+      type: 'INITIAL_DATA',
+      scriptsList,
+      currentScript: scriptsList[0] || null
+    });
+
+    channel.close();
+  }, [activeSceneId]);
 
   const [hierarchyWidth, setHierarchyWidth] = useState(260);
   const [inspectorWidth, setInspectorWidth] = useState(300);
@@ -313,8 +358,6 @@ export default function App() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
-
-  const activeSceneId = useEditorStore(state => state.activeSceneId);
 
   if (!activeSceneId) {
     return (
