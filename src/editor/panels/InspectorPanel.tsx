@@ -548,6 +548,50 @@ function AudioInspector({ entityId }: { entityId: string }) {
           onChange={(e) => updateComponent(entityId, 'Audio', { playOnStart: e.target.checked })}
         />
       </div>
+
+      <div className="field-row">
+        <label className="field-label">Volume</label>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            value={audio.volume ?? 1}
+            onChange={(e) => updateComponent(entityId, 'Audio', { volume: parseFloat(e.target.value) })}
+            style={{ flex: 1 }}
+          />
+          <span style={{ fontSize: '11px', width: '28px', textAlign: 'right' }}>
+            {Math.round((audio.volume ?? 1) * 100)}%
+          </span>
+        </div>
+      </div>
+
+      <div className="field-row">
+        <label className="field-label">Som 3D (Espacial)</label>
+        <input
+          type="checkbox"
+          checked={audio.is3D ?? true}
+          onChange={(e) => updateComponent(entityId, 'Audio', { is3D: e.target.checked })}
+        />
+      </div>
+
+      <div className="field-row">
+        <label className="field-label">Delay para Iniciar (s)</label>
+        <input
+          type="number"
+          className="field-input"
+          min="0"
+          step="0.5"
+          value={audio.delay ?? 0}
+          onChange={(e) => {
+            const val = parseFloat(e.target.value);
+            updateComponent(entityId, 'Audio', { delay: isNaN(val) ? 0 : val });
+          }}
+          placeholder="0"
+          style={{ width: '60px' }}
+        />
+      </div>
     </div>
   );
 }
@@ -1613,7 +1657,7 @@ export function InspectorPanel({ style }: { style?: React.CSSProperties }) {
           {!entity.components.Audio && (
             <button 
               className="panel-btn" 
-              onClick={() => useEditorStore.getState().addComponent(selectedEntityId, { type: 'Audio', src: '', loop: true, playOnStart: true, volume: 1 })}
+              onClick={() => useEditorStore.getState().addComponent(selectedEntityId, { type: 'Audio', src: '', loop: true, playOnStart: true, volume: 1, is3D: true, delay: 0 })}
             >
               <Plus size={12} /> Add Audio
             </button>

@@ -76,6 +76,8 @@ export interface AudioComponent {
   loop: boolean;
   volume: number;
   playOnStart: boolean;
+  is3D?: boolean;
+  delay?: number;
 }
 
 export interface ParticleSystemComponent {

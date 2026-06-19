@@ -461,6 +461,97 @@ function VRTeleportRing({ entity }: { entity: Entity }) {
   );
 }
 
+// ── Audio Helper Components (Spatial and 2D with volume and delay) ──
+function Audio2D({ url, loop, volume }: { url: string; loop: boolean; volume: number }) {
+  const camera = useThree(s => s.camera);
+  const audioRef = useRef<THREE.Audio | null>(null);
+
+  useEffect(() => {
+    let listener = camera.getObjectByName('global-audio-listener') as THREE.AudioListener;
+    if (!listener) {
+      listener = new THREE.AudioListener();
+      listener.name = 'global-audio-listener';
+      camera.add(listener);
+    }
+
+    const sound = new THREE.Audio(listener);
+    const audioLoader = new THREE.AudioLoader();
+
+    audioLoader.load(url, (buffer) => {
+      sound.setBuffer(buffer);
+      sound.setLoop(loop);
+      sound.setVolume(volume);
+      sound.play();
+    });
+
+    audioRef.current = sound;
+
+    return () => {
+      if (sound.isPlaying) {
+        sound.stop();
+      }
+      sound.disconnect();
+    };
+  }, [url, loop, volume, camera]);
+
+  return null;
+}
+
+function SpatialAudio({ url, loop, volume }: { url: string; loop: boolean; volume: number }) {
+  const audioRef = useRef<THREE.PositionalAudio | null>(null);
+
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.setVolume(volume);
+    }
+  }, [volume]);
+
+  return (
+    <PositionalAudio
+      ref={audioRef as any}
+      url={url}
+      loop={loop}
+      autoplay={true}
+      distance={10}
+    />
+  );
+}
+
+interface OrionAudioProps {
+  src: string;
+  loop: boolean;
+  volume: number;
+  playOnStart: boolean;
+  is3D: boolean;
+  delay: number;
+  isPlaying: boolean;
+}
+
+function OrionAudioComponent({ src, loop, volume, playOnStart, is3D, delay, isPlaying }: OrionAudioProps) {
+  const [shouldPlay, setShouldPlay] = useState(false);
+
+  useEffect(() => {
+    if (!isPlaying || !playOnStart) {
+      setShouldPlay(false);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setShouldPlay(true);
+    }, (delay || 0) * 1000);
+
+    return () => clearTimeout(timer);
+  }, [isPlaying, playOnStart, delay, src]);
+
+  if (!isPlaying || !shouldPlay) return null;
+
+  if (is3D) {
+    return <SpatialAudio url={src} loop={loop} volume={volume ?? 1.0} />;
+  } else {
+    return <Audio2D url={src} loop={loop} volume={volume ?? 1.0} />;
+  }
+}
+
 function EntityMesh({ entity, entities }: { entity: Entity; entities: Record<string, Entity> }) {
   const meshRef = useRef<THREE.Mesh>(null!);
 
@@ -699,8 +790,16 @@ function EntityMesh({ entity, entities }: { entity: Entity; entities: Record<str
         <meshBasicMaterial color={light ? light.color : "#ffffff"} wireframe opacity={0.3} transparent visible={!isGameView} />
 
         {renderLight()}
-        {audio && audio.src && (isPlaying || isStandalone) && (
-          <PositionalAudio url={audio.src} loop={audio.loop} autoplay={audio.playOnStart} distance={10} />
+        {audio && audio.src && (
+          <OrionAudioComponent
+            src={audio.src}
+            loop={audio.loop}
+            volume={audio.volume ?? 1.0}
+            playOnStart={audio.playOnStart}
+            is3D={audio.is3D ?? true}
+            delay={audio.delay ?? 0}
+            isPlaying={isPlaying || isStandalone}
+          />
         )}
         {particles && (
           <Sparkles
@@ -779,8 +878,16 @@ function EntityMesh({ entity, entities }: { entity: Entity; entities: Record<str
     >
       {renderGeometry()}
       {renderMaterial()}
-      {audio && audio.src && (isPlaying || isStandalone) && (
-        <PositionalAudio url={audio.src} loop={audio.loop} autoplay={audio.playOnStart} distance={10} />
+      {audio && audio.src && (
+        <OrionAudioComponent
+          src={audio.src}
+          loop={audio.loop}
+          volume={audio.volume ?? 1.0}
+          playOnStart={audio.playOnStart}
+          is3D={audio.is3D ?? true}
+          delay={audio.delay ?? 0}
+          isPlaying={isPlaying || isStandalone}
+        />
       )}
       {/* Particles */}
       {particles && (
