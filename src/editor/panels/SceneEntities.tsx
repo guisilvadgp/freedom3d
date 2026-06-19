@@ -1,7 +1,7 @@
 import { XROrigin } from '@react-three/xr';
 import { useRef, useState, useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { TransformControls, Edges, PositionalAudio, Sparkles, PerspectiveCamera } from '@react-three/drei';
+import { TransformControls, Edges, Sparkles, PerspectiveCamera } from '@react-three/drei';
 import { RigidBody, MeshCollider } from '@react-three/rapier';
 import * as THREE from 'three';
 import { useEditorStore } from '../store/editorStore';
@@ -512,30 +512,73 @@ function SpatialAudio({
   rolloffFactor?: number;
   maxDistance?: number;
 }) {
+  const camera = useThree(s => s.camera);
+  const groupRef = useRef<THREE.Group>(null);
   const audioRef = useRef<THREE.PositionalAudio | null>(null);
 
   useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.setVolume(volume);
+    // Garante que a câmera tenha o AudioListener global
+    let listener = camera.getObjectByName('global-audio-listener') as THREE.AudioListener;
+    if (!listener) {
+      listener = new THREE.AudioListener();
+      listener.name = 'global-audio-listener';
+      camera.add(listener);
+    }
+
+    const sound = new THREE.PositionalAudio(listener);
+    const audioLoader = new THREE.AudioLoader();
+
+    // Configurações iniciais
+    const rDist = typeof refDistance === 'number' ? refDistance : 5;
+    const rFactor = typeof rolloffFactor === 'number' ? rolloffFactor : 1;
+    const mDist = typeof maxDistance === 'number' ? maxDistance : 100;
+    
+    sound.setRefDistance(rDist);
+    sound.setRolloffFactor(rFactor);
+    sound.setMaxDistance(mDist);
+    sound.setVolume(volume ?? 1.0);
+    sound.setLoop(loop);
+
+    audioLoader.load(url, (buffer) => {
+      sound.setBuffer(buffer);
+      sound.play();
+    }, undefined, (err) => {
+      console.error("Erro ao carregar som espacial:", err);
+    });
+
+    audioRef.current = sound;
+    
+    if (groupRef.current) {
+      groupRef.current.add(sound);
+    }
+
+    return () => {
+      if (sound.isPlaying) {
+        sound.stop();
+      }
+      if (groupRef.current) {
+        groupRef.current.remove(sound);
+      }
+      sound.disconnect();
+    };
+  }, [url, loop, camera]);
+
+  // Efeito para atualizar volume e parâmetros em tempo real sem recarregar o áudio
+  useEffect(() => {
+    const sound = audioRef.current;
+    if (sound) {
+      sound.setVolume(volume ?? 1.0);
       const rDist = typeof refDistance === 'number' ? refDistance : 5;
       const rFactor = typeof rolloffFactor === 'number' ? rolloffFactor : 1;
       const mDist = typeof maxDistance === 'number' ? maxDistance : 100;
       
-      audioRef.current.setRefDistance(rDist);
-      audioRef.current.setRolloffFactor(rFactor);
-      audioRef.current.setMaxDistance(mDist);
+      sound.setRefDistance(rDist);
+      sound.setRolloffFactor(rFactor);
+      sound.setMaxDistance(mDist);
     }
   }, [volume, refDistance, rolloffFactor, maxDistance]);
 
-  return (
-    <PositionalAudio
-      ref={audioRef as any}
-      url={url}
-      loop={loop}
-      autoplay={true}
-      distance={typeof refDistance === 'number' ? refDistance : 5}
-    />
-  );
+  return <group ref={groupRef} />;
 }
 
 interface OrionAudioProps {
