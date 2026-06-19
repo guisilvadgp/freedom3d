@@ -464,10 +464,9 @@ function VRTeleportRing({ entity }: { entity: Entity }) {
 // ── Audio Helper Components (Spatial and 2D with volume and delay) ──
 function Audio2D({ url, loop, volume }: { url: string; loop: boolean; volume: number }) {
   const camera = useThree(s => s.camera);
-  const audioRef = useRef<THREE.Audio | null>(null);
+  const audioElRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    let isMounted = true;
     let listener = camera.getObjectByName('global-audio-listener') as THREE.AudioListener;
     if (!listener) {
       listener = new THREE.AudioListener();
@@ -475,27 +474,35 @@ function Audio2D({ url, loop, volume }: { url: string; loop: boolean; volume: nu
       camera.add(listener);
     }
 
-    const sound = new THREE.Audio(listener);
-    const audioLoader = new THREE.AudioLoader();
+    const audioEl = document.createElement('audio');
+    audioEl.src = url;
+    audioEl.loop = loop;
+    audioEl.crossOrigin = 'anonymous';
+    audioEl.preload = 'auto';
+    audioElRef.current = audioEl;
 
-    audioLoader.load(url, (buffer) => {
-      if (!isMounted) return;
-      sound.setBuffer(buffer);
-      sound.setLoop(loop);
-      sound.setVolume(volume);
-      sound.play();
+    const sound = new THREE.Audio(listener);
+    sound.setMediaElementSource(audioEl);
+    sound.setVolume(volume);
+
+    // Reproduz via streaming nativo sem carregar decodificado na RAM
+    audioEl.play().catch((err) => {
+      console.warn("Autoplay impedido ou falha no streaming do áudio 2D:", err);
     });
 
-    audioRef.current = sound;
-
     return () => {
-      isMounted = false;
-      if (sound.isPlaying) {
-        sound.stop();
-      }
+      audioEl.pause();
+      audioEl.src = '';
       sound.disconnect();
     };
-  }, [url, loop, volume, camera]);
+  }, [url, loop, camera]);
+
+  // Atualiza volume em tempo real
+  useEffect(() => {
+    if (audioElRef.current) {
+      audioElRef.current.volume = volume;
+    }
+  }, [volume]);
 
   return null;
 }
@@ -520,6 +527,7 @@ function SpatialAudio({
   const camera = useThree(s => s.camera);
   const groupRef = useRef<THREE.Group>(null);
   const audioRef = useRef<THREE.PositionalAudio | null>(null);
+  const audioElRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     // Garante que a câmera tenha o AudioListener global
@@ -530,10 +538,17 @@ function SpatialAudio({
       camera.add(listener);
     }
 
-    const sound = new THREE.PositionalAudio(listener);
-    const audioLoader = new THREE.AudioLoader();
+    const audioEl = document.createElement('audio');
+    audioEl.src = url;
+    audioEl.loop = loop;
+    audioEl.crossOrigin = 'anonymous';
+    audioEl.preload = 'auto';
+    audioElRef.current = audioEl;
 
-    // Configurações iniciais
+    const sound = new THREE.PositionalAudio(listener);
+    sound.setMediaElementSource(audioEl);
+
+    // Configurações iniciais de espacialização
     const rDist = typeof refDistance === 'number' ? refDistance : 5;
     const rFactor = typeof rolloffFactor === 'number' ? rolloffFactor : 1;
     const mDist = typeof maxDistance === 'number' ? maxDistance : 100;
@@ -544,14 +559,9 @@ function SpatialAudio({
     sound.setMaxDistance(mDist);
     sound.setDistanceModel(model);
     sound.setVolume(volume ?? 1.0);
-    sound.setLoop(loop);
 
-    audioLoader.load(url, (buffer) => {
-      if (!isMounted) return;
-      sound.setBuffer(buffer);
-      sound.play();
-    }, undefined, (err) => {
-      console.error("Erro ao carregar som espacial:", err);
+    audioEl.play().catch((err) => {
+      console.warn("Autoplay impedido ou falha no streaming do som espacial:", err);
     });
 
     audioRef.current = sound;
@@ -560,12 +570,9 @@ function SpatialAudio({
       groupRef.current.add(sound);
     }
 
-    let isMounted = true;
     return () => {
-      isMounted = false;
-      if (sound.isPlaying) {
-        sound.stop();
-      }
+      audioEl.pause();
+      audioEl.src = '';
       if (groupRef.current) {
         groupRef.current.remove(sound);
       }

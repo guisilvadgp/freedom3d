@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import * as THREE from 'three';
 import { SceneView, xrStore } from '../editor/panels/SceneView';
 import { useEditorStore } from '../editor/store/editorStore';
@@ -97,9 +97,12 @@ export function StandalonePlayer() {
   const [showDebug, setShowDebug] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
 
+  // Referencias para atualizacao direta no DOM da barra de carregamento
+  const progressBarRef = useRef<HTMLDivElement>(null);
+  const progressTextRef = useRef<HTMLSpanElement>(null);
+
   // Estados da tela de carregamento e inicio do jogo
   const [loading, setLoading] = useState(true);
-  const [progressVal, setProgressVal] = useState(0);
   const [gameStarted, setGameStarted] = useState(false);
   const [showOverlay, setShowOverlay] = useState(true);
   const [sceneLoaded, setSceneLoaded] = useState(false);
@@ -179,20 +182,32 @@ export function StandalonePlayer() {
       
       if (method.toUpperCase() === 'GET' && (urlStr.includes('/api/asset/') || urlStr.includes('/get-asset') || urlStr.includes('/api/project/get-asset'))) {
         try {
+          // Arquivos 3D brutos e pesados (.gltf/.glb) devem ser baixados da rede local diretamente para evitar estouro de RAM no clone/cache.put
+          const isModel3D = urlStr.toLowerCase().split('?')[0].endsWith('.gltf') || urlStr.toLowerCase().split('?')[0].endsWith('.glb');
+          
           const cache = await window.caches.open('freedom3d-assets-cache');
-          const cachedResponse = await cache.match(input);
-          if (cachedResponse) {
-            return cachedResponse;
+          
+          if (!isModel3D) {
+            const cachedResponse = await cache.match(input);
+            if (cachedResponse) {
+              return cachedResponse;
+            }
           }
           
           const response = await originalFetch(input, init);
-          if (response.status === 200) {
+          if (response.status === 200 && !isModel3D) {
             try {
-              await cache.put(input, response.clone());
-              // Atualiza tamanho do cache sem bloquear a thread principal
-              setTimeout(() => {
-                updateCacheSize();
-              }, 100);
+              // Evita clonar e cachear arquivos com mais de 15MB para não sobrecarregar a memória
+              const contentLength = response.headers.get('content-length');
+              const isLarge = contentLength ? parseInt(contentLength, 10) > 15 * 1024 * 1024 : false;
+              
+              if (!isLarge) {
+                await cache.put(input, response.clone());
+                // Atualiza tamanho do cache sem bloquear a thread principal
+                setTimeout(() => {
+                  updateCacheSize();
+                }, 100);
+              }
             } catch (err) {
               console.warn('[Cache Put Error]', err);
             }
@@ -243,43 +258,6 @@ export function StandalonePlayer() {
         if (scene && scene.publishedAt) {
           window.sessionStorage.setItem('lastPublishedAt', scene.publishedAt.toString());
         }
-
-        // Pré-carrega todos os assets GLTF com limite de concorrência (max 2) para evitar sobrecarga mobile
-        if (scene && scene.entities) {
-          const gltfUrls: string[] = [];
-          Object.values(scene.entities).forEach((e: any) => {
-            if (e.components?.GLTFModel?.fileName) {
-              const url = isOffline 
-                ? './assets/' + e.components.GLTFModel.fileName
-                : '/api/asset/' + encodeURIComponent(e.components.GLTFModel.fileName);
-              if (!THREE.Cache.get(url)) {
-                gltfUrls.push(url);
-              }
-            }
-          });
-
-          if (gltfUrls.length > 0) {
-            const limit = 2; // Downloads concorrentes simultâneos
-            let index = 0;
-            const runNext = () => {
-              if (index >= gltfUrls.length) return;
-              const url = gltfUrls[index++];
-              fetch(url, { priority: 'low' } as any)
-                .then(r => r.arrayBuffer())
-                .then(buf => {
-                  THREE.Cache.add(url, buf);
-                  updateCacheSize();
-                  runNext();
-                })
-                .catch(() => {
-                  runNext();
-                });
-            };
-            for (let i = 0; i < Math.min(limit, gltfUrls.length); i++) {
-              runNext();
-            }
-          }
-        }
       })
       .catch(() => {
         setSceneLoaded(true);
@@ -328,7 +306,14 @@ export function StandalonePlayer() {
       <SceneView
         isStandalone={true}
         sceneLoaded={sceneLoaded}
-        onProgress={(p) => setProgressVal(p)}
+        onProgress={(p) => {
+          if (progressBarRef.current) {
+            progressBarRef.current.style.width = `${p}%`;
+          }
+          if (progressTextRef.current) {
+            progressTextRef.current.innerText = `${p}%`;
+          }
+        }}
         onLoaded={() => setLoading(false)}
       />
       {showDebug && <DebugUI />}
@@ -437,22 +422,28 @@ export function StandalonePlayer() {
                   marginBottom: '12px',
                   border: '1px solid rgba(255,255,255,0.05)'
                 }}>
-                  <div style={{
-                    width: `${progressVal}%`,
-                    height: '100%',
-                    background: 'linear-gradient(90deg, #6366f1, #a855f7)',
-                    borderRadius: '3px',
-                    transition: 'width 0.3s ease',
-                    boxShadow: '0 0 10px rgba(99, 102, 241, 0.5)'
-                  }} />
+                  <div 
+                    ref={progressBarRef}
+                    style={{
+                      width: '0%',
+                      height: '100%',
+                      background: 'linear-gradient(90deg, #6366f1, #a855f7)',
+                      borderRadius: '3px',
+                      transition: 'width 0.3s ease',
+                      boxShadow: '0 0 10px rgba(99, 102, 241, 0.5)'
+                    }} 
+                  />
                 </div>
-                <span style={{
-                  fontFamily: 'monospace',
-                  fontSize: '13px',
-                  color: '#818cf8',
-                  fontWeight: 600
-                }}>
-                  {progressVal}%
+                <span 
+                  ref={progressTextRef}
+                  style={{
+                    fontFamily: 'monospace',
+                    fontSize: '13px',
+                    color: '#818cf8',
+                    fontWeight: 600
+                  }}
+                >
+                  0%
                 </span>
               </div>
             ) : !activeSceneId ? (

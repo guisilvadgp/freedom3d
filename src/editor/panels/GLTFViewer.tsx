@@ -10,8 +10,9 @@ import type { Entity } from '../../engine/ecs/types';
 
 // ── Um modelo GLTF carregado ─────────────────────────────────
 
-// Habilitar cache global do Three.js para evitar requisições redundantes de rede
-THREE.Cache.enabled = true;
+// Desabilitar cache interno do Three.js em memoria RAM para evitar duplicacao de buffers gigantes no JS.
+// O cacheamento persistente e ultrarrapido ja e feito nativamente pelo Cache Storage no patch do fetch.
+THREE.Cache.enabled = false;
 
 function shrinkTexture(texture: THREE.Texture, maxSize = 512) {
   if (!texture || !texture.image) return;
