@@ -366,7 +366,10 @@ function AudioInspector({ entityId }: { entityId: string }) {
   const sceneName = activeScene?.name || 'default';
 
   const [audioFiles, setAudioFiles] = useState<string[]>([]);
+  const [playing, setPlaying] = useState(false);
+  const [audioPreview, setAudioPreview] = useState<HTMLAudioElement | null>(null);
 
+  // Carrega lista de áudios
   useEffect(() => {
     let active = true;
     const fetchAudio = async () => {
@@ -383,6 +386,54 @@ function AudioInspector({ entityId }: { entityId: string }) {
     fetchAudio();
     return () => { active = false; };
   }, [sceneName]);
+
+  // Para a prévia se o áudio selecionado mudar
+  useEffect(() => {
+    if (audioPreview) {
+      audioPreview.pause();
+      setPlaying(false);
+    }
+  }, [audio.src]);
+
+  // Efeito de limpeza
+  useEffect(() => {
+    return () => {
+      if (audioPreview) {
+        audioPreview.pause();
+      }
+    };
+  }, [audioPreview]);
+
+  const togglePlayPreview = () => {
+    if (!audio.src) return;
+    
+    if (playing && audioPreview) {
+      audioPreview.pause();
+      setPlaying(false);
+    } else {
+      let preview = audioPreview;
+      if (!preview) {
+        preview = new Audio(audio.src);
+        preview.loop = audio.loop;
+        preview.onended = () => setPlaying(false);
+        setAudioPreview(preview);
+      } else {
+        preview.src = audio.src;
+        preview.loop = audio.loop;
+      }
+      preview.play()
+        .then(() => setPlaying(true))
+        .catch(err => console.error("Falha ao tocar preview de áudio:", err));
+    }
+  };
+
+  const stopPreview = () => {
+    if (audioPreview) {
+      audioPreview.pause();
+      audioPreview.currentTime = 0;
+      setPlaying(false);
+    }
+  };
 
   return (
     <div className="component-block">
@@ -402,9 +453,8 @@ function AudioInspector({ entityId }: { entityId: string }) {
           onChange={(e) => {
             const relPath = e.target.value;
             if (relPath) {
-              const fileName = relPath.split('/').pop() || relPath;
               const src = `/api/explorer/load-file?project=${encodeURIComponent(sceneName)}&subpath=${encodeURIComponent(relPath)}`;
-              updateComponent(entityId, 'Audio', { src, fileName } as any);
+              updateComponent(entityId, 'Audio', { src, fileName: relPath } as any);
             } else {
               updateComponent(entityId, 'Audio', { src: '', fileName: '' } as any);
             }
@@ -436,6 +486,52 @@ function AudioInspector({ entityId }: { entityId: string }) {
           }}
         />
       </div>
+
+      {/* Botões de visualização prévia (Play/Stop) */}
+      <div className="field-row" style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
+        <button
+          type="button"
+          onClick={togglePlayPreview}
+          disabled={!audio.src}
+          style={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px',
+            padding: '6px',
+            fontSize: '11px',
+            fontWeight: 'bold',
+            background: playing ? 'var(--accent-secondary)' : 'var(--bg-selected)',
+            border: '1px solid var(--border-accent)',
+            color: 'white',
+            borderRadius: '4px',
+            cursor: audio.src ? 'pointer' : 'not-allowed',
+            opacity: audio.src ? 1 : 0.5
+          }}
+        >
+          {playing ? 'Pausar Prévia' : 'Tocar Prévia'}
+        </button>
+        {playing && (
+          <button
+            type="button"
+            onClick={stopPreview}
+            style={{
+              padding: '6px 12px',
+              fontSize: '11px',
+              fontWeight: 'bold',
+              background: '#ef4444',
+              border: 'none',
+              color: 'white',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            Parar
+          </button>
+        )}
+      </div>
+
       <div className="field-row">
         <label className="field-label">Loop</label>
         <input

@@ -699,7 +699,7 @@ function EntityMesh({ entity, entities }: { entity: Entity; entities: Record<str
         <meshBasicMaterial color={light ? light.color : "#ffffff"} wireframe opacity={0.3} transparent visible={!isGameView} />
 
         {renderLight()}
-        {audio && audio.src && (
+        {audio && audio.src && isPlaying && (
           <PositionalAudio url={audio.src} loop={audio.loop} autoplay={audio.playOnStart} distance={10} />
         )}
         {particles && (
