@@ -150,7 +150,7 @@ export function createFirstPersonPlayer(name = 'First Person Player'): Entity {
   e.components.Transform!.position = [0, 2, 0];
   e.components.MeshRenderer = {
     type: 'MeshRenderer',
-    geometry: 'cylinder',
+    geometry: 'capsule',
     material: 'standard',
     color: '#3498db',
     castShadow: true,
