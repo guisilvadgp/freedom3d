@@ -126,6 +126,9 @@ function GLTFMesh({ entity }: { entity: Entity }) {
             if (!mesh.userData.originalMaterial) {
               mesh.userData.originalMaterial = mat;
             }
+            if (!mesh.userData.originalColor && mat.color) {
+              mesh.userData.originalColor = mat.color.clone();
+            }
             const textureKeys = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap'];
             textureKeys.forEach((key) => {
               if (mat[key] && mat[key].isTexture) {
@@ -247,6 +250,21 @@ function GLTFMesh({ entity }: { entity: Entity }) {
             } else {
               // Se voltou para 'none', restaura o material original do GLTF
               mat = mesh.userData.originalMaterial || origMat;
+
+              // Aplica coloração no material original (multiplica pela textura)
+              if (model.color && mat.color) {
+                if (model.color.toLowerCase() === '#ffffff') {
+                  // Se a cor for o branco padrão, restaura a cor original do GLB
+                  if (mesh.userData.originalColor) {
+                    mat.color.copy(mesh.userData.originalColor);
+                  } else {
+                    mat.color.set('#ffffff');
+                  }
+                } else {
+                  // Caso contrário, tingi o material com a cor customizada
+                  mat.color.set(model.color);
+                }
+              }
 
               // No material original, só aplicamos textura customizada se o usuário especificou uma
               if (model.textureUrl) {
