@@ -160,7 +160,7 @@
 | Lifecycle: Awake/Start/Update/etc. | ✅ | GameLoop dispara Updates para ScriptComponents ativos com Input e Física |
 | PlayerController example | ✅ | `FPSController` e `TPSController` embutidos na criação das entidades |
 | Multi-Componentes de Script | ✅ | Suporte a múltiplos scripts adicionais por entidade com ciclo de vida completo (onAwake, onUpdate) |
-| Referências e Variáveis (Unity Mode) | ✅ | Configuração de referências a outras Entidades (GameObjects), Componentes e tipos escalares direto pelo Inspector |
+| Referências e Variáveis (Unity Mode) | ✅ | Configuração de referências a outras Entidades (GameObjects), Componentes, tipos escalares e seleção de áudios (Audio Clips) locais direto pelo Inspector |
 
 ---
 
@@ -307,6 +307,7 @@ Fase 4 – XR (3 meses)        ████████░░   80% concluído (
 - ✅ Compilação JIT de scripts robusta com limpeza automática de modificadores de exportação
 - ✅ Novo painel Project File Explorer integrado, permitindo criar pastas, carregar, deletar e editar arquivos físicos de texto via Monaco Editor
 - ✅ Integração do Explorer com o Inspector de Áudio, com suporte a upload Drag & Drop de arquivos, listagem automatizada e botões de prévia (Play/Stop) local
+- ✅ Seleção direta de Audio Clips (áudios locais do projeto) em variáveis de scripts via Inspector, com mapeamento automático de tipo áudio no editor
 
 ### Fase 4 – O que foi feito:
 - ✅ Suporte WebXR integrado ao canvas

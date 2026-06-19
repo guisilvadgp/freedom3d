@@ -966,6 +966,29 @@ function ScriptInspector({ entityId }: { entityId: string }) {
   const scene = useEditorStore.getState().activeScene();
   const allEntities = scene ? Object.values(scene.entities) : [];
 
+  const activeSceneId = useEditorStore(s => s.activeSceneId);
+  const activeScene = useEditorStore(s => s.scenes[activeSceneId]);
+  const sceneName = activeScene?.name || 'default';
+
+  const [audioFiles, setAudioFiles] = useState<string[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    const fetchAudio = async () => {
+      try {
+        const res = await fetch(`/api/explorer-audio/list?project=${encodeURIComponent(sceneName)}`);
+        if (res.ok && active) {
+          const files = await res.json();
+          setAudioFiles(files);
+        }
+      } catch (err) {
+        console.error('Error fetching audio files in ScriptInspector:', err);
+      }
+    };
+    fetchAudio();
+    return () => { active = false; };
+  }, [sceneName]);
+
   // Extract variables (let name = value)
   const vars: Record<string, { type: 'number' | 'string' | 'boolean', value: any }> = {};
   const regex = /^(?:export\s+)?let\s+([a-zA-Z0-9_]+)\s*=\s*(.+?);?$/gm;
@@ -1068,6 +1091,7 @@ function ScriptInspector({ entityId }: { entityId: string }) {
                 >
                   <option value="entity">Entity (GameObject)</option>
                   <option value="component">Component</option>
+                  <option value="audio">Audio Clip</option>
                   <option value="number">Number</option>
                   <option value="string">String</option>
                   <option value="boolean">Boolean</option>
@@ -1115,6 +1139,34 @@ function ScriptInspector({ entityId }: { entityId: string }) {
                   {allEntities.map(ent => (
                     <option key={ent.id} value={ent.id}>{ent.name}</option>
                   ))}
+                </select>
+              )}
+
+              {v.type === 'audio' && (
+                <select
+                  value={v.value}
+                  onChange={(e) => {
+                    const copy = [...variablesList];
+                    copy[idx] = { ...v, value: e.target.value };
+                    onUpdateVars(copy);
+                  }}
+                  style={{
+                    width: '100%',
+                    background: 'var(--bg-panel)',
+                    border: '1px solid var(--border)',
+                    color: 'white',
+                    padding: '2px 4px',
+                    fontSize: '11px',
+                    borderRadius: '2px'
+                  }}
+                >
+                  <option value="">(Nenhum)</option>
+                  {audioFiles.map(file => {
+                    const url = `/api/explorer/load-file?project=${encodeURIComponent(sceneName)}&subpath=${encodeURIComponent(file)}`;
+                    return (
+                      <option key={file} value={url}>{file}</option>
+                    );
+                  })}
                 </select>
               )}
 
@@ -1325,6 +1377,7 @@ function ScriptInspector({ entityId }: { entityId: string }) {
             const { type, value } = vars[key];
             const isButtonField = key.toLowerCase().endsWith('button');
             const isAxisField = key.toLowerCase().endsWith('axis');
+            const isAudioField = key.toLowerCase().endsWith('sound') || key.toLowerCase().endsWith('audio') || key.toLowerCase().endsWith('clip');
             
             return (
               <div key={key} className="field-row" style={{ marginBottom: '4px' }}>
@@ -1360,6 +1413,21 @@ function ScriptInspector({ entityId }: { entityId: string }) {
                     <option value={1}>Eixo 1 (Mov. Analógico L - Y)</option>
                     <option value={2}>Eixo 2 (Câmera Analógico R - X)</option>
                     <option value={3}>Eixo 3 (Câmera Analógico R - Y)</option>
+                  </select>
+                ) : isAudioField ? (
+                  <select
+                    className="field-input"
+                    value={value || ''}
+                    onChange={e => updateVariable(key, e.target.value, 'string')}
+                    style={{ flex: 1, padding: '2px 4px', fontSize: '11px', borderRadius: '3px' }}
+                  >
+                    <option value="">(Nenhum)</option>
+                    {audioFiles.map(file => {
+                      const url = `/api/explorer/load-file?project=${encodeURIComponent(sceneName)}&subpath=${encodeURIComponent(file)}`;
+                      return (
+                        <option key={file} value={url}>{file}</option>
+                      );
+                    })}
                   </select>
                 ) : type === 'boolean' ? (
                   <input 
