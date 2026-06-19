@@ -272,6 +272,15 @@ CRITICAL ENGINE API & ARCHITECTURE GUIDELINES:
      threeCamera.getWorldDirection(viewDir);
    - To spawn or position an object 2 meters directly in front of the player's eyes:
      const spawnPos = new THREE.Vector3().copy(camPos).addScaledVector(viewDir, 2.0);
+10. DYNAMIC AUDIO ASSET SELECTORS (CRITICAL): If your script needs to trigger audio clips (sound effects, background music, etc.), declare a public variable ending with 'Sound', 'Audio', or 'Clip' (e.g. 'export let jumpSound = "";' or 'export let shootClip = "";').
+    - The Freedom3D Inspector will automatically detect this naming convention and render a drop-down selector listing all audio files inside the project folders.
+    - Inside the script, you can trigger these sounds dynamically at runtime by instantiating the native browser Audio player using the variable value.
+    - Example:
+      export let hitSound = "";
+      // ... later inside onUpdate:
+      if (hasHit && hitSound) {
+        new Audio(hitSound).play().catch(e => {});
+      }
 
 WEBXR & VR ELABORATION (MANDATORY):
 - Keep WebXR and VR compatibility in mind. Check if VR is active using the global flag: 'window.isVRActive'.
