@@ -274,11 +274,15 @@ Informações do Script Atual sendo Editado:
 - Entidade Associada: "${activeScript?.entityName || 'Sem nome'}"
 - Variáveis Declaradas para este Script:
 ${(activeScript?.variables || []).map((v: any) => `  * ${v.name} (tipo: ${v.type}, valor: ${v.value || 'vazio'})`).join('\n') || '  Nenhuma variável declarada.'}
+- Código Atual do Script (LEIA E ALTERE ESTE CÓDIGO SE O USUÁRIO SOLICITAR COMPLEMENTOS, AJUSTES OU REFORMA):
+\`\`\`javascript
+${currentCode || '// Nenhum código inicial no script.'}
+\`\`\`
 
 Estrutura completa da cena atual (Entidades e Scripts disponíveis no projeto):
 ${sceneContext || 'Nenhuma outra entidade/script na cena.'}
 
-Retorne APENAS o código JavaScript puro contendo as funções onAwake e/ou onUpdate, sem explicações em markdown, sem delimitadores, sem tags, sem conversa inicial ou final. Apenas o JavaScript puro contendo a lógica correta respeitando o updateComponent.`;
+Retorne APENAS o código JavaScript COMPLETO (aplicando as alterações diretamente sobre o código atual do script fornecido se aplicável), contendo as funções onAwake e/ou onUpdate. Não inclua explicações em markdown, sem delimitadores, sem tags, sem conversa inicial ou final. Apenas o JavaScript puro contendo a lógica correta respeitando o updateComponent.`;
 
       const headers: Record<string, string> = {
         'Content-Type': 'application/json'
