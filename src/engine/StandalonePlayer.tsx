@@ -55,79 +55,7 @@ async function clearAssetsCache() {
   }
 }
 
-// Monkey-patch THREE.FileLoader para interceptar carregamento do Three.js e servir do Cache Storage
-if (typeof window !== 'undefined') {
-  const originalFileLoaderLoad = THREE.FileLoader.prototype.load;
 
-  THREE.FileLoader.prototype.load = function (
-    this: any,
-    url: string,
-    onLoad?: (response: string | ArrayBuffer) => void,
-    onProgress?: (request: ProgressEvent) => void,
-    onError?: (event: any) => void
-  ) {
-    const self = this;
-
-    if (url.includes('/api/asset/')) {
-      (async () => {
-        try {
-          const cache = await window.caches.open('freedom3d-assets-cache');
-          const cachedResponse = await cache.match(url);
-          
-          if (cachedResponse) {
-            let data: any;
-            if (self.responseType === 'arraybuffer') {
-              data = await cachedResponse.arrayBuffer();
-            } else if (self.responseType === 'blob') {
-              data = await cachedResponse.blob();
-            } else if (self.responseType === 'json') {
-              data = await cachedResponse.json();
-            } else {
-              data = await cachedResponse.text();
-            }
-            
-            if (onLoad) {
-              onLoad(data);
-            }
-            return;
-          }
-        } catch (err) {
-          console.warn('[Cache Match Error]', err);
-        }
-
-        // Se não encontrar no cache, faz o fetch normal e salva no cache ao concluir
-        const customOnLoad = async (response: string | ArrayBuffer) => {
-          try {
-            const cache = await window.caches.open('freedom3d-assets-cache');
-            const responseHeaders = {
-              headers: {
-                'content-type': self.responseType === 'arraybuffer' ? 'application/octet-stream' : 'text/plain',
-                'content-length': (response instanceof ArrayBuffer ? response.byteLength : new Blob([response]).size).toString()
-              }
-            };
-            const cacheResponse = new Response(response, responseHeaders);
-            await cache.put(url, cacheResponse);
-            
-            if ((window as any).__updateFreedom3DCacheSize) {
-              (window as any).__updateFreedom3DCacheSize();
-            }
-          } catch (cacheErr) {
-            console.warn('[Cache Put Error]', cacheErr);
-          }
-
-          if (onLoad) {
-            onLoad(response);
-          }
-        };
-
-        originalFileLoaderLoad.call(self, url, customOnLoad, onProgress, onError);
-      })();
-      return;
-    }
-
-    return originalFileLoaderLoad.call(self, url, onLoad, onProgress, onError);
-  } as any;
-}
 
 function DebugUI() {
   const consoleLogs = useEditorStore(state => state.consoleLogs);
@@ -247,8 +175,9 @@ export function StandalonePlayer() {
     const originalFetch = window.fetch;
     window.fetch = async (input, init) => {
       const urlStr = typeof input === 'string' ? input : (input as Request).url || '';
+      const method = (init && init.method) || 'GET';
       
-      if (urlStr.includes('/api/asset/')) {
+      if (method.toUpperCase() === 'GET' && (urlStr.includes('/api/asset/') || urlStr.includes('/get-asset') || urlStr.includes('/api/project/get-asset'))) {
         try {
           const cache = await window.caches.open('freedom3d-assets-cache');
           const cachedResponse = await cache.match(input);
@@ -258,9 +187,15 @@ export function StandalonePlayer() {
           
           const response = await originalFetch(input, init);
           if (response.status === 200) {
-            await cache.put(input, response.clone());
-            // Atualiza tamanho do cache após salvar novo asset
-            updateCacheSize();
+            try {
+              await cache.put(input, response.clone());
+              // Atualiza tamanho do cache sem bloquear a thread principal
+              setTimeout(() => {
+                updateCacheSize();
+              }, 100);
+            } catch (err) {
+              console.warn('[Cache Put Error]', err);
+            }
           }
           return response;
         } catch (e) {
