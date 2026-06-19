@@ -152,7 +152,7 @@ export default function App() {
     const handleMessage = (event: MessageEvent) => {
       const store = useEditorStore.getState();
       
-      if (event.data.type === 'REQUEST_INITIAL_DATA') {
+      const broadcastScriptsList = () => {
         const scene = store.activeScene();
         if (!scene) return;
         
@@ -186,7 +186,7 @@ export default function App() {
             }
           }
         }
-        
+
         const currentEntity = store.selectedEntity();
         let currentScript = null;
         if (currentEntity && currentEntity.components.Script) {
@@ -206,6 +206,10 @@ export default function App() {
           scriptsList,
           currentScript
         });
+      };
+
+      if (event.data.type === 'REQUEST_INITIAL_DATA') {
+        broadcastScriptsList();
       } else if (event.data.type === 'UPDATE_SCRIPT') {
         const { entityId, scriptId, patch } = event.data;
         const scene = store.activeScene();
@@ -238,6 +242,42 @@ export default function App() {
           code: patch.code,
           scriptName: patch.scriptName
         });
+      } else if (event.data.type === 'CREATE_ADDITIONAL_SCRIPT') {
+        const { entityId, scriptId, scriptName } = event.data;
+        const scene = store.activeScene();
+        if (!scene) return;
+        const entity = scene.entities[entityId];
+        if (!entity || !entity.components.Script) return;
+
+        const mainScript = entity.components.Script as any;
+        const newScript = {
+          id: scriptId,
+          scriptName: scriptName,
+          code: `// Comportamento adicional\nexport function onAwake() {\n  // Chamado na inicialização\n}\n\nexport function onUpdate(delta) {\n  // Chamado a cada frame\n}`,
+          variables: []
+        };
+
+        const updatedScripts = [...(mainScript.scripts || []), newScript];
+        store.updateComponent(entityId, 'Script', {
+          scripts: updatedScripts
+        });
+
+        broadcastScriptsList();
+      } else if (event.data.type === 'DELETE_ADDITIONAL_SCRIPT') {
+        const { entityId, scriptId } = event.data;
+        const scene = store.activeScene();
+        if (!scene) return;
+        const entity = scene.entities[entityId];
+        if (!entity || !entity.components.Script) return;
+
+        const mainScript = entity.components.Script as any;
+        const updatedScripts = (mainScript.scripts || []).filter((s: any) => s.id !== scriptId);
+        
+        store.updateComponent(entityId, 'Script', {
+          scripts: updatedScripts
+        });
+
+        broadcastScriptsList();
       } else if (event.data.type === 'SAVE_PROJECT_SCENE') {
         store.saveCurrentScene();
       }

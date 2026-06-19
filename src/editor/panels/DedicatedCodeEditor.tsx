@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Editor from '@monaco-editor/react';
 import { 
-  FileCode, Sparkles, Save, Code, Wand2, Check 
+  FileCode, Sparkles, Save, Code, Wand2, Check, Plus, Trash2
 } from 'lucide-react';
 
 interface ScriptItem {
@@ -370,6 +370,37 @@ Retorne APENAS o código JavaScript COMPLETO (aplicando as alterações diretame
     setCurrentCode(aiResponse);
   };
 
+  const handleDeleteScript = (entityId: string, scriptId: string, scriptName: string) => {
+    if (confirm(`Tem certeza que deseja excluir o script adicional "${scriptName}"?`)) {
+      setScripts(prev => prev.filter(s => !(s.entityId === entityId && s.scriptId === scriptId)));
+      if (selectedEntityId === entityId && selectedScriptId === scriptId) {
+        setSelectedEntityId(null);
+        setSelectedScriptId(null);
+        setCurrentCode('');
+        setCurrentScriptName('');
+      }
+      channelRef.current?.postMessage({
+        type: 'DELETE_ADDITIONAL_SCRIPT',
+        entityId,
+        scriptId
+      });
+      channelRef.current?.postMessage({
+        type: 'SAVE_PROJECT_SCENE'
+      });
+    }
+  };
+
+  const groupedScripts = scripts.reduce((acc, script) => {
+    if (!acc[script.entityId]) {
+      acc[script.entityId] = {
+        entityName: script.entityName,
+        items: []
+      };
+    }
+    acc[script.entityId].items.push(script);
+    return acc;
+  }, {} as Record<string, { entityName: string, items: ScriptItem[] }>);
+
   return (
     <div className="dedicated-editor-root">
       {/* Header */}
@@ -406,18 +437,103 @@ Retorne APENAS o código JavaScript COMPLETO (aplicando as alterações diretame
         <aside className="dedicated-editor-sidebar">
           <div className="sidebar-section-title">Scripts na Cena</div>
           <div className="scripts-list">
-            {scripts.map(s => (
-              <button 
-                key={`${s.entityId}-${s.scriptId}`} 
-                className={`script-item-btn ${selectedEntityId === s.entityId && selectedScriptId === s.scriptId ? 'active' : ''}`}
-                onClick={() => handleSelectScript(s.entityId, s.scriptId)}
-              >
-                <FileCode size={14} style={{ color: s.isAdditional ? '#10b981' : 'inherit' }} />
-                <span className="script-name">
-                  {s.entityName} / {s.scriptName}.js {s.isAdditional && <span style={{ fontSize: '8px', opacity: 0.6, background: '#10b981', color: 'black', padding: '1px 3px', borderRadius: '2px', marginLeft: '4px' }}>ADD</span>}
-                </span>
-              </button>
-            ))}
+            {Object.keys(groupedScripts).map(entId => {
+              const group = groupedScripts[entId];
+              return (
+                <div key={entId} className="entity-scripts-group" style={{ marginBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.03)', paddingBottom: '12px' }}>
+                  <div className="entity-group-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 8px', background: 'rgba(255,255,255,0.03)', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={group.entityName}>{group.entityName}</span>
+                    <button
+                      onClick={() => {
+                        const additionalCount = group.items.filter(i => i.isAdditional).length;
+                        const newScriptName = window.prompt("Nome do script adicional:", `ScriptAdicional${additionalCount + 1}`);
+                        if (!newScriptName) return;
+                        
+                        const newScriptId = Math.random().toString(36).substring(2, 9);
+                        
+                        channelRef.current?.postMessage({
+                          type: 'CREATE_ADDITIONAL_SCRIPT',
+                          entityId: entId,
+                          scriptId: newScriptId,
+                          scriptName: newScriptName
+                        });
+                      }}
+                      title="Adicionar Script Adicional"
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--accent-primary)',
+                        cursor: 'pointer',
+                        padding: '2px',
+                        display: 'flex',
+                        alignItems: 'center'
+                      }}
+                      className="hover-bright"
+                    >
+                      <Plus size={12} />
+                    </button>
+                  </div>
+                  <div className="group-items" style={{ paddingLeft: '4px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                    {group.items.map(s => (
+                      <div 
+                        key={`${s.entityId}-${s.scriptId}`} 
+                        className={`script-item-row ${selectedEntityId === s.entityId && selectedScriptId === s.scriptId ? 'active' : ''}`}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          borderRadius: '4px',
+                          background: selectedEntityId === s.entityId && selectedScriptId === s.scriptId ? 'var(--bg-selected)' : 'transparent'
+                        }}
+                      >
+                        <button 
+                          className="script-item-btn"
+                          onClick={() => handleSelectScript(s.entityId, s.scriptId)}
+                          style={{
+                            flex: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            background: 'transparent',
+                            border: 'none',
+                            color: 'inherit',
+                            textAlign: 'left',
+                            padding: '6px 8px',
+                            cursor: 'pointer',
+                            overflow: 'hidden'
+                          }}
+                        >
+                          <FileCode size={13} style={{ color: s.isAdditional ? '#10b981' : '#60a5fa', flexShrink: 0 }} />
+                          <span className="script-name" style={{ fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {s.scriptName}.js
+                          </span>
+                        </button>
+
+                        {s.isAdditional && (
+                          <button
+                            onClick={() => handleDeleteScript(s.entityId, s.scriptId, s.scriptName)}
+                            title="Excluir Script"
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              color: '#ef4444',
+                              cursor: 'pointer',
+                              padding: '6px 8px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              opacity: 0.7
+                            }}
+                            className="hover-danger"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
             {scripts.length === 0 && (
               <div className="no-scripts-hint">Nenhum script na cena. Crie ou selecione uma entidade no editor e adicione um ScriptComponent.</div>
             )}
