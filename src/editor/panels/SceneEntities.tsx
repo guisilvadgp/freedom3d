@@ -10,15 +10,36 @@ import type { Entity } from '../../engine/ecs/types';
 import { attemptTeleport } from './SceneView';
 
 // ── Audio Listener Global Singleton ──────────────────────────
-const globalAudioListener = new THREE.AudioListener();
-globalAudioListener.name = 'global-audio-listener';
+let globalAudioListener: THREE.AudioListener | null = null;
+
+function getGlobalAudioListener(): THREE.AudioListener {
+  if (!globalAudioListener) {
+    globalAudioListener = new THREE.AudioListener();
+    globalAudioListener.name = 'global-audio-listener';
+  }
+  return globalAudioListener;
+}
 
 function GlobalAudioListenerHandler() {
   const camera = useThree(s => s.camera);
   
   useEffect(() => {
-    if (globalAudioListener.parent !== camera) {
-      camera.add(globalAudioListener);
+    const listener = getGlobalAudioListener();
+
+    // Ativa o contexto de áudio em navegadores mobile se estiver suspenso
+    if (listener.context && listener.context.state === 'suspended') {
+      const resumeContext = () => {
+        listener.context.resume().then(() => {
+          window.removeEventListener('click', resumeContext);
+          window.removeEventListener('touchstart', resumeContext);
+        });
+      };
+      window.addEventListener('click', resumeContext);
+      window.addEventListener('touchstart', resumeContext);
+    }
+
+    if (listener.parent !== camera) {
+      camera.add(listener);
     }
   }, [camera]);
 
@@ -489,7 +510,7 @@ function Audio2D({ url, loop, volume }: { url: string; loop: boolean; volume: nu
     audioEl.preload = 'auto';
     audioElRef.current = audioEl;
 
-    const sound = new THREE.Audio(globalAudioListener);
+    const sound = new THREE.Audio(getGlobalAudioListener());
     sound.setMediaElementSource(audioEl);
     sound.setVolume(volume);
 
@@ -544,7 +565,7 @@ function SpatialAudio({
     audioEl.preload = 'auto';
     audioElRef.current = audioEl;
 
-    const sound = new THREE.PositionalAudio(globalAudioListener);
+    const sound = new THREE.PositionalAudio(getGlobalAudioListener());
     sound.setMediaElementSource(audioEl);
 
     // Configurações iniciais de espacialização
