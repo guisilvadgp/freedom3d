@@ -1,5 +1,5 @@
 import { XROrigin } from '@react-three/xr';
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, Suspense } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { TransformControls, Edges, Sparkles, PerspectiveCamera } from '@react-three/drei';
 import { RigidBody, MeshCollider } from '@react-three/rapier';
@@ -8,6 +8,7 @@ import { useEditorStore } from '../store/editorStore';
 import { useShallow } from 'zustand/react/shallow';
 import type { Entity } from '../../engine/ecs/types';
 import { attemptTeleport } from './SceneView';
+import { GLTFModelRenderer } from './GLTFViewer';
 
 // ── Audio Listener Global Singleton ──────────────────────────
 let globalAudioListener: THREE.AudioListener | null = null;
@@ -932,8 +933,21 @@ function EntityMesh({ entity, entities }: { entity: Entity; entities: Record<str
         onPointerDown={isStandalone ? undefined : handlePointerDown}
         onPointerUp={isStandalone ? undefined : handlePointerUp}
       >
-        <sphereGeometry args={[0.2, 8, 8]} />
-        <meshBasicMaterial color={light ? light.color : "#ffffff"} wireframe opacity={0.3} transparent visible={!isGameView} />
+        {entity.components.GLTFModel ? (
+          <Suspense fallback={
+            <>
+              <sphereGeometry args={[0.2, 8, 8]} />
+              <meshBasicMaterial color="#44aaff" wireframe opacity={0.5} transparent visible={!isGameView} />
+            </>
+          }>
+            <GLTFModelRenderer entity={entity} />
+          </Suspense>
+        ) : (
+          <>
+            <sphereGeometry args={[0.2, 8, 8]} />
+            <meshBasicMaterial color={light ? light.color : "#ffffff"} wireframe opacity={0.3} transparent visible={!isGameView} />
+          </>
+        )}
 
         {renderLight()}
         {audio && audio.src && (
