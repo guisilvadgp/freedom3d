@@ -250,7 +250,8 @@ API e Regras de Scripting Cruciais do Freedom3D:
 4. INPUT: Use o objeto global 'Input' para verificar entradas (ex: 'Input.isKeyPressed("KeyW")', 'Input.isMouseButtonPressed(0)').
 5. VARIÁVEIS DO INSPECTOR: Variáveis declaradas no painel são injetadas automaticamente no escopo do script com seus nomes globais (ex: se o script tem uma variável 'speed', você pode lê-la como 'speed').
 6. MATEMÁTICA E THREE.JS: Você tem acesso completo ao objeto global 'THREE' (ex: 'new THREE.Vector3()').
-7. PERSISTÊNCIA DE VARIÁVEIS LOCAIS: NÃO use 'globalThis' ou 'window' para salvar variáveis de controle (como cronômetros e timers). O compilador de scripts do Freedom3D mantém closures vivas; portanto, declarar variáveis simples no escopo externo (com 'let' ou 'var') fora das funções fará com que seus valores persistam perfeitamente entre os frames sem conflitar com outras entidades na cena.
+7. PERSISTÊNCIA DE VARIÁVEIS LOCAIS: NÃO use 'globalThis' ou 'window' para salvar variáveis de controle (como cronômetros e timers). Também NÃO anexe propriedades a funções (ex: 'onUpdate._t'). O compilador de scripts do Freedom3D mantém closures vivas; portanto, declarar variáveis simples no escopo externo (com 'let' ou 'var') fora das funções fará com que seus valores persistam de forma limpa e isolada entre frames sem conflitos.
+
 
 
 Informações do Script Atual sendo Editado:
