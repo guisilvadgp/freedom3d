@@ -402,9 +402,19 @@ export function onUpdate(delta) {
   return e;
 }
 
+export function createEmpty(name = 'Empty'): Entity {
+  return createEntity(name);
+}
 
-
-
-
-
-
+export function createCapsule(name = 'Capsule'): Entity {
+  const e = createEntity(name);
+  e.components.MeshRenderer = {
+    type: 'MeshRenderer',
+    geometry: 'capsule',
+    material: 'standard',
+    color: '#e67e22',
+    castShadow: true,
+    receiveShadow: true,
+  };
+  return e;
+}

@@ -18,14 +18,18 @@ import {
   Plus,
   Video,
   Cpu,
-  Edit2
+  Edit2,
+  CircleDot,
+  Capsule
 } from 'lucide-react';
 
 const ENTITY_TYPES = [
+  { id: 'empty', label: 'Empty', icon: <CircleDot size={14} /> },
   { id: 'cube', label: 'Cube', icon: <Box size={14} /> },
   { id: 'sphere', label: 'Sphere', icon: <Circle size={14} /> },
   { id: 'plane', label: 'Plane', icon: <Square size={14} /> },
   { id: 'cylinder', label: 'Cylinder', icon: <Database size={14} /> },
+  { id: 'capsule', label: 'Capsule', icon: <Capsule size={14} /> },
   { id: 'torus', label: 'Torus', icon: <Disc size={14} /> },
 ];
 
@@ -167,9 +171,14 @@ function HierarchyNode({
   const renderIcon = () => {
     if (entity.components.Light) return <Sun size={14} />;
     if (entity.components.Camera) return <Video size={14} />;
-    if (entity.components.MeshRenderer) return <Box size={14} />;
+    if (entity.components.MeshRenderer) {
+      if (entity.components.MeshRenderer.geometry === 'capsule') {
+        return <Capsule size={14} />;
+      }
+      return <Box size={14} />;
+    }
     if (entity.components.Script) return <Cpu size={14} />;
-    return <Box size={14} />;
+    return <CircleDot size={14} />;
   };
 
   return (

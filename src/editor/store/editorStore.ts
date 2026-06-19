@@ -13,6 +13,8 @@ import {
   createFirstPersonPlayer,
   createThirdPersonPlayer,
   createVRPosition,
+  createEmpty,
+  createCapsule,
 } from '../../engine/ecs/EntityFactory';
 
 export type EditorMode = 'select' | 'translate' | 'rotate' | 'scale';
@@ -315,6 +317,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         case 'plane': entity = createPlane('Plane'); entity.components.Transform!.scale = [1,1,1]; break;
         case 'cylinder': entity = createCylinder(); break;
         case 'torus': entity = createTorus(); break;
+        case 'capsule': entity = createCapsule(); break;
+        case 'empty': entity = createEmpty(); break;
         case 'directional': entity = createDirectionalLight(); break;
         case 'point': entity = createPointLight(); break;
         case 'first-person': entity = createFirstPersonPlayer(); break;

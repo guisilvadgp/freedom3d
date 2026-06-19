@@ -794,6 +794,7 @@ function EntityMesh({ entity, entities }: { entity: Entity; entities: Record<str
       case 'cylinder': return <cylinderGeometry args={[0.5, 0.5, 1, 32]} />;
       case 'torus': return <torusGeometry args={[0.5, 0.2, 16, 64]} />;
       case 'cone': return <coneGeometry args={[0.5, 1, 32]} />;
+      case 'capsule': return <capsuleGeometry args={[0.3, 1, 8, 16]} />;
       default: return <boxGeometry args={[1, 1, 1]} />;
     }
   };
