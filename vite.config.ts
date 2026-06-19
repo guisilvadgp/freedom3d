@@ -665,6 +665,165 @@ const liveSyncPlugin = () => {
           return;
         }
 
+        // --- API DO FILE EXPLORER ---
+
+        // 1. Listar arquivos e pastas
+        if (req.url.startsWith('/api/explorer/list') && req.method === 'GET') {
+          try {
+            const urlParams = new URL(req.url, 'http://localhost');
+            const projectName = urlParams.searchParams.get('project') || '';
+            const subpath = urlParams.searchParams.get('subpath') || '';
+            const targetPath = path.join(projectsDir, projectName.trim(), subpath);
+
+            if (!fs.existsSync(targetPath)) {
+              res.statusCode = 404;
+              res.end('Directory not found');
+              return;
+            }
+
+            const items = fs.readdirSync(targetPath);
+            const list = items.map(name => {
+              const itemPath = path.join(targetPath, name);
+              const relativePath = subpath ? `${subpath}/${name}` : name;
+              const stat = fs.statSync(itemPath);
+              return {
+                name,
+                isDir: stat.isDirectory(),
+                path: relativePath,
+                size: stat.isFile() ? stat.size : 0
+              };
+            });
+
+            res.setHeader('Content-Type', 'application/json');
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.end(JSON.stringify(list));
+          } catch (e: any) {
+            res.statusCode = 500;
+            res.end(JSON.stringify({ error: e.message }));
+          }
+          return;
+        }
+
+        // 2. Criar Pasta
+        if (req.url.startsWith('/api/explorer/create-folder') && req.method === 'POST') {
+          let body = '';
+          req.on('data', (chunk: any) => { body += chunk; });
+          req.on('end', () => {
+            try {
+              const { project, subpath, folderName } = JSON.parse(body);
+              const cleanFolderName = folderName.replace(/[^a-zA-Z0-9_\-\s]/g, '').trim();
+              if (!cleanFolderName) throw new Error('Nome de pasta inválido');
+
+              const targetPath = path.join(projectsDir, project.trim(), subpath || '', cleanFolderName);
+              if (!fs.existsSync(targetPath)) {
+                fs.mkdirSync(targetPath, { recursive: true });
+              }
+              res.setHeader('Content-Type', 'application/json');
+              res.setHeader('Access-Control-Allow-Origin', '*');
+              res.end(JSON.stringify({ success: true }));
+            } catch (e: any) {
+              res.statusCode = 500;
+              res.end(JSON.stringify({ error: e.message }));
+            }
+          });
+          return;
+        }
+
+        // 3. Criar Arquivo
+        if (req.url.startsWith('/api/explorer/create-file') && req.method === 'POST') {
+          let body = '';
+          req.on('data', (chunk: any) => { body += chunk; });
+          req.on('end', () => {
+            try {
+              const { project, subpath, fileName, content } = JSON.parse(body);
+              const cleanFileName = fileName.replace(/[^a-zA-Z0-9_\-\.\s]/g, '').trim();
+              if (!cleanFileName) throw new Error('Nome de arquivo inválido');
+
+              const targetPath = path.join(projectsDir, project.trim(), subpath || '', cleanFileName);
+              fs.writeFileSync(targetPath, content || '', 'utf8');
+
+              res.setHeader('Content-Type', 'application/json');
+              res.setHeader('Access-Control-Allow-Origin', '*');
+              res.end(JSON.stringify({ success: true }));
+            } catch (e: any) {
+              res.statusCode = 500;
+              res.end(JSON.stringify({ error: e.message }));
+            }
+          });
+          return;
+        }
+
+        // 4. Ler Arquivo
+        if (req.url.startsWith('/api/explorer/read-file') && req.method === 'GET') {
+          try {
+            const urlParams = new URL(req.url, 'http://localhost');
+            const projectName = urlParams.searchParams.get('project') || '';
+            const subpath = urlParams.searchParams.get('subpath') || '';
+            const targetPath = path.join(projectsDir, projectName.trim(), subpath);
+
+            if (!fs.existsSync(targetPath) || !fs.statSync(targetPath).isFile()) {
+              res.statusCode = 404;
+              res.end('File not found');
+              return;
+            }
+
+            const content = fs.readFileSync(targetPath, 'utf8');
+            res.setHeader('Content-Type', 'application/json');
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.end(JSON.stringify({ content }));
+          } catch (e: any) {
+            res.statusCode = 500;
+            res.end(JSON.stringify({ error: e.message }));
+          }
+          return;
+        }
+
+        // 5. Escrever/Salvar Arquivo
+        if (req.url.startsWith('/api/explorer/write-file') && req.method === 'POST') {
+          let body = '';
+          req.on('data', (chunk: any) => { body += chunk; });
+          req.on('end', () => {
+            try {
+              const { project, subpath, content } = JSON.parse(body);
+              const targetPath = path.join(projectsDir, project.trim(), subpath);
+
+              fs.writeFileSync(targetPath, content, 'utf8');
+
+              res.setHeader('Content-Type', 'application/json');
+              res.setHeader('Access-Control-Allow-Origin', '*');
+              res.end(JSON.stringify({ success: true }));
+            } catch (e: any) {
+              res.statusCode = 500;
+              res.end(JSON.stringify({ error: e.message }));
+            }
+          });
+          return;
+        }
+
+        // 6. Excluir Arquivo/Pasta
+        if (req.url.startsWith('/api/explorer/delete') && req.method === 'POST') {
+          let body = '';
+          req.on('data', (chunk: any) => { body += chunk; });
+          req.on('end', () => {
+            try {
+              const { project, subpath } = JSON.parse(body);
+              const targetPath = path.join(projectsDir, project.trim(), subpath);
+
+              if (fs.existsSync(targetPath)) {
+                fs.rmSync(targetPath, { recursive: true, force: true });
+              }
+
+              res.setHeader('Content-Type', 'application/json');
+              res.setHeader('Access-Control-Allow-Origin', '*');
+              res.end(JSON.stringify({ success: true }));
+            } catch (e: any) {
+              res.statusCode = 500;
+              res.end(JSON.stringify({ error: e.message }));
+            }
+          });
+          return;
+        }
+
         next();
       });
     }

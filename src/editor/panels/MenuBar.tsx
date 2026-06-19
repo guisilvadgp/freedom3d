@@ -4,7 +4,7 @@ import { useEditorStore } from '../store/editorStore';
 import { 
   FolderOpen, Save, Play, Square, Wifi, Download,
   RotateCcw, RotateCw, Copy, Trash2, Eye, EyeOff, Monitor,
-  Compass, Keyboard, Info, CheckCircle, Film, Plus
+  Compass, Keyboard, Info, CheckCircle, Film, Plus, Files
 } from 'lucide-react';
 
 export function MenuBar() {
@@ -315,6 +315,11 @@ export function MenuBar() {
                 <CheckCircle size={13} />
                 <span>Painel: Editor de Script</span>
                 <span className="menu-shortcut">Alt + 3</span>
+              </button>
+              <button onClick={() => setBottomTab('explorer')} className={bottomTab === 'explorer' ? 'checked' : ''}>
+                <Files size={13} />
+                <span>Painel: File Explorer</span>
+                <span className="menu-shortcut">Alt + 4</span>
               </button>
               <div className="menu-divider" />
               <button onClick={toggleGrid}>

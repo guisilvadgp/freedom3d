@@ -305,6 +305,7 @@ Fase 4 – XR (3 meses)        ████████░░   80% concluído (
 - ✅ Sistema de Animação com State Machine, transições de crossfade e UI avançada no Inspector
 - ✅ Assistente de Código por IA (Pollinations) com triplo fallback, injeção do código atual e suporte a ECS
 - ✅ Compilação JIT de scripts robusta com limpeza automática de modificadores de exportação
+- ✅ Novo painel Project File Explorer integrado, permitindo criar pastas, carregar, deletar e editar arquivos físicos de texto via Monaco Editor
 
 ### Fase 4 – O que foi feito:
 - ✅ Suporte WebXR integrado ao canvas
@@ -321,7 +322,7 @@ Fase 4 – XR (3 meses)        ████████░░   80% concluído (
 | Categoria | Itens totais (estimado) | Implementados | % |
 |-----------|------------------------|---------------|---|
 | ECS Types & Components | 12 | 12 | 100% |
-| Editor Panels | 6 | 6 | 100% |
+| Editor Panels | 7 | 7 | 100% |
 | Materials | 6 | 6 | 100% |
 | Lights | 6 | 4 | 67% |
 | Asset Formats | 8 | 2 | 25% |
@@ -330,7 +331,7 @@ Fase 4 – XR (3 meses)        ████████░░   80% concluído (
 | VR/AR | 10 | 7 | 70% |
 | Multiplayer | 5 | 4 | 80% |
 | Build Targets | 5 | 2 | 40% |
-| **TOTAL** | **~68** | **~49** | **~72%** |
+| **TOTAL** | **~69** | **~50** | **~73%** |
 
 > O MVP (Fase 1 e Fase 2) do editor foi concluído com sucesso.
 > A maior parte das funcionalidades de Produção (Física, Áudio, Multiplayer) e WebXR (VR imersivo) já foram integradas e validadas!

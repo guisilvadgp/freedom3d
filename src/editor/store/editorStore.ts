@@ -17,7 +17,7 @@ import {
 
 export type EditorMode = 'select' | 'translate' | 'rotate' | 'scale';
 export type ViewMode = 'perspective' | 'top' | 'front' | 'right';
-export type PanelTab = 'hierarchy' | 'assets' | 'console' | 'script';
+export type PanelTab = 'hierarchy' | 'assets' | 'console' | 'script' | 'explorer';
 
 export interface ConsoleLog {
   id: string;

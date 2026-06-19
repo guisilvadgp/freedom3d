@@ -6,6 +6,7 @@ import { InspectorPanel } from './editor/panels/InspectorPanel';
 import { ConsolePanel } from './editor/panels/ConsolePanel';
 import { AssetBrowser } from './editor/panels/AssetBrowser';
 import { ScriptEditor } from './editor/panels/ScriptEditor';
+import { ProjectExplorer } from './editor/panels/ProjectExplorer';
 import { SaveLoadModal } from './editor/panels/SaveLoadModal';
 import { TitleBar } from './editor/panels/TitleBar';
 import { MenuBar } from './editor/panels/MenuBar';
@@ -14,7 +15,7 @@ import { useEditorStore } from './editor/store/editorStore';
 import { DedicatedCodeEditor } from './editor/panels/DedicatedCodeEditor';
 import './index.css';
 import { useEffect, useState } from 'react';
-import { Terminal, FolderOpen, Code } from 'lucide-react';
+import { Terminal, FolderOpen, Code, Files } from 'lucide-react';
 
 export default function App() {
   if (window.location.pathname.startsWith('/preview') || (window as any).__freedom3d_standalone__) {
@@ -316,6 +317,10 @@ export default function App() {
         e.preventDefault();
         store.setBottomTab('script');
       }
+      if (e.altKey && e.key === '4') {
+        e.preventDefault();
+        store.setBottomTab('explorer');
+      }
 
       // G (Grid)
       if (!e.ctrlKey && !e.altKey && !e.metaKey && e.key.toLowerCase() === 'g') {
@@ -388,7 +393,7 @@ export default function App() {
           <div className="resizer-row" onMouseDown={handleBottomResize} />
           <div className="bottom-panel" style={{ height: bottomHeight }}>
             <div className="bottom-tabs">
-              {(['console', 'assets', 'script'] as const).map((tab) => (
+              {(['console', 'assets', 'script', 'explorer'] as const).map((tab) => (
                 <button
                   key={tab}
                   className={`bottom-tab ${bottomTab === tab ? 'active' : ''}`}
@@ -397,7 +402,8 @@ export default function App() {
                   {tab === 'console' && <Terminal size={14} />}
                   {tab === 'assets' && <FolderOpen size={14} />}
                   {tab === 'script' && <Code size={14} />}
-                  <span style={{ textTransform: 'capitalize' }}>{tab}</span>
+                  {tab === 'explorer' && <Files size={14} />}
+                  <span style={{ textTransform: 'capitalize' }}>{tab === 'explorer' ? 'Explorer' : tab}</span>
                 </button>
               ))}
             </div>
@@ -405,6 +411,7 @@ export default function App() {
               {bottomTab === 'console' && <ConsolePanel />}
               {bottomTab === 'assets' && <AssetBrowser />}
               {bottomTab === 'script' && <ScriptEditor />}
+              {bottomTab === 'explorer' && <ProjectExplorer />}
             </div>
           </div>
         </div>
