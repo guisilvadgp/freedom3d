@@ -82,6 +82,15 @@ export interface AnimatorComponent {
   currentAnimation: string;
   loop: boolean;
   timeScale: number;
+  animationsList?: string[];
+  currentState?: string;
+  states?: {
+    [stateName: string]: {
+      clipName: string;
+      loop: boolean;
+      timeScale: number;
+    }
+  };
 }
 
 export interface NetworkComponent {

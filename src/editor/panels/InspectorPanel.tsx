@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useEditorStore } from '../store/editorStore';
 import type { TransformComponent, MeshRendererComponent, LightComponent, GLTFModelComponent, RigidBodyComponent, AudioComponent, ParticleSystemComponent, ScriptComponent, CameraComponent } from '../../engine/ecs/types';
 import { 
@@ -423,21 +424,79 @@ function AnimatorInspector({ entityId }: { entityId: string }) {
   if (!entity) return null;
   const anim = entity.components.Animator as any;
 
+  const animations = anim.animationsList || [];
+  const states = anim.states || {};
+  const currentState = anim.currentState || '';
+
+  // Estado local para adicionar novo estado
+  const [newStateName, setNewStateName] = useState('');
+  const [newStateClip, setNewStateClip] = useState(animations[0] || anim.currentAnimation || '');
+  const [newStateSpeed, setNewStateSpeed] = useState(1);
+  const [newStateLoop, setNewStateLoop] = useState(true);
+
+  // Sincroniza o clipe padrão se a lista de animações carregar
+  useEffect(() => {
+    if (animations.length > 0 && !newStateClip) {
+      setNewStateClip(animations[0]);
+    }
+  }, [animations, newStateClip]);
+
+  const handleAddState = () => {
+    if (!newStateName.trim()) return;
+    const updatedStates = {
+      ...states,
+      [newStateName.trim()]: {
+        clipName: newStateClip || anim.currentAnimation || '',
+        loop: newStateLoop,
+        timeScale: newStateSpeed
+      }
+    };
+    updateComponent(entityId, 'Animator', { states: updatedStates });
+    setNewStateName('');
+  };
+
+  const handleRemoveState = (name: string) => {
+    const updatedStates = { ...states };
+    delete updatedStates[name];
+    
+    const nextActive = currentState === name ? '' : currentState;
+    updateComponent(entityId, 'Animator', { 
+      states: updatedStates,
+      currentState: nextActive
+    });
+  };
+
   return (
-    <div className="component-block">
+    <div className="component-block animation-inspector">
       <div className="component-header">
         <span className="component-icon"><Film size={14} /></span>
         <span className="component-title">Animator</span>
       </div>
+
       <div className="field-row">
-        <label className="field-label">Current Anim</label>
-        <input
-          type="text"
-          className="field-input"
-          value={anim.currentAnimation}
-          onChange={(e) => updateComponent(entityId, 'Animator', { currentAnimation: e.target.value })}
-        />
+        <label className="field-label">Default Clip</label>
+        {animations.length > 0 ? (
+          <select
+            className="field-input select-dark"
+            value={anim.currentAnimation}
+            onChange={(e) => updateComponent(entityId, 'Animator', { currentAnimation: e.target.value })}
+          >
+            <option value="">(Nenhuma)</option>
+            {animations.map((name: string) => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
+        ) : (
+          <input
+            type="text"
+            className="field-input"
+            placeholder="Nome do clip..."
+            value={anim.currentAnimation}
+            onChange={(e) => updateComponent(entityId, 'Animator', { currentAnimation: e.target.value })}
+          />
+        )}
       </div>
+
       <div className="field-row">
         <label className="field-label">Time Scale</label>
         <input
@@ -448,6 +507,7 @@ function AnimatorInspector({ entityId }: { entityId: string }) {
           onChange={(e) => updateComponent(entityId, 'Animator', { timeScale: parseFloat(e.target.value) || 1 })}
         />
       </div>
+
       <div className="field-row">
         <label className="field-label">Loop</label>
         <input
@@ -455,6 +515,104 @@ function AnimatorInspector({ entityId }: { entityId: string }) {
           checked={anim.loop}
           onChange={(e) => updateComponent(entityId, 'Animator', { loop: e.target.checked })}
         />
+      </div>
+
+      {/* STATE MACHINE SECTION */}
+      <div className="animator-sm-section">
+        <div className="sm-header">
+          <span>State Machine</span>
+        </div>
+
+        {/* Escolha do estado ativo */}
+        <div className="field-row">
+          <label className="field-label">Active State</label>
+          <select
+            className="field-input select-dark"
+            value={currentState}
+            onChange={(e) => updateComponent(entityId, 'Animator', { currentState: e.target.value })}
+          >
+            <option value="">(Default Clip)</option>
+            {Object.keys(states).map(name => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Listagem de estados cadastrados */}
+        {Object.keys(states).length > 0 && (
+          <div className="sm-states-list">
+            {Object.entries(states).map(([name, data]: [string, any]) => (
+              <div key={name} className="sm-state-item">
+                <div className="state-info">
+                  <span className="state-name">{name}</span>
+                  <span className="state-clip">({data.clipName})</span>
+                </div>
+                <button className="remove-state-btn" onClick={() => handleRemoveState(name)} title="Remover estado">
+                  &times;
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Formulário para adicionar estado */}
+        <div className="sm-add-form">
+          <span className="form-title">Novo Estado</span>
+          <div className="form-row">
+            <input
+              type="text"
+              className="form-input text-field"
+              placeholder="Ex: Andar"
+              value={newStateName}
+              onChange={(e) => setNewStateName(e.target.value)}
+            />
+          </div>
+          <div className="form-row split">
+            <div className="form-sub-row">
+              <label>Clip</label>
+              {animations.length > 0 ? (
+                <select
+                  className="form-input select-dark"
+                  value={newStateClip}
+                  onChange={(e) => setNewStateClip(e.target.value)}
+                >
+                  {animations.map((name: string) => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Nome do clip..."
+                  value={newStateClip}
+                  onChange={(e) => setNewStateClip(e.target.value)}
+                />
+              )}
+            </div>
+            <div className="form-sub-row speed">
+              <label>Speed</label>
+              <input
+                type="number"
+                className="form-input"
+                step={0.1}
+                value={newStateSpeed}
+                onChange={(e) => setNewStateSpeed(parseFloat(e.target.value) || 1)}
+              />
+            </div>
+            <div className="form-sub-row loop-cb">
+              <label>Loop</label>
+              <input
+                type="checkbox"
+                checked={newStateLoop}
+                onChange={(e) => setNewStateLoop(e.target.checked)}
+              />
+            </div>
+          </div>
+          <button className="add-state-action-btn" onClick={handleAddState}>
+            + Adicionar Estado
+          </button>
+        </div>
       </div>
     </div>
   );

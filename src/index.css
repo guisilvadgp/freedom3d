@@ -2099,3 +2099,170 @@ input[type="checkbox"] {
   color: #f8fafc;
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2);
 }
+
+/* Animation State Machine Inspector Styles */
+.animator-sm-section {
+  margin-top: 15px;
+  border-top: 1px solid #1e293b;
+  padding-top: 12px;
+}
+
+.sm-header {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-bottom: 8px;
+  letter-spacing: 0.5px;
+}
+
+.sm-states-list {
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 4px;
+  max-height: 120px;
+  overflow-y: auto;
+  margin-bottom: 12px;
+  padding: 4px;
+}
+
+.sm-state-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  color: #e2e8f0;
+}
+
+.sm-state-item:hover {
+  background: #1e293b;
+}
+
+.sm-state-item .state-info {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.sm-state-item .state-name {
+  font-weight: 600;
+  color: #3b82f6;
+}
+
+.sm-state-item .state-clip {
+  color: #94a3b8;
+  font-size: 10px;
+}
+
+.sm-state-item .remove-state-btn {
+  background: none;
+  border: none;
+  color: #ef4444;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 4px;
+  border-radius: 3px;
+  transition: background 0.2s;
+}
+
+.sm-state-item .remove-state-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+.sm-add-form {
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 4px;
+  padding: 10px;
+  margin-top: 8px;
+}
+
+.sm-add-form .form-title {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  color: #94a3b8;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.sm-add-form .form-row {
+  margin-bottom: 8px;
+}
+
+.sm-add-form .form-row.split {
+  display: flex;
+  gap: 8px;
+}
+
+.sm-add-form .form-sub-row {
+  display: flex;
+  flex-direction: column;
+  flex: 2;
+  font-size: 9px;
+  color: #94a3b8;
+  gap: 4px;
+}
+
+.sm-add-form .form-sub-row.speed {
+  flex: 1;
+}
+
+.sm-add-form .form-sub-row.loop-cb {
+  flex: 0.8;
+  align-items: center;
+  justify-content: center;
+}
+
+.sm-add-form .form-sub-row.loop-cb input {
+  margin-top: 4px;
+  cursor: pointer;
+}
+
+.sm-add-form .form-input {
+  background: #1e293b;
+  border: 1px solid #334155;
+  color: #f8fafc;
+  border-radius: 3px;
+  padding: 4px 6px;
+  font-size: 11px;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.sm-add-form .form-input.text-field {
+  width: 100%;
+}
+
+.sm-add-form .form-input:focus {
+  border-color: #3b82f6;
+}
+
+.add-state-action-btn {
+  width: 100%;
+  background: #2563eb;
+  border: none;
+  color: white;
+  border-radius: 3px;
+  padding: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 4px;
+  transition: background 0.2s;
+}
+
+.add-state-action-btn:hover {
+  background: #3b82f6;
+}
+
+.select-dark {
+  background: #0f172a;
+  border: 1px solid #334155;
+  color: #f8fafc;
+  cursor: pointer;
+}

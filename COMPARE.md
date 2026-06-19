@@ -299,6 +299,7 @@ Fase 4 – XR (3 meses)        ████████░░   80% concluído (
 - ✅ Barra de Menus Superior (MenuBar) com dropdowns flutuantes e modais de Atalhos/Sobre
 - ✅ Sistema de Histórico (Undo / Redo) com atalhos de teclado globais
 - ✅ Exportação autônoma de projeto (.ZIP) com index.html, scene.json e assets 100% locais/offline
+- ✅ Sistema de Animação com State Machine, transições de crossfade e UI avançada no Inspector
 
 ### Fase 4 – O que foi feito:
 - ✅ Suporte WebXR integrado ao canvas
@@ -326,7 +327,7 @@ Fase 4 – XR (3 meses)        ████████░░   80% concluído (
 
 > O MVP (Fase 1 e Fase 2) do editor foi concluído com sucesso.
 > A maior parte das funcionalidades de Produção (Física, Áudio, Multiplayer) e WebXR (VR imersivo) já foram integradas e validadas!
-> Próxima prioridade: Adicionar animações avançadas, suporte a PWA e empacotamento nativo via Electron/Tauri.
+> Próxima prioridade: Suporte a PWA, empacotamento nativo via Electron/Tauri e suporte avançado de AR.
 
 
 

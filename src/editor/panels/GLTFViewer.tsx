@@ -166,26 +166,63 @@ function GLTFMesh({ entity }: { entity: Entity }) {
   };
 
   const animator = entity.components.Animator;
-  const { actions } = useAnimations(gltf.animations, groupRef);
+  const { actions, names } = useAnimations(gltf.animations, groupRef);
 
-  // Lógica do Animator
+  // Sincroniza a lista de animações encontradas no GLTF com o AnimatorComponent
+  useEffect(() => {
+    if (animator && names && names.length > 0) {
+      const currentList = animator.animationsList || [];
+      const hasChanged = names.length !== currentList.length || !names.every((n, i) => n === currentList[i]);
+      if (hasChanged) {
+        updateComponent(entity.id, 'Animator', {
+          animationsList: names
+        });
+      }
+    }
+  }, [names, animator, entity.id]);
+
+  // Lógica do Animator (incluindo State Machine e Transições Suaves)
   useEffect(() => {
     if (!animator || !actions) return;
-    const action = actions[animator.currentAnimation];
+    
+    // Determinar qual clipe tocar e suas propriedades
+    let targetClipName = animator.currentAnimation;
+    let targetLoop = animator.loop;
+    let targetTimeScale = animator.timeScale;
 
-    // Stop all other actions
-    Object.values(actions).forEach(a => {
-      if (a && a !== action) a.stop();
+    // Se houver um estado ativo válido, ele sobrescreve o clipe padrão
+    if (animator.currentState && animator.states && animator.states[animator.currentState]) {
+      const activeState = animator.states[animator.currentState];
+      targetClipName = activeState.clipName;
+      targetLoop = activeState.loop;
+      targetTimeScale = activeState.timeScale;
+    }
+
+    const action = actions[targetClipName];
+
+    // Para todos os outros clipes que estão rodando, faz um fadeOut suave
+    Object.keys(actions).forEach(key => {
+      const a = actions[key];
+      if (a && key !== targetClipName) {
+        a.fadeOut(0.3);
+      }
     });
 
     if (action) {
-      if (!action.isRunning()) {
-        action.reset().play();
-      }
-      action.setLoop(animator.loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity);
-      action.timeScale = isPlaying ? animator.timeScale : 0; // Pausa se não tiver isPlaying
+      action.reset();
+      action.setLoop(targetLoop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity);
+      action.timeScale = isPlaying ? targetTimeScale : 0;
+      action.fadeIn(0.3).play();
     }
-  }, [animator?.currentAnimation, animator?.loop, animator?.timeScale, actions, isPlaying]);
+  }, [
+    animator?.currentAnimation, 
+    animator?.loop, 
+    animator?.timeScale, 
+    animator?.currentState,
+    JSON.stringify(animator?.states),
+    actions, 
+    isPlaying
+  ]);
 
   // Mesh com física para GLTF
   const group = (
