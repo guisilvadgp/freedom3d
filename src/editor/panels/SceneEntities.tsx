@@ -927,6 +927,7 @@ function EntityMesh({ entity, entities }: { entity: Entity; entities: Record<str
     const emptyMesh = (
       <group
         ref={meshRef as any}
+        name={entity.id}
         position={(!rigidBody || !isPlaying) ? pos : undefined}
         rotation={(!rigidBody || !isPlaying) ? rot : undefined}
         scale={scale}
@@ -1013,17 +1014,6 @@ function EntityMesh({ entity, entities }: { entity: Entity; entities: Record<str
             )}
           </RigidBody>
         ) : emptyMesh}
-
-        {isSelected && !isGameView && (
-          <TransformControls
-            object={meshRef}
-            mode={editorMode as any}
-            translationSnap={snapEnabled ? snapValue : null}
-            rotationSnap={snapEnabled ? (Math.PI / 12) : null}
-            scaleSnap={snapEnabled ? snapValue : null}
-            onChange={handleChange}
-          />
-        )}
       </>
     );
   }
@@ -1031,6 +1021,7 @@ function EntityMesh({ entity, entities }: { entity: Entity; entities: Record<str
   const innerMesh = (
     <mesh
       ref={meshRef}
+      name={entity.id}
       position={(!rigidBody || !isPlaying) ? pos : undefined}
       rotation={(!rigidBody || !isPlaying) ? rot : undefined}
       scale={scale}
@@ -1108,18 +1099,6 @@ function EntityMesh({ entity, entities }: { entity: Entity; entities: Record<str
           )}
         </RigidBody>
       ) : innerMesh}
-
-      {isSelected && !isGameView && (
-        <TransformControls
-          object={meshRef}
-          mode={editorMode as any}
-          translationSnap={snapEnabled ? snapValue : null}
-          rotationSnap={snapEnabled ? (Math.PI / 12) : null}
-          scaleSnap={snapEnabled ? snapValue : null}
-          onChange={handleChange}
-          onMouseDown={() => useEditorStore.getState().takeHistorySnapshot()}
-        />
-      )}
     </>
   );
 }
@@ -1220,10 +1199,60 @@ function XRSync() {
 }
 
 export function SceneEntities() {
-  const scene = useEditorStore(s => s.scenes[s.activeSceneId]);
+  const { scene, selectedEntityId, editorMode, snapEnabled, snapValue, activeViewport } = useEditorStore(useShallow(s => ({
+    scene: s.scenes[s.activeSceneId],
+    selectedEntityId: s.selectedEntityId,
+    editorMode: s.editorMode,
+    snapEnabled: s.snapEnabled,
+    snapValue: s.snapValue,
+    activeViewport: s.activeViewport
+  })));
+
+  const threeScene = useThree(s => s.scene);
   const isStandalone = typeof window !== 'undefined' && window.location.pathname === '/preview';
+  const isGameView = activeViewport === 'game';
+
+  const [selectedObject, setSelectedObject] = useState<THREE.Object3D | null>(null);
+
+  useEffect(() => {
+    if (!selectedEntityId || isStandalone) {
+      setSelectedObject(null);
+      return;
+    }
+    const obj = threeScene.getObjectByName(selectedEntityId);
+    setSelectedObject(obj || null);
+
+    // Garante atualizacao se o objeto demorar 1 frame para montar na arvore do Three.js
+    if (!obj) {
+      const timeout = setTimeout(() => {
+        setSelectedObject(threeScene.getObjectByName(selectedEntityId) || null);
+      }, 50);
+      return () => clearTimeout(timeout);
+    }
+  }, [selectedEntityId, threeScene, scene, isStandalone]);
 
   if (!scene) return null;
+
+  const handleTransformChange = () => {
+    if (selectedObject && selectedEntityId) {
+      const position = [
+        selectedObject.position.x,
+        selectedObject.position.y,
+        selectedObject.position.z,
+      ];
+      const rotation = [
+        (selectedObject.rotation.x * 180) / Math.PI,
+        (selectedObject.rotation.y * 180) / Math.PI,
+        (selectedObject.rotation.z * 180) / Math.PI,
+      ];
+      const scale = [
+        selectedObject.scale.x,
+        selectedObject.scale.y,
+        selectedObject.scale.z,
+      ];
+      useEditorStore.getState().updateComponent(selectedEntityId, 'Transform', { position, rotation, scale });
+    }
+  };
 
   return (
     <>
@@ -1234,6 +1263,18 @@ export function SceneEntities() {
         if (!entity) return null;
         return <EntityMesh key={id} entity={entity} entities={scene.entities} />;
       })}
+
+      {selectedObject && !isGameView && (
+        <TransformControls
+          object={selectedObject}
+          mode={editorMode as any}
+          translationSnap={snapEnabled ? snapValue : null}
+          rotationSnap={snapEnabled ? (Math.PI / 12) : null}
+          scaleSnap={snapEnabled ? snapValue : null}
+          onChange={handleTransformChange}
+          onMouseDown={() => useEditorStore.getState().takeHistorySnapshot()}
+        />
+      )}
     </>
   );
 }
