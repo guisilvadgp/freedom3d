@@ -136,7 +136,7 @@
 | Edição em tempo real | ✅ | Inspector atualiza cena instantaneamente |
 | Serialização automática | ✅ | Salvar/carregar cena e blobs GLTF em IndexedDB (SaveLoadModal) |
 | Importação de assets | ✅ | GLTF/GLB importando nativamente para a cena e listado no Assets Browser |
-| Organização de arquivos | 🟡 | Fase 2 (Drag and drop existe, UI de pastas futura) |
+| Organização de arquivos | ✅ | Painel Explorer com criação de pastas/arquivos, edição de código Monaco e upload por Drag and Drop |
 | Logs / Console | ✅ | Console Panel com clear e timestamps |
 | Profiler | ❌ | Stats R3F disponível no modo Play, profiler detalhado — Fase 3 |
 
@@ -210,7 +210,7 @@
 | Partículas (GPU, Trails, Smoke) | 🟡 | Sistema de partículas básico implementado via Sparkles do Drei |
 | Animação (Skeleton, Blend Trees, IK) | ❌ | Fase 3 |
 | Física (RigidBody, Raycast, Joints) | ✅ | Integrado com Rapier para simulação de corpos rígidos, colisores e gravidade |
-| Áudio Espacial / Reverb / Mixer | 🟡 | Áudio posicional 3D funcional integrado via Drei |
+| Áudio Espacial / Reverb / Mixer | ✅ | Áudio posicional 3D funcional via Drei integrado ao File Explorer do projeto |
 | Multiplayer (Rooms, Matchmaking) | 🟡 | Canal WebSocket integrado no servidor Vite com replicação de Transforms locais e spawning de Ghosts remotos |
 | VR / WebXR / Hand Tracking | ✅ | Suporte imersivo VR com locomoção por joystick suave e gaze teleport rings |
 | AR / Plane Detection / Anchors | 🟡 | Entrada básica na sessão AR no SceneView via WebXR |
@@ -305,7 +305,8 @@ Fase 4 – XR (3 meses)        ████████░░   80% concluído (
 - ✅ Sistema de Animação com State Machine, transições de crossfade e UI avançada no Inspector
 - ✅ Assistente de Código por IA (Pollinations) com triplo fallback, injeção do código atual e suporte a ECS
 - ✅ Compilação JIT de scripts robusta com limpeza automática de modificadores de exportação
-- ✅ Novo painel Project File Explorer com suporte a Drag & Drop / Upload de assets físicos e integração direta com seletores do Inspector (como áudios do projeto com controle sob demanda)
+- ✅ Novo painel Project File Explorer integrado, permitindo criar pastas, carregar, deletar e editar arquivos físicos de texto via Monaco Editor
+- ✅ Integração do Explorer com o Inspector de Áudio, com suporte a upload Drag & Drop de arquivos, listagem automatizada e botões de prévia (Play/Stop) local
 
 ### Fase 4 – O que foi feito:
 - ✅ Suporte WebXR integrado ao canvas
@@ -327,7 +328,7 @@ Fase 4 – XR (3 meses)        ████████░░   80% concluído (
 | Lights | 6 | 4 | 67% |
 | Asset Formats | 8 | 2 | 25% |
 | Physics | 6 | 3 | 50% |
-| Audio | 4 | 4 | 100% |
+| Audio | 4 | 3 | 75% |
 | VR/AR | 10 | 7 | 70% |
 | Multiplayer | 5 | 4 | 80% |
 | Build Targets | 5 | 2 | 40% |
