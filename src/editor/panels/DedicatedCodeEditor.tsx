@@ -23,11 +23,55 @@ export function DedicatedCodeEditor() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [showAiPanel] = useState(true);
   const [apiKey, setApiKey] = useState(() => localStorage.getItem('pollinations_api_key') || '');
+  const [models, setModels] = useState<{ id: string; type?: string }[]>([]);
+  const [selectedModel, setSelectedModel] = useState('openai');
+  const [loadingModels, setLoadingModels] = useState(false);
   
   const handleApiKeyChange = (val: string) => {
     setApiKey(val);
     localStorage.setItem('pollinations_api_key', val);
   };
+
+  const fetchModels = async (key: string) => {
+    if (!key) {
+      setModels([]);
+      return;
+    }
+    setLoadingModels(true);
+    try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${key}`
+      };
+      const response = await fetch('https://gen.pollinations.ai/v1/models', {
+        headers
+      });
+      if (response.ok) {
+        const json = await response.json();
+        const chatModels = (json.data || []).filter((m: any) => {
+          const id = m.id.toLowerCase();
+          return !id.includes('flux') && !id.includes('diffusion') && !id.includes('dall-e') && !id.includes('midjourney') && !id.includes('audio') && !id.includes('tts') && !id.includes('whisper');
+        });
+        setModels(chatModels);
+        
+        if (chatModels.length > 0 && !chatModels.some((m: any) => m.id === selectedModel)) {
+          setSelectedModel(chatModels[0].id);
+        }
+      }
+    } catch (err) {
+      console.error('Erro ao buscar modelos:', err);
+    } finally {
+      setLoadingModels(false);
+    }
+  };
+
+  useEffect(() => {
+    if (apiKey) {
+      fetchModels(apiKey);
+    } else {
+      setModels([]);
+    }
+  }, [apiKey]);
   
   const channelRef = useRef<BroadcastChannel | null>(null);
 
@@ -147,6 +191,7 @@ export function DedicatedCodeEditor() {
         method: 'POST',
         headers,
         body: JSON.stringify({
+          model: selectedModel,
           messages: [
             { 
               role: 'system', 
@@ -279,6 +324,36 @@ export function DedicatedCodeEditor() {
                 }}
               />
             </div>
+            {apiKey && (
+              <div className="ai-key-section" style={{ padding: '0 16px 8px 16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Modelo de IA:</label>
+                {loadingModels ? (
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Carregando modelos...</span>
+                ) : (
+                  <select
+                    value={selectedModel}
+                    onChange={(e) => setSelectedModel(e.target.value)}
+                    style={{
+                      background: 'var(--bg-base)',
+                      border: '1px solid var(--border-bright)',
+                      color: 'white',
+                      padding: '6px 10px',
+                      borderRadius: '4px',
+                      fontSize: '11px',
+                      outline: 'none',
+                      width: '100%'
+                    }}
+                  >
+                    {models.map(m => (
+                      <option key={m.id} value={m.id}>{m.id}</option>
+                    ))}
+                    {models.length === 0 && (
+                      <option value="openai">openai (Padrão)</option>
+                    )}
+                  </select>
+                )}
+              </div>
+            )}
             <div className="ai-panel-body">
               <textarea 
                 className="ai-prompt-input"
