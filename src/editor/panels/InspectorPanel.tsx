@@ -124,8 +124,27 @@ function MeshRendererInspector({ entityId }: { entityId: string }) {
           <option value="phong">Phong</option>
           <option value="wireframe">Wireframe</option>
           <option value="invisible">Invisible</option>
+          <option value="emissive">Emissive (Neon Glow)</option>
         </select>
       </div>
+      {m.material === 'emissive' && (
+        <div className="field-row">
+          <label className="field-label" style={{ fontSize: '11px' }}>Emissive Intensity</label>
+          <div className="field-slider-container" style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+            <input
+              type="range"
+              min="0.1"
+              max="20"
+              step="0.1"
+              className="field-slider"
+              style={{ flex: 1 }}
+              value={m.emissiveIntensity ?? 2.0}
+              onChange={(e) => updateComponent(entityId, 'MeshRenderer', { emissiveIntensity: parseFloat(e.target.value) })}
+            />
+            <span className="field-slider-value" style={{ minWidth: '24px', fontSize: '10px' }}>{(m.emissiveIntensity ?? 2.0).toFixed(1)}</span>
+          </div>
+        </div>
+      )}
       <div className="field-row">
         <label className="field-label">Color</label>
         <input

@@ -617,6 +617,16 @@ function EntityMesh({ entity, entities }: { entity: Entity; entities: Record<str
       case 'phong': return <meshPhongMaterial color={color} />;
       case 'wireframe': return <meshBasicMaterial color={color} wireframe />;
       case 'invisible': return <meshBasicMaterial color={color} transparent opacity={0.3} wireframe visible={!isGameView && !isStandalone} />;
+      case 'emissive':
+        return (
+          <meshStandardMaterial
+            color={color}
+            emissive={color}
+            emissiveIntensity={mesh.emissiveIntensity ?? 2.0}
+            roughness={0.2}
+            metalness={0.1}
+          />
+        );
       default: return <meshStandardMaterial color={color} roughness={0.6} metalness={0.1} />;
     }
   };

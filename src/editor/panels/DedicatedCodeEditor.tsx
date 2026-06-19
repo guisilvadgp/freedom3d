@@ -235,6 +235,8 @@ API e Regras de Scripting Cruciais do Freedom3D:
    Exemplos:
    - Trocar a cor de um cubo/malha:
      updateComponent(entity.id, 'MeshRenderer', { color: '#ff0000' });
+   - Ativar material emissivo (neon) e brilhar com alta intensidade:
+     updateComponent(entity.id, 'MeshRenderer', { material: 'emissive', color: '#00ffff', emissiveIntensity: 5.0 });
    - Mover um objeto sem física (manual):
      updateComponent(entity.id, 'Transform', { position: [x, y, z] });
    - Alterar rotação de um objeto:

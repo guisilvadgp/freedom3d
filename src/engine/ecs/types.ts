@@ -14,10 +14,11 @@ export interface TransformComponent {
 export interface MeshRendererComponent {
   type: 'MeshRenderer';
   geometry: 'box' | 'sphere' | 'plane' | 'cylinder' | 'torus' | 'cone';
-  material: 'standard' | 'basic' | 'phong' | 'wireframe' | 'invisible';
+  material: 'standard' | 'basic' | 'phong' | 'wireframe' | 'invisible' | 'emissive';
   color: string;
   castShadow: boolean;
   receiveShadow: boolean;
+  emissiveIntensity?: number;
 }
 
 export interface LightComponent {
