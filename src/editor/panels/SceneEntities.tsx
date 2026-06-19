@@ -925,8 +925,8 @@ function EntityMesh({ entity, entities }: { entity: Entity; entities: Record<str
   if (!mesh) {
     // Entities without mesh (Light, Audio, Particles, Empty objects)
     const emptyMesh = (
-      <mesh
-        ref={meshRef}
+      <group
+        ref={meshRef as any}
         position={(!rigidBody || !isPlaying) ? pos : undefined}
         rotation={(!rigidBody || !isPlaying) ? rot : undefined}
         scale={scale}
@@ -935,18 +935,18 @@ function EntityMesh({ entity, entities }: { entity: Entity; entities: Record<str
       >
         {entity.components.GLTFModel ? (
           <Suspense fallback={
-            <>
+            <mesh>
               <sphereGeometry args={[0.2, 8, 8]} />
               <meshBasicMaterial color="#44aaff" wireframe opacity={0.5} transparent visible={!isGameView} />
-            </>
+            </mesh>
           }>
             <GLTFModelRenderer entity={entity} />
           </Suspense>
         ) : (
-          <>
+          <mesh>
             <sphereGeometry args={[0.2, 8, 8]} />
             <meshBasicMaterial color={light ? light.color : "#ffffff"} wireframe opacity={0.3} transparent visible={!isGameView} />
-          </>
+          </mesh>
         )}
 
         {renderLight()}
@@ -988,7 +988,7 @@ function EntityMesh({ entity, entities }: { entity: Entity; entities: Record<str
           if (!childEntity) return null;
           return <EntityMesh key={id} entity={childEntity} entities={entities} />;
         })}
-      </mesh>
+      </group>
     );
 
     return (
