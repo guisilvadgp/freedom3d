@@ -17,7 +17,8 @@ import {
   Trash2, 
   Plus,
   Video,
-  Cpu
+  Cpu,
+  Edit2
 } from 'lucide-react';
 
 const ENTITY_TYPES = [
@@ -194,7 +195,10 @@ function HierarchyNode({
           }
         }}
         onClick={(e) => { e.stopPropagation(); selectEntity(entityId); }}
-        onDoubleClick={(e) => { e.stopPropagation(); startRename(entityId, entity.name); }}
+        onDoubleClick={(e) => {
+          e.stopPropagation();
+          useEditorStore.getState().focusEntity(entityId);
+        }}
       >
         <span className="entity-toggle" onClick={(e) => {
           e.stopPropagation();
@@ -223,6 +227,13 @@ function HierarchyNode({
 
         {isSelected && (
           <div className="entity-actions">
+            <button
+              className="entity-action-btn"
+              title="Renomear"
+              onClick={(e) => { e.stopPropagation(); startRename(entityId, entity.name); }}
+            >
+              <Edit2 size={12} />
+            </button>
             <button
               className="entity-action-btn"
               title="Duplicate"

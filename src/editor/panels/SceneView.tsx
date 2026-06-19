@@ -1,4 +1,4 @@
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, Grid, GizmoHelper, GizmoViewport, Stats } from '@react-three/drei';
 import { useRef, Suspense, useEffect, useState } from 'react';
 import { useEditorStore } from '../store/editorStore';
@@ -106,7 +106,49 @@ function LoadingTracker({
   return null;
 }
 
+function EditorCameraHandler() {
+  const { controls } = useThree();
+  const focusTrigger = useEditorStore(s => s.focusTrigger);
+  const activeSceneId = useEditorStore(s => s.activeSceneId);
+  const scene = useEditorStore(s => s.scenes[activeSceneId]);
+  
+  const targetPos = useRef<THREE.Vector3 | null>(null);
+  const animateTo = useRef<boolean>(false);
 
+  useEffect(() => {
+    if (focusTrigger && scene) {
+      const entity = scene.entities[focusTrigger.entityId];
+      if (entity && entity.components.Transform) {
+        const pos = entity.components.Transform.position;
+        targetPos.current = new THREE.Vector3(pos[0], pos[1], pos[2]);
+        animateTo.current = true;
+      }
+    }
+  }, [focusTrigger]);
+
+  useFrame((state) => {
+    if (animateTo.current && targetPos.current) {
+      if (controls) {
+        const orbit = controls as any;
+        orbit.target.lerp(targetPos.current, 0.1);
+      }
+      
+      const offset = new THREE.Vector3(4, 4, 6);
+      const camTargetPos = targetPos.current.clone().add(offset);
+      state.camera.position.lerp(camTargetPos, 0.1);
+      
+      const currentTarget = controls ? (controls as any).target : new THREE.Vector3();
+      if (
+        (!controls || currentTarget.distanceTo(targetPos.current) < 0.05) &&
+        state.camera.position.distanceTo(camTargetPos) < 0.05
+      ) {
+        animateTo.current = false;
+      }
+    }
+  });
+
+  return null;
+}
 
 export function SceneView({
   isStandalone,
@@ -155,6 +197,7 @@ export function SceneView({
 
   const content = (
     <>
+      {!isGameView && <EditorCameraHandler />}
       <LoadingTracker sceneLoaded={sceneLoaded} onProgress={onProgress} onLoaded={onLoaded} />
       {/* Background */}
       <color attach="background" args={[scene.backgroundColor]} />

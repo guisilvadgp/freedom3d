@@ -69,6 +69,8 @@ interface EditorStore {
   selectedEntityId: EntityId | null;
   selectEntity: (id: EntityId | null) => void;
   selectedEntity: () => Entity | null;
+  focusTrigger: { entityId: string; timestamp: number } | null;
+  focusEntity: (id: string) => void;
 
   // Editor state
   editorMode: EditorMode;
@@ -260,6 +262,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       if (!selectedEntityId) return null;
       return activeScene().entities[selectedEntityId] ?? null;
     },
+    focusTrigger: null,
+    focusEntity: (id) => set({ focusTrigger: { entityId: id, timestamp: Date.now() } }),
 
     editorMode: 'translate',
     setEditorMode: (mode) => set({ editorMode: mode }),
