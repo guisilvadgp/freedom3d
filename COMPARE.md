@@ -183,6 +183,7 @@
 | Phong | ✅ | `meshPhongMaterial` |
 | Wireframe | ✅ | `meshBasicMaterial` wireframe |
 | Invisible | ✅ | Material invisível para colisores, visível apenas no editor |
+| Emissive | ✅ | `meshStandardMaterial` com emissive/emissiveIntensity no R3F e slider de intensidade no Inspector |
 | Toon | ❌ | Fase 2 |
 | Custom Shader | ❌ | Fase 2 |
 | Node Material (React Flow) | ❌ | Fase 3 |
@@ -302,12 +303,16 @@ Fase 4 – XR (3 meses)        ████████░░   80% concluído (
 - ✅ Sistema de Histórico (Undo / Redo) com atalhos de teclado globais
 - ✅ Exportação autônoma de projeto (.ZIP) com index.html, scene.json e assets 100% locais/offline
 - ✅ Sistema de Animação com State Machine, transições de crossfade e UI avançada no Inspector
+- ✅ Assistente de Código por IA (Pollinations) com triplo fallback, injeção do código atual e suporte a ECS
+- ✅ Compilação JIT de scripts robusta com limpeza automática de modificadores de exportação
 
 ### Fase 4 – O que foi feito:
 - ✅ Suporte WebXR integrado ao canvas
 - ✅ Locomoção suave por joystick e rotação com controles VR
 - ✅ Sistema de teletransporte (Teleport Rings) por Gaze-Hover e Gatilho (Select)
 - ✅ Calibração automática de altura do headset
+- ✅ Suporte a Gamepads (PS4 DualShock 4) com mapeamento visual no Inspector e eixos integrados em FPS/TPS
+- ✅ UX na Hierarquia com botão de renomear e foco de câmera interpolado em objetos 3D
 
 ---
 
@@ -317,15 +322,15 @@ Fase 4 – XR (3 meses)        ████████░░   80% concluído (
 |-----------|------------------------|---------------|---|
 | ECS Types & Components | 12 | 12 | 100% |
 | Editor Panels | 6 | 6 | 100% |
-| Materials | 6 | 5 | 83% |
+| Materials | 6 | 6 | 100% |
 | Lights | 6 | 4 | 67% |
 | Asset Formats | 8 | 2 | 25% |
 | Physics | 6 | 3 | 50% |
 | Audio | 4 | 2 | 50% |
-| VR/AR | 10 | 6 | 60% |
+| VR/AR | 10 | 7 | 70% |
 | Multiplayer | 5 | 4 | 80% |
 | Build Targets | 5 | 2 | 40% |
-| **TOTAL** | **~68** | **~47** | **~69%** |
+| **TOTAL** | **~68** | **~49** | **~72%** |
 
 > O MVP (Fase 1 e Fase 2) do editor foi concluído com sucesso.
 > A maior parte das funcionalidades de Produção (Física, Áudio, Multiplayer) e WebXR (VR imersivo) já foram integradas e validadas!
