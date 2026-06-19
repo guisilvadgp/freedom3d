@@ -254,6 +254,14 @@ CRITICAL ENGINE API & ARCHITECTURE GUIDELINES:
    Then use Math.sin(yawRad) and Math.cos(yawRad).
 6. LERP & MOVEMENT STATES: Ensure clean animation state tracking. If animating a sequence like advancing and returning, store target coordinates in separate variables (e.g., 'targetPos') rather than interpolating from basePos to basePos.
 7. LOCAL VARIABLES & PERSISTENCE: Declare local state variables in the outer scope of the script (outside functions). They persist correctly through closure. Do NOT use 'this', 'globalThis', 'window', or function properties (e.g. 'onUpdate._t').
+8. REAL-TIME ENTITY POSITIONING (CRITICAL): To query the current position of another entity in real-time (especially those that move with Rapier Physics), ALWAYS use the global function:
+   getEntityPosition(entityId)
+   It returns an array '[x, y, z]' representing the real-time physical position of that entity (falling back to Transform component if not physical). Avoid reading 'otherEntity.components.Transform.position' directly if it moves via physics, as React ECS stores do not mutate positions per-frame for performance reasons.
+   Example:
+   const playerPos = getEntityPosition(playerEntity.id);
+   if (playerPos) {
+     const dist = new THREE.Vector3().fromArray(playerPos).distanceTo(myPos);
+   }
 
 WEBXR & VR ELABORATION (MANDATORY):
 - Keep WebXR and VR compatibility in mind. Check if VR is active using the global flag: 'window.isVRActive'.

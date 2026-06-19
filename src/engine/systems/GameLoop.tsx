@@ -94,15 +94,17 @@ export function GameLoop() {
               let Input;
               let rigidBody;
               let camera;
+              let getEntityPosition;
               ${varDeclarations}
 
-              function updateFrameData(_entity, _delta, _updateComponent, _Input, _rigidBody, _camera${varParams ? ', ' + varParams : ''}) {
+              function updateFrameData(_entity, _delta, _updateComponent, _Input, _rigidBody, _camera, _getEntityPosition${varParams ? ', ' + varParams : ''}) {
                 entity = _entity;
                 delta = _delta;
                 updateComponent = _updateComponent;
                 Input = _Input;
                 rigidBody = _rigidBody;
                 camera = _camera;
+                getEntityPosition = _getEntityPosition;
                 ${varAssignments}
               }
 
@@ -146,6 +148,23 @@ export function GameLoop() {
       // Executa o onAwake em todos os scripts recém-compilados
       const rbRefs = rigidBodyRefsRef.current || {};
       const updComp = updateComponentRef.current;
+
+      const getEntityPosition = (id: string): [number, number, number] | null => {
+        const targetEntity = scene.entities[id];
+        if (!targetEntity) return null;
+        const rb = rbRefs[id];
+        if (rb) {
+          try {
+            const trans = rb.translation();
+            return [trans.x, trans.y, trans.z];
+          } catch(e) {}
+        }
+        if (targetEntity.components.Transform?.position) {
+          return targetEntity.components.Transform.position;
+        }
+        return [0, 0, 0];
+      };
+
       for (const entity of Object.values(scene.entities)) {
         if (!entity?.active) continue;
         const instances = compiledScripts.current[entity.id];
@@ -172,6 +191,7 @@ export function GameLoop() {
                   Input, 
                   rb, 
                   entity.components.Camera,
+                  getEntityPosition,
                   ...varValues
                 );
                 inst.compiled.onAwake();
@@ -195,6 +215,23 @@ export function GameLoop() {
     // ── Update (todo frame) ──────────────────────────────────
     const rbRefs = rigidBodyRefsRef.current || {};
     const updComp = updateComponentRef.current;
+
+    const getEntityPosition = (id: string): [number, number, number] | null => {
+      const targetEntity = scene.entities[id];
+      if (!targetEntity) return null;
+      const rb = rbRefs[id];
+      if (rb) {
+        try {
+          const trans = rb.translation();
+          return [trans.x, trans.y, trans.z];
+        } catch(e) {}
+      }
+      if (targetEntity.components.Transform?.position) {
+        return targetEntity.components.Transform.position;
+      }
+      return [0, 0, 0];
+    };
+
     for (const entity of Object.values(scene.entities)) {
       if (!entity?.active) continue;
       
@@ -228,6 +265,7 @@ export function GameLoop() {
                 Input, 
                 rb, 
                 entity.components.Camera,
+                getEntityPosition,
                 ...varValues
               );
               inst.compiled.onUpdate(delta);
