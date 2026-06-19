@@ -38,16 +38,14 @@ export function DedicatedCodeEditor() {
   };
 
   const fetchModels = async (key: string) => {
-    if (!key) {
-      setModels([]);
-      return;
-    }
     setLoadingModels(true);
     try {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${key}`
       };
+      if (key) {
+        headers['Authorization'] = `Bearer ${key}`;
+      }
       const response = await fetch('https://gen.pollinations.ai/v1/models', {
         headers
       });
@@ -57,25 +55,41 @@ export function DedicatedCodeEditor() {
           const id = m.id.toLowerCase();
           return !id.includes('flux') && !id.includes('diffusion') && !id.includes('dall-e') && !id.includes('midjourney') && !id.includes('audio') && !id.includes('tts') && !id.includes('whisper');
         });
-        setModels(chatModels);
+        
+        if (chatModels.length === 0) {
+          setModels([
+            { id: 'openai' },
+            { id: 'mistral' },
+            { id: 'qwen' }
+          ]);
+        } else {
+          setModels(chatModels);
+        }
         
         if (chatModels.length > 0 && !chatModels.some((m: any) => m.id === selectedModel)) {
           setSelectedModel(chatModels[0].id);
         }
+      } else {
+        setModels([
+          { id: 'openai' },
+          { id: 'mistral' },
+          { id: 'qwen' }
+        ]);
       }
     } catch (err) {
       console.error('Erro ao buscar modelos:', err);
+      setModels([
+        { id: 'openai' },
+        { id: 'mistral' },
+        { id: 'qwen' }
+      ]);
     } finally {
       setLoadingModels(false);
     }
   };
 
   useEffect(() => {
-    if (apiKey) {
-      fetchModels(apiKey);
-    } else {
-      setModels([]);
-    }
+    fetchModels(apiKey);
   }, [apiKey]);
   
   const channelRef = useRef<BroadcastChannel | null>(null);
@@ -239,22 +253,70 @@ Retorne APENAS o código JavaScript puro contendo as funções onAwake e/ou onUp
         headers['Authorization'] = `Bearer ${apiKey}`;
       }
 
-      const response = await fetch('https://text.pollinations.ai/', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          model: selectedModel,
-          messages: [
-            { 
-              role: 'system', 
-              content: systemPrompt
-            },
-            { role: 'user', content: prompt }
-          ]
-        })
-      });
-      if (!response.ok) throw new Error('Falha na resposta da API');
-      const data = await response.text();
+      let data = '';
+      let success = false;
+
+      // 1. Tenta por POST na rota recomendada (OpenAI-compatible)
+      try {
+        const response = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            model: selectedModel || 'openai',
+            messages: [
+              { 
+                role: 'system', 
+                content: systemPrompt
+              },
+              { role: 'user', content: prompt }
+            ]
+          })
+        });
+        if (response.ok) {
+          const json = await response.json();
+          data = json.choices?.[0]?.message?.content || '';
+          if (data) success = true;
+        }
+      } catch (postErr) {
+        console.warn('POST para gen.pollinations.ai falhou, tentando fallback:', postErr);
+      }
+
+      // 2. Se falhar, tenta o POST na rota legada text.pollinations.ai
+      if (!success) {
+        try {
+          const response = await fetch('https://text.pollinations.ai/', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              model: selectedModel || 'openai',
+              messages: [
+                { 
+                  role: 'system', 
+                  content: systemPrompt
+                },
+                { role: 'user', content: prompt }
+              ]
+            })
+          });
+          if (response.ok) {
+            data = await response.text();
+            if (data) success = true;
+          }
+        } catch (legacyPostErr) {
+          console.warn('POST para text.pollinations.ai falhou:', legacyPostErr);
+        }
+      }
+
+      // 3. Fallback final via GET (altamente resiliente, não exige chave, livre de CORS)
+      if (!success) {
+        const url = `https://text.pollinations.ai/${encodeURIComponent(prompt)}?model=${encodeURIComponent(selectedModel || 'openai')}&system=${encodeURIComponent(systemPrompt)}`;
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error('Falha na resposta da API após tentar POST e GET');
+        }
+        data = await response.text();
+      }
+
       // Remover blocos de código markdown se gerados
       const cleanedCode = data.replace(/^```javascript\n|^```js\n|^```\n|```$/g, '');
       setAiResponse(cleanedCode.trim());
