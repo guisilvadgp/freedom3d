@@ -497,14 +497,35 @@ function Audio2D({ url, loop, volume }: { url: string; loop: boolean; volume: nu
   return null;
 }
 
-function SpatialAudio({ url, loop, volume }: { url: string; loop: boolean; volume: number }) {
+function SpatialAudio({ 
+  url, 
+  loop, 
+  volume,
+  refDistance,
+  rolloffFactor,
+  maxDistance
+}: { 
+  url: string; 
+  loop: boolean; 
+  volume: number;
+  refDistance?: number;
+  rolloffFactor?: number;
+  maxDistance?: number;
+}) {
   const audioRef = useRef<THREE.PositionalAudio | null>(null);
 
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.setVolume(volume);
+      const rDist = typeof refDistance === 'number' ? refDistance : 5;
+      const rFactor = typeof rolloffFactor === 'number' ? rolloffFactor : 1;
+      const mDist = typeof maxDistance === 'number' ? maxDistance : 100;
+      
+      audioRef.current.setRefDistance(rDist);
+      audioRef.current.setRolloffFactor(rFactor);
+      audioRef.current.setMaxDistance(mDist);
     }
-  }, [volume]);
+  }, [volume, refDistance, rolloffFactor, maxDistance]);
 
   return (
     <PositionalAudio
@@ -512,7 +533,7 @@ function SpatialAudio({ url, loop, volume }: { url: string; loop: boolean; volum
       url={url}
       loop={loop}
       autoplay={true}
-      distance={10}
+      distance={typeof refDistance === 'number' ? refDistance : 5}
     />
   );
 }
@@ -525,9 +546,23 @@ interface OrionAudioProps {
   is3D: boolean;
   delay: number;
   isPlaying: boolean;
+  refDistance?: number;
+  rolloffFactor?: number;
+  maxDistance?: number;
 }
 
-function OrionAudioComponent({ src, loop, volume, playOnStart, is3D, delay, isPlaying }: OrionAudioProps) {
+function OrionAudioComponent({ 
+  src, 
+  loop, 
+  volume, 
+  playOnStart, 
+  is3D, 
+  delay, 
+  isPlaying,
+  refDistance,
+  rolloffFactor,
+  maxDistance
+}: OrionAudioProps) {
   const [shouldPlay, setShouldPlay] = useState(false);
 
   useEffect(() => {
@@ -546,7 +581,16 @@ function OrionAudioComponent({ src, loop, volume, playOnStart, is3D, delay, isPl
   if (!isPlaying || !shouldPlay) return null;
 
   if (is3D) {
-    return <SpatialAudio url={src} loop={loop} volume={volume ?? 1.0} />;
+    return (
+      <SpatialAudio 
+        url={src} 
+        loop={loop} 
+        volume={volume ?? 1.0} 
+        refDistance={refDistance}
+        rolloffFactor={rolloffFactor}
+        maxDistance={maxDistance}
+      />
+    );
   } else {
     return <Audio2D url={src} loop={loop} volume={volume ?? 1.0} />;
   }
@@ -799,6 +843,9 @@ function EntityMesh({ entity, entities }: { entity: Entity; entities: Record<str
             is3D={audio.is3D ?? true}
             delay={audio.delay ?? 0}
             isPlaying={isPlaying || isStandalone}
+            refDistance={audio.refDistance}
+            rolloffFactor={audio.rolloffFactor}
+            maxDistance={audio.maxDistance}
           />
         )}
         {particles && (
@@ -887,6 +934,9 @@ function EntityMesh({ entity, entities }: { entity: Entity; entities: Record<str
           is3D={audio.is3D ?? true}
           delay={audio.delay ?? 0}
           isPlaying={isPlaying || isStandalone}
+          refDistance={audio.refDistance}
+          rolloffFactor={audio.rolloffFactor}
+          maxDistance={audio.maxDistance}
         />
       )}
       {/* Particles */}

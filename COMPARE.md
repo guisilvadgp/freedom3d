@@ -295,7 +295,7 @@ Fase 4 – XR (3 meses)        ████████░░   80% concluído (
 ### Fase 3 – O que foi feito:
 - ✅ Integração de Física em tempo real com Rapier (@react-three/rapier)
 - ✅ Colisores automáticos e dinâmicos (MeshCollider, Cuboid, etc.)
-- ✅ Áudio posicional 3D integrado (Drei PositionalAudio)
+- ✅ Áudio posicional 3D integrado (Drei PositionalAudio) com controles finos de atenuação espacial (distância mínima, rolloff e distância máxima)
 - ✅ Sistema de partículas integrado (Drei Sparkles)
 - ✅ Canal WebSocket integrado no servidor Vite para multiplayer
 - ✅ Replicação em tempo real de Transforms locais e spawning de Ghosts remotos
@@ -317,6 +317,7 @@ Fase 4 – XR (3 meses)        ████████░░   80% concluído (
 - ✅ Suporte a Gamepads (PS4 DualShock 4) com mapeamento visual no Inspector e eixos integrados em FPS/TPS
 - ✅ UX na Hierarquia com botão de renomear e foco de câmera interpolado em objetos 3D
 - ✅ Integração da câmera do Three.js (threeCamera) aos scripts para rastreamento de olhar/direção e raycast dinâmico em WebXR
+- ✅ Controles de atenuação do Som Espacial (Distância Mínima, Fator de Rolloff e Distância Máxima) com padrão de 5 metros configurável no Inspector
 
 ---
 

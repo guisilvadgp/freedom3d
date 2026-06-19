@@ -78,6 +78,9 @@ export interface AudioComponent {
   playOnStart: boolean;
   is3D?: boolean;
   delay?: number;
+  refDistance?: number;
+  rolloffFactor?: number;
+  maxDistance?: number;
 }
 
 export interface ParticleSystemComponent {

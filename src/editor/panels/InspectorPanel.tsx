@@ -576,6 +576,56 @@ function AudioInspector({ entityId }: { entityId: string }) {
         />
       </div>
 
+      {(audio.is3D ?? true) && (
+        <>
+          <div className="field-row">
+            <label className="field-label">Distância Mínima</label>
+            <input
+              type="number"
+              className="field-input"
+              min="0.1"
+              step="0.5"
+              value={audio.refDistance ?? 5}
+              onChange={(e) => {
+                const val = parseFloat(e.target.value);
+                updateComponent(entityId, 'Audio', { refDistance: isNaN(val) ? 5 : val });
+              }}
+              style={{ width: '60px' }}
+            />
+          </div>
+          <div className="field-row">
+            <label className="field-label">Rolloff (Decaimento)</label>
+            <input
+              type="number"
+              className="field-input"
+              min="0"
+              step="0.1"
+              value={audio.rolloffFactor ?? 1}
+              onChange={(e) => {
+                const val = parseFloat(e.target.value);
+                updateComponent(entityId, 'Audio', { rolloffFactor: isNaN(val) ? 1 : val });
+              }}
+              style={{ width: '60px' }}
+            />
+          </div>
+          <div className="field-row">
+            <label className="field-label">Distância Máxima</label>
+            <input
+              type="number"
+              className="field-input"
+              min="1"
+              step="5"
+              value={audio.maxDistance ?? 100}
+              onChange={(e) => {
+                const val = parseFloat(e.target.value);
+                updateComponent(entityId, 'Audio', { maxDistance: isNaN(val) ? 100 : val });
+              }}
+              style={{ width: '60px' }}
+            />
+          </div>
+        </>
+      )}
+
       <div className="field-row">
         <label className="field-label">Delay para Iniciar (s)</label>
         <input
@@ -1740,7 +1790,7 @@ export function InspectorPanel({ style }: { style?: React.CSSProperties }) {
           {!entity.components.Audio && (
             <button 
               className="panel-btn" 
-              onClick={() => useEditorStore.getState().addComponent(selectedEntityId, { type: 'Audio', src: '', loop: true, playOnStart: true, volume: 1, is3D: true, delay: 0 })}
+              onClick={() => useEditorStore.getState().addComponent(selectedEntityId, { type: 'Audio', src: '', loop: true, playOnStart: true, volume: 1, is3D: true, delay: 0, refDistance: 5, rolloffFactor: 1, maxDistance: 100 })}
             >
               <Plus size={12} /> Add Audio
             </button>
