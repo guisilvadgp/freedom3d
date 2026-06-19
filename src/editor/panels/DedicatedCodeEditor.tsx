@@ -262,6 +262,16 @@ CRITICAL ENGINE API & ARCHITECTURE GUIDELINES:
    if (playerPos) {
      const dist = new THREE.Vector3().fromArray(playerPos).distanceTo(myPos);
    }
+9. REAL-TIME PLAYER VIEW DIRECTION / RAYCASTING (CRITICAL): To determine where the player is looking (in both desktop mode and WebXR/VR imersivo headset mode), ALWAYS use the global Three.js camera instance:
+   threeCamera
+   - To get camera position:
+     const camPos = new THREE.Vector3();
+     threeCamera.getWorldPosition(camPos);
+   - To get gaze/look direction (forward vector):
+     const viewDir = new THREE.Vector3();
+     threeCamera.getWorldDirection(viewDir);
+   - To spawn or position an object 2 meters directly in front of the player's eyes:
+     const spawnPos = new THREE.Vector3().copy(camPos).addScaledVector(viewDir, 2.0);
 
 WEBXR & VR ELABORATION (MANDATORY):
 - Keep WebXR and VR compatibility in mind. Check if VR is active using the global flag: 'window.isVRActive'.

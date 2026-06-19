@@ -36,7 +36,7 @@ export function GameLoop() {
   const updateComponentRef = useRef(updateComponent);
   updateComponentRef.current = updateComponent;
 
-  useFrame((_state, delta) => {
+  useFrame((state, delta) => {
     if (!isPlaying) {
       if (started.current && !stopped.current) {
         stopped.current = true;
@@ -95,9 +95,10 @@ export function GameLoop() {
               let rigidBody;
               let camera;
               let getEntityPosition;
+              let threeCamera;
               ${varDeclarations}
 
-              function updateFrameData(_entity, _delta, _updateComponent, _Input, _rigidBody, _camera, _getEntityPosition${varParams ? ', ' + varParams : ''}) {
+              function updateFrameData(_entity, _delta, _updateComponent, _Input, _rigidBody, _camera, _getEntityPosition, _threeCamera${varParams ? ', ' + varParams : ''}) {
                 entity = _entity;
                 delta = _delta;
                 updateComponent = _updateComponent;
@@ -105,6 +106,7 @@ export function GameLoop() {
                 rigidBody = _rigidBody;
                 camera = _camera;
                 getEntityPosition = _getEntityPosition;
+                threeCamera = _threeCamera;
                 ${varAssignments}
               }
 
@@ -192,6 +194,7 @@ export function GameLoop() {
                   rb, 
                   entity.components.Camera,
                   getEntityPosition,
+                  state.camera,
                   ...varValues
                 );
                 inst.compiled.onAwake();
@@ -207,7 +210,7 @@ export function GameLoop() {
     frame.current++;
     accumulated.current += delta;
 
-    // Atualiza estados do Gamepad Bluetooth (VRBox)
+    // -- Atualiza estados do Gamepad Bluetooth (VRBox)
     if ((Input as any)._updateGamepadState) {
       (Input as any)._updateGamepadState();
     }
@@ -266,6 +269,7 @@ export function GameLoop() {
                 rb, 
                 entity.components.Camera,
                 getEntityPosition,
+                state.camera,
                 ...varValues
               );
               inst.compiled.onUpdate(delta);

@@ -157,7 +157,7 @@
 
 | Feature | Status | Detalhe |
 |---------|--------|---------|
-| Lifecycle: Awake/Start/Update/etc. | ✅ | GameLoop dispara Updates para ScriptComponents ativos com Input e Física |
+| Lifecycle: Awake/Start/Update/etc. | ✅ | GameLoop dispara Updates para ScriptComponents ativos com Input, Física e câmera Three.js (threeCamera) exposta |
 | PlayerController example | ✅ | `FPSController` e `TPSController` embutidos na criação das entidades |
 | Multi-Componentes de Script | ✅ | Suporte a múltiplos scripts adicionais por entidade com ciclo de vida completo (onAwake, onUpdate) |
 | Referências e Variáveis (Unity Mode) | ✅ | Configuração de referências a outras Entidades (GameObjects), Componentes, tipos escalares e seleção de áudios (Audio Clips) locais direto pelo Inspector |
@@ -316,6 +316,7 @@ Fase 4 – XR (3 meses)        ████████░░   80% concluído (
 - ✅ Calibração automática de altura do headset
 - ✅ Suporte a Gamepads (PS4 DualShock 4) com mapeamento visual no Inspector e eixos integrados em FPS/TPS
 - ✅ UX na Hierarquia com botão de renomear e foco de câmera interpolado em objetos 3D
+- ✅ Integração da câmera do Three.js (threeCamera) aos scripts para rastreamento de olhar/direção e raycast dinâmico em WebXR
 
 ---
 
