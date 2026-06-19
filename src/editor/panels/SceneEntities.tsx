@@ -467,6 +467,7 @@ function Audio2D({ url, loop, volume }: { url: string; loop: boolean; volume: nu
   const audioRef = useRef<THREE.Audio | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
     let listener = camera.getObjectByName('global-audio-listener') as THREE.AudioListener;
     if (!listener) {
       listener = new THREE.AudioListener();
@@ -478,6 +479,7 @@ function Audio2D({ url, loop, volume }: { url: string; loop: boolean; volume: nu
     const audioLoader = new THREE.AudioLoader();
 
     audioLoader.load(url, (buffer) => {
+      if (!isMounted) return;
       sound.setBuffer(buffer);
       sound.setLoop(loop);
       sound.setVolume(volume);
@@ -487,6 +489,7 @@ function Audio2D({ url, loop, volume }: { url: string; loop: boolean; volume: nu
     audioRef.current = sound;
 
     return () => {
+      isMounted = false;
       if (sound.isPlaying) {
         sound.stop();
       }
@@ -517,6 +520,7 @@ function SpatialAudio({
   const audioRef = useRef<THREE.PositionalAudio | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
     // Garante que a câmera tenha o AudioListener global
     let listener = camera.getObjectByName('global-audio-listener') as THREE.AudioListener;
     if (!listener) {
@@ -540,6 +544,7 @@ function SpatialAudio({
     sound.setLoop(loop);
 
     audioLoader.load(url, (buffer) => {
+      if (!isMounted) return;
       sound.setBuffer(buffer);
       sound.play();
     }, undefined, (err) => {
@@ -553,6 +558,7 @@ function SpatialAudio({
     }
 
     return () => {
+      isMounted = false;
       if (sound.isPlaying) {
         sound.stop();
       }
