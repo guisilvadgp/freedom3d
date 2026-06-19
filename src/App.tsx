@@ -108,22 +108,47 @@ export default function App() {
         const scene = store.activeScene();
         if (!scene) return;
         
-        const scriptsList = Object.values(scene.entities)
-          .filter(e => e.components.Script)
-          .map(e => ({
+        const scriptsList: any[] = [];
+        for (const e of Object.values(scene.entities)) {
+          if (!e.components.Script) continue;
+          
+          const mainScript = e.components.Script as any;
+          // Adiciona o script principal
+          scriptsList.push({
             entityId: e.id,
             entityName: e.name,
-            scriptName: (e.components.Script as any).scriptName,
-            code: (e.components.Script as any).code
-          }));
+            scriptId: 'main',
+            scriptName: mainScript.scriptName || 'Main',
+            code: mainScript.code || ''
+          });
+
+          // Adiciona os scripts adicionais se houver
+          if (mainScript.scripts && Array.isArray(mainScript.scripts)) {
+            for (const s of mainScript.scripts) {
+              scriptsList.push({
+                entityId: e.id,
+                entityName: e.name,
+                scriptId: s.id,
+                scriptName: s.scriptName,
+                code: s.code || '',
+                isAdditional: true
+              });
+            }
+          }
+        }
         
         const currentEntity = store.selectedEntity();
-        const currentScript = currentEntity && currentEntity.components.Script ? {
-          entityId: currentEntity.id,
-          entityName: currentEntity.name,
-          scriptName: (currentEntity.components.Script as any).scriptName,
-          code: (currentEntity.components.Script as any).code
-        } : null;
+        let currentScript = null;
+        if (currentEntity && currentEntity.components.Script) {
+          const mainScript = currentEntity.components.Script as any;
+          currentScript = {
+            entityId: currentEntity.id,
+            entityName: currentEntity.name,
+            scriptId: 'main',
+            scriptName: mainScript.scriptName || 'Main',
+            code: mainScript.code || ''
+          };
+        }
 
         channel.postMessage({
           type: 'INITIAL_DATA',
@@ -131,12 +156,34 @@ export default function App() {
           currentScript
         });
       } else if (event.data.type === 'UPDATE_SCRIPT') {
-        const { entityId, patch } = event.data;
-        store.updateComponent(entityId, 'Script', patch);
+        const { entityId, scriptId, patch } = event.data;
+        const scene = store.activeScene();
+        if (!scene) return;
+        const entity = scene.entities[entityId];
+        if (!entity || !entity.components.Script) return;
+        
+        const mainScript = entity.components.Script as any;
+        if (!scriptId || scriptId === 'main') {
+          store.updateComponent(entityId, 'Script', {
+            code: patch.code,
+            scriptName: patch.scriptName
+          });
+        } else {
+          const updatedScripts = (mainScript.scripts || []).map((s: any) => {
+            if (s.id === scriptId) {
+              return { ...s, code: patch.code, scriptName: patch.scriptName };
+            }
+            return s;
+          });
+          store.updateComponent(entityId, 'Script', {
+            scripts: updatedScripts
+          });
+        }
         
         channel.postMessage({
           type: 'SCRIPT_UPDATED_IN_EDITOR',
           entityId,
+          scriptId: scriptId || 'main',
           code: patch.code,
           scriptName: patch.scriptName
         });

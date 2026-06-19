@@ -7,13 +7,16 @@ import {
 interface ScriptItem {
   entityId: string;
   entityName: string;
+  scriptId: string;
   scriptName: string;
   code: string;
+  isAdditional?: boolean;
 }
 
 export function DedicatedCodeEditor() {
   const [scripts, setScripts] = useState<ScriptItem[]>([]);
   const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
+  const [selectedScriptId, setSelectedScriptId] = useState<string | null>(null);
   const [currentCode, setCurrentCode] = useState('');
   const [currentScriptName, setCurrentScriptName] = useState('');
   
@@ -91,11 +94,13 @@ export function DedicatedCodeEditor() {
         // Se houver script na URL
         const params = new URLSearchParams(window.location.search);
         const urlEntityId = params.get('entityId');
+        const urlScriptId = params.get('scriptId') || 'main';
         
         if (urlEntityId) {
-          const target = (scriptsList || []).find((s: ScriptItem) => s.entityId === urlEntityId);
+          const target = (scriptsList || []).find((s: ScriptItem) => s.entityId === urlEntityId && s.scriptId === urlScriptId);
           if (target) {
             setSelectedEntityId(target.entityId);
+            setSelectedScriptId(target.scriptId);
             setCurrentCode(target.code);
             setCurrentScriptName(target.scriptName);
             return;
@@ -104,17 +109,19 @@ export function DedicatedCodeEditor() {
 
         if (currentScript) {
           setSelectedEntityId(currentScript.entityId);
+          setSelectedScriptId(currentScript.scriptId || 'main');
           setCurrentCode(currentScript.code);
           setCurrentScriptName(currentScript.scriptName);
         } else if (scriptsList && scriptsList.length > 0) {
           setSelectedEntityId(scriptsList[0].entityId);
+          setSelectedScriptId(scriptsList[0].scriptId);
           setCurrentCode(scriptsList[0].code);
           setCurrentScriptName(scriptsList[0].scriptName);
         }
       } else if (type === 'SCRIPT_UPDATED_IN_EDITOR') {
         setScripts(prev => prev.map(s => {
-          if (s.entityId === event.data.entityId) {
-            if (selectedEntityId === event.data.entityId) {
+          if (s.entityId === event.data.entityId && s.scriptId === event.data.scriptId) {
+            if (selectedEntityId === event.data.entityId && selectedScriptId === event.data.scriptId) {
               setCurrentCode(event.data.code);
             }
             return { ...s, code: event.data.code };
@@ -138,25 +145,26 @@ export function DedicatedCodeEditor() {
       clearInterval(checkInterval);
       channel.close();
     };
-  }, [selectedEntityId, scripts.length]);
+  }, [selectedEntityId, selectedScriptId, scripts.length]);
 
-  const handleSelectScript = (entityId: string) => {
-    const script = scripts.find(s => s.entityId === entityId);
+  const handleSelectScript = (entityId: string, scriptId: string) => {
+    const script = scripts.find(s => s.entityId === entityId && s.scriptId === scriptId);
     if (script) {
       setSelectedEntityId(entityId);
+      setSelectedScriptId(scriptId);
       setCurrentCode(script.code);
       setCurrentScriptName(script.scriptName);
     }
   };
 
   const handleSave = () => {
-    if (!selectedEntityId) return;
+    if (!selectedEntityId || !selectedScriptId) return;
     
     setSaveStatus('saving');
     
     // Atualiza a lista local
     setScripts(prev => prev.map(s => {
-      if (s.entityId === selectedEntityId) {
+      if (s.entityId === selectedEntityId && s.scriptId === selectedScriptId) {
         return { ...s, code: currentCode, scriptName: currentScriptName };
       }
       return s;
@@ -166,6 +174,7 @@ export function DedicatedCodeEditor() {
     channelRef.current?.postMessage({
       type: 'UPDATE_SCRIPT',
       entityId: selectedEntityId,
+      scriptId: selectedScriptId,
       patch: {
         code: currentCode,
         scriptName: currentScriptName
@@ -266,12 +275,14 @@ export function DedicatedCodeEditor() {
           <div className="scripts-list">
             {scripts.map(s => (
               <button 
-                key={s.entityId} 
-                className={`script-item-btn ${selectedEntityId === s.entityId ? 'active' : ''}`}
-                onClick={() => handleSelectScript(s.entityId)}
+                key={`${s.entityId}-${s.scriptId}`} 
+                className={`script-item-btn ${selectedEntityId === s.entityId && selectedScriptId === s.scriptId ? 'active' : ''}`}
+                onClick={() => handleSelectScript(s.entityId, s.scriptId)}
               >
-                <FileCode size={14} />
-                <span className="script-name">{s.entityName} / {s.scriptName}.js</span>
+                <FileCode size={14} style={{ color: s.isAdditional ? '#10b981' : 'inherit' }} />
+                <span className="script-name">
+                  {s.entityName} / {s.scriptName}.js {s.isAdditional && <span style={{ fontSize: '8px', opacity: 0.6, background: '#10b981', color: 'black', padding: '1px 3px', borderRadius: '2px', marginLeft: '4px' }}>ADD</span>}
+                </span>
               </button>
             ))}
             {scripts.length === 0 && (

@@ -748,11 +748,14 @@ function ScriptInspector({ entityId }: { entityId: string }) {
   if (!entity) return null;
   const s = entity.components.Script as ScriptComponent;
 
+  const scene = useEditorStore.getState().activeScene();
+  const allEntities = scene ? Object.values(scene.entities) : [];
+
   // Extract variables (let name = value)
   const vars: Record<string, { type: 'number' | 'string' | 'boolean', value: any }> = {};
   const regex = /^(?:export\s+)?let\s+([a-zA-Z0-9_]+)\s*=\s*(.+?);?$/gm;
   let match;
-  while ((match = regex.exec(s.code)) !== null) {
+  while ((match = regex.exec(s.code || '')) !== null) {
     const name = match[1];
     const rawVal = match[2].trim();
     if (rawVal === 'true' || rawVal === 'false') {
@@ -768,21 +771,262 @@ function ScriptInspector({ entityId }: { entityId: string }) {
     let valStr = newVal;
     if (type === 'string') valStr = `"${newVal}"`;
     const replaceRegex = new RegExp(`^((?:export\\s+)?let\\s+${key}\\s*=\\s*).+?(;?)$`, 'm');
-    const newCode = s.code.replace(replaceRegex, `$1${valStr}$2`);
+    const newCode = (s.code || '').replace(replaceRegex, `$1${valStr}$2`);
     updateComponent(entityId, 'Script', { code: newCode });
+  };
+
+  const renderVariablesSection = (
+    variablesList: any[] = [], 
+    onUpdateVars: (newVars: any[]) => void
+  ) => {
+    return (
+      <div style={{ marginTop: '10px', borderTop: '1px dashed var(--border)', paddingTop: '8px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+          <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)' }}>Referências (Unity Mode)</span>
+          <button 
+            type="button"
+            onClick={() => {
+              const newVar = {
+                name: `var_${Math.random().toString(36).substring(2, 7)}`,
+                type: 'entity',
+                value: '',
+                entityId: '',
+                componentType: ''
+              };
+              onUpdateVars([...variablesList, newVar]);
+            }}
+            style={{
+              fontSize: '10px',
+              padding: '2px 6px',
+              background: 'var(--bg-selected)',
+              border: '1px solid var(--border-accent)',
+              color: 'var(--text-accent)',
+              borderRadius: '3px',
+              cursor: 'pointer'
+            }}
+          >
+            + Var Reference
+          </button>
+        </div>
+        
+        {variablesList.map((v, idx) => {
+          const targetEntity = allEntities.find(e => e.id === (v.type === 'component' ? v.entityId : v.value));
+          const availableComponents = targetEntity ? Object.keys(targetEntity.components) : [];
+
+          return (
+            <div key={idx} style={{ background: 'var(--bg-base)', padding: '6px', borderRadius: '4px', marginBottom: '6px', border: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', gap: '4px', marginBottom: '4px', alignItems: 'center' }}>
+                <input 
+                  type="text"
+                  placeholder="Nome no código"
+                  value={v.name}
+                  onChange={(e) => {
+                    const copy = [...variablesList];
+                    copy[idx] = { ...v, name: e.target.value.replace(/[^a-zA-Z0-9_]/g, '') };
+                    onUpdateVars(copy);
+                  }}
+                  style={{
+                    flex: 1,
+                    background: 'var(--bg-panel)',
+                    border: '1px solid var(--border)',
+                    color: 'white',
+                    padding: '2px 4px',
+                    fontSize: '11px',
+                    borderRadius: '2px'
+                  }}
+                />
+                <select
+                  value={v.type}
+                  onChange={(e) => {
+                    const copy = [...variablesList];
+                    copy[idx] = { ...v, type: e.target.value, value: '', entityId: '', componentType: '' };
+                    onUpdateVars(copy);
+                  }}
+                  style={{
+                    background: 'var(--bg-panel)',
+                    border: '1px solid var(--border)',
+                    color: 'white',
+                    padding: '2px 4px',
+                    fontSize: '11px',
+                    borderRadius: '2px'
+                  }}
+                >
+                  <option value="entity">Entity (GameObject)</option>
+                  <option value="component">Component</option>
+                  <option value="number">Number</option>
+                  <option value="string">String</option>
+                  <option value="boolean">Boolean</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const copy = [...variablesList];
+                    copy.splice(idx, 1);
+                    onUpdateVars(copy);
+                  }}
+                  style={{
+                    background: '#ef4444',
+                    border: 'none',
+                    color: 'white',
+                    padding: '2px 6px',
+                    borderRadius: '2px',
+                    cursor: 'pointer',
+                    fontSize: '10px'
+                  }}
+                >
+                  X
+                </button>
+              </div>
+              
+              {v.type === 'entity' && (
+                <select
+                  value={v.value}
+                  onChange={(e) => {
+                    const copy = [...variablesList];
+                    copy[idx] = { ...v, value: e.target.value };
+                    onUpdateVars(copy);
+                  }}
+                  style={{
+                    width: '100%',
+                    background: 'var(--bg-panel)',
+                    border: '1px solid var(--border)',
+                    color: 'white',
+                    padding: '2px 4px',
+                    fontSize: '11px',
+                    borderRadius: '2px'
+                  }}
+                >
+                  <option value="">(Nenhuma)</option>
+                  {allEntities.map(ent => (
+                    <option key={ent.id} value={ent.id}>{ent.name}</option>
+                  ))}
+                </select>
+              )}
+
+              {v.type === 'component' && (
+                <div style={{ display: 'flex', gap: '4px', width: '100%' }}>
+                  <select
+                    value={v.entityId || ''}
+                    onChange={(e) => {
+                      const copy = [...variablesList];
+                      copy[idx] = { ...v, entityId: e.target.value, value: '', componentType: '' };
+                      onUpdateVars(copy);
+                    }}
+                    style={{
+                      flex: 1,
+                      background: 'var(--bg-panel)',
+                      border: '1px solid var(--border)',
+                      color: 'white',
+                      padding: '2px 4px',
+                      fontSize: '11px',
+                      borderRadius: '2px'
+                    }}
+                  >
+                    <option value="">(Escolha Entidade)</option>
+                    {allEntities.map(ent => (
+                      <option key={ent.id} value={ent.id}>{ent.name}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={v.componentType || ''}
+                    onChange={(e) => {
+                      const copy = [...variablesList];
+                      copy[idx] = { ...v, componentType: e.target.value, value: e.target.value };
+                      onUpdateVars(copy);
+                    }}
+                    disabled={!v.entityId}
+                    style={{
+                      flex: 1,
+                      background: 'var(--bg-panel)',
+                      border: '1px solid var(--border)',
+                      color: 'white',
+                      padding: '2px 4px',
+                      fontSize: '11px',
+                      borderRadius: '2px'
+                    }}
+                  >
+                    <option value="">(Componente)</option>
+                    {availableComponents.map(compName => (
+                      <option key={compName} value={compName}>{compName}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {v.type === 'number' && (
+                <input 
+                  type="number"
+                  value={v.value}
+                  onChange={(e) => {
+                    const copy = [...variablesList];
+                    copy[idx] = { ...v, value: e.target.value };
+                    onUpdateVars(copy);
+                  }}
+                  style={{
+                    width: '100%',
+                    background: 'var(--bg-panel)',
+                    border: '1px solid var(--border)',
+                    color: 'white',
+                    padding: '2px 4px',
+                    fontSize: '11px',
+                    borderRadius: '2px'
+                  }}
+                />
+              )}
+
+              {v.type === 'string' && (
+                <input 
+                  type="text"
+                  value={v.value}
+                  onChange={(e) => {
+                    const copy = [...variablesList];
+                    copy[idx] = { ...v, value: e.target.value };
+                    onUpdateVars(copy);
+                  }}
+                  style={{
+                    width: '100%',
+                    background: 'var(--bg-panel)',
+                    border: '1px solid var(--border)',
+                    color: 'white',
+                    padding: '2px 4px',
+                    fontSize: '11px',
+                    borderRadius: '2px'
+                  }}
+                />
+              )}
+
+              {v.type === 'boolean' && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'white' }}>
+                  <input 
+                    type="checkbox"
+                    checked={v.value === 'true'}
+                    onChange={(e) => {
+                      const copy = [...variablesList];
+                      copy[idx] = { ...v, value: e.target.checked ? 'true' : 'false' };
+                      onUpdateVars(copy);
+                    }}
+                  />
+                  True
+                </label>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
   };
 
   return (
     <div className="component-block">
       <div className="component-header">
         <span className="component-icon"><Code size={14} /></span>
-        <span className="component-title">Script</span>
+        <span className="component-title">Script Principal</span>
         <button className="component-remove-btn" onClick={() => useEditorStore.getState().removeComponent(entityId, 'Script')} title="Remover Componente">
           <Trash2 size={12} />
         </button>
       </div>
       <div className="field-row">
-        <label className="field-label">Name</label>
+        <label className="field-label">Nome</label>
         <input
           type="text"
           className="field-input"
@@ -791,19 +1035,19 @@ function ScriptInspector({ entityId }: { entityId: string }) {
         />
       </div>
       <div className="field-row" style={{ display: 'block', marginTop: '8px' }}>
-        <label className="field-label" style={{ marginBottom: '4px', display: 'block' }}>Code</label>
+        <label className="field-label" style={{ marginBottom: '4px', display: 'block' }}>Código</label>
         <textarea
           className="field-input"
-          style={{ width: '100%', height: '150px', fontFamily: 'monospace', fontSize: '12px', resize: 'vertical' }}
+          style={{ width: '100%', height: '120px', fontFamily: 'monospace', fontSize: '11px', resize: 'vertical' }}
           value={s.code}
           onChange={(e) => updateComponent(entityId, 'Script', { code: e.target.value })}
         />
       </div>
 
+      {/* Variáveis Legadas Extraídas por Regex */}
       {Object.keys(vars).length > 0 && (
-        <div className="field-row" style={{ display: 'block', marginTop: '16px', borderTop: '1px solid var(--border-color)', paddingTop: '8px' }}>
-          <label className="field-label" style={{ fontWeight: 'bold', marginBottom: '8px', display: 'block' }}>Public Variables</label>
-          
+        <div className="field-row" style={{ display: 'block', marginTop: '12px', borderTop: '1px solid var(--border-color)', paddingTop: '8px' }}>
+          <label className="field-label" style={{ fontWeight: 'bold', marginBottom: '8px', display: 'block' }}>Variáveis Públicas (Código)</label>
           {Object.keys(vars).map(key => {
             const { type, value } = vars[key];
             return (
@@ -836,6 +1080,115 @@ function ScriptInspector({ entityId }: { entityId: string }) {
           })}
         </div>
       )}
+
+      {/* Variáveis e Referências do Script Principal */}
+      {renderVariablesSection(s.variables || [], (newVars) => {
+        updateComponent(entityId, 'Script', { variables: newVars });
+      })}
+
+      {/* Seção de Múltiplos Scripts Adicionais */}
+      <div style={{ borderTop: '1px solid var(--border)', marginTop: '16px', paddingTop: '12px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+          <span style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--text-secondary)' }}>Múltiplos Scripts (Unity Mode)</span>
+          <button
+            type="button"
+            onClick={() => {
+              const currentScripts = s.scripts || [];
+              const newScript = {
+                id: Math.random().toString(36).substring(2, 9),
+                scriptName: `ScriptAdicional${currentScripts.length + 1}`,
+                code: `// Comportamento adicional\nexport function onAwake() {\n  // Chamado na inicialização\n}\n\nexport function onUpdate(delta) {\n  // Chamado a cada frame\n}`,
+                variables: []
+              };
+              updateComponent(entityId, 'Script', { scripts: [...currentScripts, newScript] });
+            }}
+            style={{
+              fontSize: '10px',
+              padding: '3px 8px',
+              background: 'linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))',
+              border: 'none',
+              color: 'white',
+              borderRadius: '3px',
+              cursor: 'pointer',
+              fontWeight: 'bold'
+            }}
+          >
+            + Novo Script
+          </button>
+        </div>
+
+        {(s.scripts || []).map((scr, sIdx) => (
+          <div key={scr.id} style={{ background: 'var(--bg-panel-alt)', border: '1px solid var(--border)', borderRadius: '4px', padding: '8px', marginBottom: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <input 
+                type="text"
+                value={scr.scriptName}
+                onChange={(e) => {
+                  const copy = [...(s.scripts || [])];
+                  copy[sIdx] = { ...scr, scriptName: e.target.value };
+                  updateComponent(entityId, 'Script', { scripts: copy });
+                }}
+                style={{
+                  background: 'var(--bg-panel)',
+                  border: '1px solid var(--border)',
+                  color: 'white',
+                  padding: '3px 6px',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  borderRadius: '3px',
+                  width: '65%'
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const copy = [...(s.scripts || [])];
+                  copy.splice(sIdx, 1);
+                  updateComponent(entityId, 'Script', { scripts: copy });
+                }}
+                style={{
+                  background: '#ef4444',
+                  border: 'none',
+                  color: 'white',
+                  padding: '3px 8px',
+                  borderRadius: '3px',
+                  cursor: 'pointer',
+                  fontSize: '10px'
+                }}
+              >
+                Remover
+              </button>
+            </div>
+            
+            <textarea
+              style={{
+                width: '100%',
+                height: '80px',
+                fontFamily: 'monospace',
+                fontSize: '11px',
+                background: 'var(--bg-panel)',
+                border: '1px solid var(--border)',
+                color: 'white',
+                padding: '4px',
+                borderRadius: '3px',
+                resize: 'vertical'
+              }}
+              value={scr.code}
+              onChange={(e) => {
+                const copy = [...(s.scripts || [])];
+                copy[sIdx] = { ...scr, code: e.target.value };
+                updateComponent(entityId, 'Script', { scripts: copy });
+              }}
+            />
+
+            {renderVariablesSection(scr.variables || [], (newVars) => {
+              const copy = [...(s.scripts || [])];
+              copy[sIdx] = { ...scr, variables: newVars };
+              updateComponent(entityId, 'Script', { scripts: copy });
+            })}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

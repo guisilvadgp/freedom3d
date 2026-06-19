@@ -159,6 +159,8 @@
 |---------|--------|---------|
 | Lifecycle: Awake/Start/Update/etc. | ✅ | GameLoop dispara Updates para ScriptComponents ativos com Input e Física |
 | PlayerController example | ✅ | `FPSController` e `TPSController` embutidos na criação das entidades |
+| Multi-Componentes de Script | ✅ | Suporte a múltiplos scripts adicionais por entidade com ciclo de vida completo (onAwake, onUpdate) |
+| Referências e Variáveis (Unity Mode) | ✅ | Configuração de referências a outras Entidades (GameObjects), Componentes e tipos escalares direto pelo Inspector |
 
 ---
 

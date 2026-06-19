@@ -72,36 +72,109 @@ export function GameLoop() {
       for (const entity of Object.values(scene.entities)) {
         if (!entity?.active || !entity.components.Script) continue;
         
-        const code = entity.components.Script.code;
-        try {
-          const cleanCode = code.replace(/export function/g, 'function');
-          const scriptCreator = new Function('rapierContext', 'Math', 'THREE', `
-            let entity;
-            let delta;
-            let updateComponent;
-            let Input;
-            let rigidBody;
-            let camera;
+        const scriptComp = entity.components.Script as any;
+        const instances: any[] = [];
+        
+        const compileSingleScript = (name: string, code: string, variables: any[] = []) => {
+          try {
+            const cleanCode = code.replace(/export function/g, 'function');
+            const varDeclarations = variables.map((v: any) => `let ${v.name};`).join('\n');
+            const varParams = variables.map((v: any) => `_${v.name}`).join(', ');
+            const varAssignments = variables.map((v: any) => `${v.name} = _${v.name};`).join('\n');
 
-            function updateFrameData(_entity, _delta, _updateComponent, _Input, _rigidBody, _camera) {
-              entity = _entity;
-              delta = _delta;
-              updateComponent = _updateComponent;
-              Input = _Input;
-              rigidBody = _rigidBody;
-              camera = _camera;
+            const scriptCreator = new Function('rapierContext', 'Math', 'THREE', `
+              let entity;
+              let delta;
+              let updateComponent;
+              let Input;
+              let rigidBody;
+              let camera;
+              ${varDeclarations}
+
+              function updateFrameData(_entity, _delta, _updateComponent, _Input, _rigidBody, _camera${varParams ? ', ' + varParams : ''}) {
+                entity = _entity;
+                delta = _delta;
+                updateComponent = _updateComponent;
+                Input = _Input;
+                rigidBody = _rigidBody;
+                camera = _camera;
+                ${varAssignments}
+              }
+
+              ${cleanCode}
+
+              return {
+                updateFrameData,
+                onUpdate: typeof onUpdate === 'function' ? onUpdate : null,
+                onAwake: typeof onAwake === 'function' ? onAwake : null
+              };
+            `);
+            const compiled = scriptCreator(rapierContext, Math, THREE);
+            return { compiled, variables };
+          } catch(err) {
+            addLog('error', `Erro ao compilar script "${name}" em "${entity.name}": ${String(err)}`);
+            return null;
+          }
+        };
+
+        // Compila o script principal
+        const mainInst = compileSingleScript(scriptComp.scriptName || 'Main', scriptComp.code || '', scriptComp.variables || []);
+        if (mainInst) {
+          instances.push(mainInst);
+        }
+
+        // Compila os scripts adicionais
+        if (scriptComp.scripts && Array.isArray(scriptComp.scripts)) {
+          for (const s of scriptComp.scripts) {
+            const inst = compileSingleScript(s.scriptName, s.code, s.variables || []);
+            if (inst) {
+              instances.push(inst);
             }
+          }
+        }
 
-            ${cleanCode}
+        if (instances.length > 0) {
+          compiledScripts.current[entity.id] = instances;
+        }
+      }
 
-            return {
-              updateFrameData,
-              onUpdate: typeof onUpdate === 'function' ? onUpdate : null
-            };
-          `);
-          compiledScripts.current[entity.id] = scriptCreator(rapierContext, Math, THREE);
-        } catch(err) {
-          addLog('error', `Erro ao compilar script "${entity.name}": ${String(err)}`);
+      // Executa o onAwake em todos os scripts recém-compilados
+      const rbRefs = rigidBodyRefsRef.current || {};
+      const updComp = updateComponentRef.current;
+      for (const entity of Object.values(scene.entities)) {
+        if (!entity?.active) continue;
+        const instances = compiledScripts.current[entity.id];
+        if (instances && Array.isArray(instances)) {
+          for (const inst of instances) {
+            if (inst.compiled && inst.compiled.onAwake) {
+              try {
+                const rb = rbRefs[entity.id] || null;
+                const varValues = (inst.variables || []).map((v: any) => {
+                  if (v.type === 'entity') return scene.entities[v.value] || null;
+                  if (v.type === 'component') {
+                    const targetEntity = scene.entities[v.entityId];
+                    return (targetEntity?.components as any)[v.componentType] || null;
+                  }
+                  if (v.type === 'number') return Number(v.value);
+                  if (v.type === 'boolean') return v.value === 'true';
+                  return v.value;
+                });
+
+                inst.compiled.updateFrameData(
+                  entity, 
+                  0, 
+                  updComp, 
+                  Input, 
+                  rb, 
+                  entity.components.Camera,
+                  ...varValues
+                );
+                inst.compiled.onAwake();
+              } catch(err) {
+                console.error(`Awake script error on ${entity.name}:`, err);
+              }
+            }
+          }
         }
       }
     }
@@ -120,14 +193,43 @@ export function GameLoop() {
     for (const entity of Object.values(scene.entities)) {
       if (!entity?.active) continue;
       
-      const instance = compiledScripts.current[entity.id];
-      if (instance && instance.onUpdate) {
-        try {
-          const rb = rbRefs[entity.id];
-          instance.updateFrameData(entity, delta, updComp, Input, rb, entity.components.Camera);
-          instance.onUpdate(delta);
-        } catch(err) {
-          console.error(`Runtime script error on ${entity.name}:`, err);
+      const instances = compiledScripts.current[entity.id];
+      if (instances && Array.isArray(instances)) {
+        for (const inst of instances) {
+          if (inst.compiled && inst.compiled.onUpdate) {
+            try {
+              const rb = rbRefs[entity.id];
+              
+              // Resolve as variáveis
+              const varValues = (inst.variables || []).map((v: any) => {
+                if (v.type === 'entity') {
+                  return scene.entities[v.value] || null;
+                } else if (v.type === 'component') {
+                  const targetEntity = scene.entities[v.entityId];
+                  return (targetEntity?.components as any)[v.componentType] || null;
+                } else if (v.type === 'number') {
+                  return Number(v.value);
+                } else if (v.type === 'boolean') {
+                  return v.value === 'true';
+                } else {
+                  return v.value;
+                }
+              });
+
+              inst.compiled.updateFrameData(
+                entity, 
+                delta, 
+                updComp, 
+                Input, 
+                rb, 
+                entity.components.Camera,
+                ...varValues
+              );
+              inst.compiled.onUpdate(delta);
+            } catch(err) {
+              console.error(`Runtime script error on ${entity.name}:`, err);
+            }
+          }
         }
       }
     }

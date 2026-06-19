@@ -38,10 +38,27 @@ export interface CameraComponent {
   rotation?: [number, number, number];
 }
 
+export interface ScriptVariable {
+  name: string;
+  type: 'entity' | 'component' | 'number' | 'string' | 'boolean';
+  value: string;
+  entityId?: string;
+  componentType?: string;
+}
+
+export interface ScriptItem {
+  id: string;
+  scriptName: string;
+  code: string;
+  variables?: ScriptVariable[];
+}
+
 export interface ScriptComponent {
   type: 'Script';
   scriptName: string;
   code: string;
+  variables?: ScriptVariable[];
+  scripts?: ScriptItem[];
 }
 
 export interface RigidBodyComponent {
