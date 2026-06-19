@@ -43,6 +43,16 @@ function GlobalAudioListenerHandler() {
     }
   }, [camera]);
 
+  // Atualiza manualmente a matriz mundial do listener a cada frame
+  // Isso é vital no WebXR, pois a ArrayCamera do XR não faz parte da árvore da cena
+  // e seus filhos não recebem atualizações automáticas de matriz mundial pelo Three.js
+  useFrame(() => {
+    const listener = getGlobalAudioListener();
+    if (listener.parent) {
+      listener.updateMatrixWorld(true);
+    }
+  });
+
   return null;
 }
 
