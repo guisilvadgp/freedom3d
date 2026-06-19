@@ -989,28 +989,122 @@ function ScriptInspector({ entityId }: { entityId: string }) {
     return () => { active = false; };
   }, [sceneName]);
 
-  // Extract variables (let name = value)
-  const vars: Record<string, { type: 'number' | 'string' | 'boolean', value: any }> = {};
-  const regex = /^(?:export\s+)?let\s+([a-zA-Z0-9_]+)\s*=\s*(.+?);?$/gm;
-  let match;
-  while ((match = regex.exec(s.code || '')) !== null) {
-    const name = match[1];
-    const rawVal = match[2].trim();
-    if (rawVal === 'true' || rawVal === 'false') {
-      vars[name] = { type: 'boolean', value: rawVal === 'true' };
-    } else if (!isNaN(Number(rawVal))) {
-      vars[name] = { type: 'number', value: Number(rawVal) };
-    } else if (rawVal.startsWith('"') || rawVal.startsWith("'")) {
-      vars[name] = { type: 'string', value: rawVal.replace(/^["']|["']$/g, '') };
+  const renderCodeVariablesSection = (
+    code: string, 
+    onUpdateCode: (newCode: string) => void
+  ) => {
+    const vars: Record<string, { type: 'number' | 'string' | 'boolean', value: any }> = {};
+    const regex = /^(?:export\s+)?let\s+([a-zA-Z0-9_]+)\s*=\s*(.+?);?$/gm;
+    let match;
+    const cleanCode = code || '';
+    while ((match = regex.exec(cleanCode)) !== null) {
+      const name = match[1];
+      const rawVal = match[2].trim();
+      if (rawVal === 'true' || rawVal === 'false') {
+        vars[name] = { type: 'boolean', value: rawVal === 'true' };
+      } else if (!isNaN(Number(rawVal))) {
+        vars[name] = { type: 'number', value: Number(rawVal) };
+      } else if (rawVal.startsWith('"') || rawVal.startsWith("'")) {
+        vars[name] = { type: 'string', value: rawVal.replace(/^["']|["']$/g, '') };
+      }
     }
-  }
 
-  const updateVariable = (key: string, newVal: any, type: string) => {
-    let valStr = newVal;
-    if (type === 'string') valStr = `"${newVal}"`;
-    const replaceRegex = new RegExp(`^((?:export\\s+)?let\\s+${key}\\s*=\\s*).+?(;?)$`, 'm');
-    const newCode = (s.code || '').replace(replaceRegex, `$1${valStr}$2`);
-    updateComponent(entityId, 'Script', { code: newCode });
+    if (Object.keys(vars).length === 0) return null;
+
+    const updateVariable = (key: string, newVal: any, type: string) => {
+      let valStr = newVal;
+      if (type === 'string') valStr = `"${newVal}"`;
+      const replaceRegex = new RegExp(`^((?:export\\s+)?let\\s+${key}\\s*=\\s*).+?(;?)$`, 'm');
+      const newCode = cleanCode.replace(replaceRegex, `$1${valStr}$2`);
+      onUpdateCode(newCode);
+    };
+
+    return (
+      <div className="field-row" style={{ display: 'block', marginTop: '12px', borderTop: '1px solid var(--border)', paddingTop: '8px' }}>
+        <label className="field-label" style={{ fontWeight: 'bold', marginBottom: '8px', display: 'block' }}>Variáveis Públicas (Código)</label>
+        {Object.keys(vars).map(key => {
+          const { type, value } = vars[key];
+          const isButtonField = key.toLowerCase().endsWith('button');
+          const isAxisField = key.toLowerCase().endsWith('axis');
+          const isAudioField = key.toLowerCase().endsWith('sound') || key.toLowerCase().endsWith('audio') || key.toLowerCase().endsWith('clip');
+          
+          return (
+            <div key={key} className="field-row" style={{ marginBottom: '4px' }}>
+              <label className="field-label" style={{ width: '80px', overflow: 'hidden', textOverflow: 'ellipsis' }} title={key}>{key}</label>
+              {isButtonField ? (
+                <select 
+                  className="field-input"
+                  value={value} 
+                  onChange={e => updateVariable(key, e.target.value, 'string')}
+                  style={{ flex: 1, padding: '2px 4px', fontSize: '11px', borderRadius: '3px' }}
+                >
+                  <option value="A">Cruz / A (❌)</option>
+                  <option value="B">Círculo / B (🔴)</option>
+                  <option value="C">Quadrado / C (⬜)</option>
+                  <option value="D">Triângulo / D (🔺)</option>
+                  <option value="L1">L1 (Ombro Esq.)</option>
+                  <option value="R1">R1 (Ombro Dir.)</option>
+                  <option value="L2">L2 (Gatilho Esq.)</option>
+                  <option value="R2">R2 (Gatilho Dir.)</option>
+                  <option value="L3">L3 (Analógico L Clique)</option>
+                  <option value="R3">R3 (Analógico R Clique)</option>
+                  <option value="Share">Share (Compartilhar)</option>
+                  <option value="Options">Options (Opções)</option>
+                </select>
+              ) : isAxisField ? (
+                <select 
+                  className="field-input"
+                  value={value} 
+                  onChange={e => updateVariable(key, Number(e.target.value), 'number')}
+                  style={{ flex: 1, padding: '2px 4px', fontSize: '11px', borderRadius: '3px' }}
+                >
+                  <option value={0}>Eixo 0 (Mov. Analógico L - X)</option>
+                  <option value={1}>Eixo 1 (Mov. Analógico L - Y)</option>
+                  <option value={2}>Eixo 2 (Câmera Analógico R - X)</option>
+                  <option value={3}>Eixo 3 (Câmera Analógico R - Y)</option>
+                </select>
+              ) : isAudioField ? (
+                <select
+                  className="field-input"
+                  value={value || ''}
+                  onChange={e => updateVariable(key, e.target.value, 'string')}
+                  style={{ flex: 1, padding: '2px 4px', fontSize: '11px', borderRadius: '3px' }}
+                >
+                  <option value="">(Nenhum)</option>
+                  {audioFiles.map(file => {
+                    const url = `/api/explorer/load-file?project=${encodeURIComponent(sceneName)}&subpath=${encodeURIComponent(file)}`;
+                    return (
+                      <option key={file} value={url}>{file}</option>
+                    );
+                  })}
+                </select>
+              ) : type === 'boolean' ? (
+                <input 
+                  type="checkbox" 
+                  checked={value} 
+                  onChange={e => updateVariable(key, e.target.checked, type)}
+                />
+              ) : type === 'number' ? (
+                <input 
+                  type="number" 
+                  className="field-input"
+                  value={value} 
+                  step={0.1}
+                  onChange={e => updateVariable(key, parseFloat(e.target.value) || 0, type)}
+                />
+              ) : (
+                <input 
+                  type="text" 
+                  className="field-input"
+                  value={value} 
+                  onChange={e => updateVariable(key, e.target.value, type)}
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
   };
 
   const renderVariablesSection = (
@@ -1370,92 +1464,7 @@ function ScriptInspector({ entityId }: { entityId: string }) {
       </div>
 
       {/* Variáveis Legadas Extraídas por Regex */}
-      {Object.keys(vars).length > 0 && (
-        <div className="field-row" style={{ display: 'block', marginTop: '12px', borderTop: '1px solid var(--border-color)', paddingTop: '8px' }}>
-          <label className="field-label" style={{ fontWeight: 'bold', marginBottom: '8px', display: 'block' }}>Variáveis Públicas (Código)</label>
-          {Object.keys(vars).map(key => {
-            const { type, value } = vars[key];
-            const isButtonField = key.toLowerCase().endsWith('button');
-            const isAxisField = key.toLowerCase().endsWith('axis');
-            const isAudioField = key.toLowerCase().endsWith('sound') || key.toLowerCase().endsWith('audio') || key.toLowerCase().endsWith('clip');
-            
-            return (
-              <div key={key} className="field-row" style={{ marginBottom: '4px' }}>
-                <label className="field-label" style={{ width: '80px', overflow: 'hidden', textOverflow: 'ellipsis' }} title={key}>{key}</label>
-                {isButtonField ? (
-                  <select 
-                    className="field-input"
-                    value={value} 
-                    onChange={e => updateVariable(key, e.target.value, 'string')}
-                    style={{ flex: 1, padding: '2px 4px', fontSize: '11px', borderRadius: '3px' }}
-                  >
-                    <option value="A">Cruz / A (❌)</option>
-                    <option value="B">Círculo / B (🔴)</option>
-                    <option value="C">Quadrado / C (⬜)</option>
-                    <option value="D">Triângulo / D (🔺)</option>
-                    <option value="L1">L1 (Ombro Esq.)</option>
-                    <option value="R1">R1 (Ombro Dir.)</option>
-                    <option value="L2">L2 (Gatilho Esq.)</option>
-                    <option value="R2">R2 (Gatilho Dir.)</option>
-                    <option value="L3">L3 (Analógico L Clique)</option>
-                    <option value="R3">R3 (Analógico R Clique)</option>
-                    <option value="Share">Share (Compartilhar)</option>
-                    <option value="Options">Options (Opções)</option>
-                  </select>
-                ) : isAxisField ? (
-                  <select 
-                    className="field-input"
-                    value={value} 
-                    onChange={e => updateVariable(key, Number(e.target.value), 'number')}
-                    style={{ flex: 1, padding: '2px 4px', fontSize: '11px', borderRadius: '3px' }}
-                  >
-                    <option value={0}>Eixo 0 (Mov. Analógico L - X)</option>
-                    <option value={1}>Eixo 1 (Mov. Analógico L - Y)</option>
-                    <option value={2}>Eixo 2 (Câmera Analógico R - X)</option>
-                    <option value={3}>Eixo 3 (Câmera Analógico R - Y)</option>
-                  </select>
-                ) : isAudioField ? (
-                  <select
-                    className="field-input"
-                    value={value || ''}
-                    onChange={e => updateVariable(key, e.target.value, 'string')}
-                    style={{ flex: 1, padding: '2px 4px', fontSize: '11px', borderRadius: '3px' }}
-                  >
-                    <option value="">(Nenhum)</option>
-                    {audioFiles.map(file => {
-                      const url = `/api/explorer/load-file?project=${encodeURIComponent(sceneName)}&subpath=${encodeURIComponent(file)}`;
-                      return (
-                        <option key={file} value={url}>{file}</option>
-                      );
-                    })}
-                  </select>
-                ) : type === 'boolean' ? (
-                  <input 
-                    type="checkbox" 
-                    checked={value} 
-                    onChange={e => updateVariable(key, e.target.checked, type)}
-                  />
-                ) : type === 'number' ? (
-                  <input 
-                    type="number" 
-                    className="field-input"
-                    value={value} 
-                    step={0.1}
-                    onChange={e => updateVariable(key, parseFloat(e.target.value) || 0, type)}
-                  />
-                ) : (
-                  <input 
-                    type="text" 
-                    className="field-input"
-                    value={value} 
-                    onChange={e => updateVariable(key, e.target.value, type)}
-                  />
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
+      {renderCodeVariablesSection(s.code, (newCode) => updateComponent(entityId, 'Script', { code: newCode }))}
 
       {/* Variáveis e Referências do Script Principal */}
       {renderVariablesSection(s.variables || [], (newVars) => {
@@ -1556,6 +1565,12 @@ function ScriptInspector({ entityId }: { entityId: string }) {
                 updateComponent(entityId, 'Script', { scripts: copy });
               }}
             />
+
+            {renderCodeVariablesSection(scr.code, (newCode) => {
+              const copy = [...(s.scripts || [])];
+              copy[sIdx] = { ...scr, code: newCode };
+              updateComponent(entityId, 'Script', { scripts: copy });
+            })}
 
             {renderVariablesSection(scr.variables || [], (newVars) => {
               const copy = [...(s.scripts || [])];
