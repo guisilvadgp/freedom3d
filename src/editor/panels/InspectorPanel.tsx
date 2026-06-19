@@ -361,6 +361,29 @@ function AudioInspector({ entityId }: { entityId: string }) {
   if (!entity) return null;
   const audio = entity.components.Audio as AudioComponent;
 
+  const activeSceneId = useEditorStore(s => s.activeSceneId);
+  const activeScene = useEditorStore(s => s.scenes[activeSceneId]);
+  const sceneName = activeScene?.name || 'default';
+
+  const [audioFiles, setAudioFiles] = useState<string[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    const fetchAudio = async () => {
+      try {
+        const res = await fetch(`/api/explorer/list-audio?project=${encodeURIComponent(sceneName)}`);
+        if (res.ok && active) {
+          const files = await res.json();
+          setAudioFiles(files);
+        }
+      } catch (err) {
+        console.error('Error fetching audio files:', err);
+      }
+    };
+    fetchAudio();
+    return () => { active = false; };
+  }, [sceneName]);
+
   return (
     <div className="component-block">
       <div className="component-header">
@@ -370,14 +393,47 @@ function AudioInspector({ entityId }: { entityId: string }) {
           <Trash2 size={12} />
         </button>
       </div>
+      
+      <div className="field-row">
+        <label className="field-label">Escolher Áudio</label>
+        <select
+          className="field-input select-dark"
+          value={(audio as any).fileName || ''}
+          onChange={(e) => {
+            const relPath = e.target.value;
+            if (relPath) {
+              const fileName = relPath.split('/').pop() || relPath;
+              const src = `/api/explorer/load-file?project=${encodeURIComponent(sceneName)}&subpath=${encodeURIComponent(relPath)}`;
+              updateComponent(entityId, 'Audio', { src, fileName } as any);
+            } else {
+              updateComponent(entityId, 'Audio', { src: '', fileName: '' } as any);
+            }
+          }}
+          style={{ width: '100%', padding: '4px', fontSize: '11px', background: '#111122', border: '1px solid var(--border)', color: '#fff', borderRadius: '4px' }}
+        >
+          <option value="">(Nenhum / URL manual)</option>
+          {audioFiles.map((file) => (
+            <option key={file} value={file}>
+              {file}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <div className="field-row">
         <label className="field-label">File URL</label>
         <input
           type="text"
           className="field-input"
           value={audio.src}
-          placeholder="e.g. sound.mp3"
-          onChange={(e) => updateComponent(entityId, 'Audio', { src: e.target.value })}
+          placeholder="e.g. sound.mp3 ou URL externa"
+          onChange={(e) => {
+            const src = e.target.value;
+            // Se for inserida uma URL manual externa, limpa o fileName
+            const isExternal = src.startsWith('http') || src.startsWith('/');
+            const fileName = isExternal ? '' : src.split('/').pop() || src;
+            updateComponent(entityId, 'Audio', { src, fileName } as any);
+          }}
         />
       </div>
       <div className="field-row">

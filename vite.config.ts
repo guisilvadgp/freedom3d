@@ -824,6 +824,117 @@ const liveSyncPlugin = () => {
           return;
         }
 
+        // 7. Upload de Arquivos do Explorer (Multipart/Binary)
+        if (req.url.startsWith('/api/explorer/upload-file') && req.method === 'POST') {
+          try {
+            const urlParams = new URL(req.url, 'http://localhost');
+            const projectName = urlParams.searchParams.get('project') || '';
+            const subpath = urlParams.searchParams.get('subpath') || '';
+            const fileName = decodeURIComponent(urlParams.searchParams.get('file') || '');
+            const targetDir = path.join(projectsDir, projectName.trim(), subpath);
+
+            if (!fs.existsSync(targetDir)) {
+              fs.mkdirSync(targetDir, { recursive: true });
+            }
+
+            const chunks: any[] = [];
+            req.on('data', (chunk: any) => chunks.push(chunk));
+            req.on('end', () => {
+              try {
+                const buffer = Buffer.concat(chunks);
+                const filePath = path.join(targetDir, fileName);
+                fs.writeFileSync(filePath, buffer);
+                console.log(`Uploaded file to explorer "${projectName}/${subpath}": ${fileName}`);
+                res.setHeader('Access-Control-Allow-Origin', '*');
+                res.end('ok');
+              } catch (e: any) {
+                res.statusCode = 500;
+                res.end(e.message);
+              }
+            });
+          } catch (e: any) {
+            res.statusCode = 500;
+            res.end(e.message);
+          }
+          return;
+        }
+
+        // 8. Listar Arquivos de Áudio recursivamente do projeto
+        if (req.url.startsWith('/api/explorer/list-audio') && req.method === 'GET') {
+          try {
+            const urlParams = new URL(req.url, 'http://localhost');
+            const projectName = urlParams.searchParams.get('project') || '';
+            const projectPath = path.join(projectsDir, projectName.trim());
+
+            if (!fs.existsSync(projectPath)) {
+              res.statusCode = 404;
+              res.end('Project not found');
+              return;
+            }
+
+            const audioExtensions = ['.mp3', '.wav', '.ogg', '.m4a', '.aac', '.flac'];
+            const findAudioFiles = (dir: string): string[] => {
+              let results: string[] = [];
+              const items = fs.readdirSync(dir);
+              for (const item of items) {
+                const fullPath = path.join(dir, item);
+                const stat = fs.statSync(fullPath);
+                if (stat.isDirectory()) {
+                  results = results.concat(findAudioFiles(fullPath));
+                } else {
+                  const ext = path.extname(item).toLowerCase();
+                  if (audioExtensions.includes(ext)) {
+                    const relativePath = path.relative(projectPath, fullPath).replace(/\\/g, '/');
+                    results.push(relativePath);
+                  }
+                }
+              }
+              return results;
+            };
+
+            const audioFiles = findAudioFiles(projectPath);
+            res.setHeader('Content-Type', 'application/json');
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.end(JSON.stringify(audioFiles));
+          } catch (e: any) {
+            res.statusCode = 500;
+            res.end(JSON.stringify({ error: e.message }));
+          }
+          return;
+        }
+
+        // 9. Servir arquivo físico do Explorer (load-file)
+        if (req.url.startsWith('/api/explorer/load-file') && req.method === 'GET') {
+          try {
+            const urlParams = new URL(req.url, 'http://localhost');
+            const projectName = urlParams.searchParams.get('project') || '';
+            const subpath = urlParams.searchParams.get('subpath') || '';
+            const targetPath = path.join(projectsDir, projectName.trim(), subpath);
+
+            if (!fs.existsSync(targetPath) || !fs.statSync(targetPath).isFile()) {
+              res.statusCode = 404;
+              res.end('File not found');
+              return;
+            }
+
+            const ext = path.extname(targetPath).toLowerCase();
+            if (ext === '.mp3') res.setHeader('Content-Type', 'audio/mpeg');
+            else if (ext === '.wav') res.setHeader('Content-Type', 'audio/wav');
+            else if (ext === '.ogg') res.setHeader('Content-Type', 'audio/ogg');
+            else if (ext === '.png') res.setHeader('Content-Type', 'image/png');
+            else if (ext === '.jpg' || ext === '.jpeg') res.setHeader('Content-Type', 'image/jpeg');
+            else if (ext === '.glb' || ext === '.gltf') res.setHeader('Content-Type', 'model/gltf-binary');
+            else res.setHeader('Content-Type', 'application/octet-stream');
+
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.end(fs.readFileSync(targetPath));
+          } catch (e: any) {
+            res.statusCode = 500;
+            res.end(e.message);
+          }
+          return;
+        }
+
         next();
       });
     }

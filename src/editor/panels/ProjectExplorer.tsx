@@ -138,6 +138,39 @@ export function ProjectExplorer() {
     }
   };
 
+  // Drag and Drop de arquivos locais para o Explorer
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    if (!e.dataTransfer.files || e.dataTransfer.files.length === 0) return;
+
+    setLoading(true);
+    try {
+      for (let i = 0; i < e.dataTransfer.files.length; i++) {
+        const file = e.dataTransfer.files[i];
+        const buffer = await file.arrayBuffer();
+        const uploadUrl = `/api/explorer/upload-file?project=${encodeURIComponent(sceneName)}&subpath=${encodeURIComponent(currentSubpath)}&file=${encodeURIComponent(file.name)}`;
+        const res = await fetch(uploadUrl, {
+          method: 'POST',
+          body: buffer,
+          headers: { 'Content-Type': 'application/octet-stream' }
+        });
+        if (!res.ok) {
+          alert(`Falha ao carregar o arquivo: ${file.name}`);
+        }
+      }
+      fetchItems();
+    } catch (err) {
+      console.error(err);
+      alert('Erro no upload do arquivo');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Abrir arquivo para edição
   const handleEditFile = async (item: ExplorerItem) => {
     try {
@@ -209,7 +242,12 @@ export function ProjectExplorer() {
   };
 
   return (
-    <div className="project-explorer" style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '8px', boxSizing: 'border-box' }}>
+    <div 
+      className="project-explorer" 
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+      style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '8px', boxSizing: 'border-box' }}
+    >
       {/* Barra de Ferramentas */}
       <div className="explorer-toolbar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -221,6 +259,7 @@ export function ProjectExplorer() {
           <span className="explorer-path" style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
             {sceneName} {currentSubpath ? ` / ${currentSubpath}` : ''}
           </span>
+          <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontStyle: 'italic', marginLeft: '8px' }}>(Arraste arquivos aqui para importar)</span>
         </div>
         <div style={{ display: 'flex', gap: '6px' }}>
           <button className="panel-btn small" onClick={handleCreateFolderClick}>
