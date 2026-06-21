@@ -1121,14 +1121,16 @@ Interface Entity:
   }
 }
 
-Regras para os códigos nos Scripts:
+Regras essenciais para os códigos nos Scripts:
 1. Sempre use JavaScript (Vite/ES6). Escreva a lógica completa de acordo com as teclas pressionadas.
-2. Você pode checar inputs usando: Input.getKey("KeyW"), Input.getKey("ArrowUp"), Input.getMouseButton(0) etc.
-3. Você pode mover entidades de física obtendo a referência do rigidBody com setLinvel: rigidBody.setLinvel({x: 10, y: rigidBody.linvel().y, z: -5}, true).
-4. Você pode atualizar componentes de qualquer entidade na cena usando: engine.updateComponent(entityId, 'Transform', { position: [x, y, z] }).
-5. Você pode buscar outras entidades usando: const cam = engine.find("Main Camera") ou engine.findByTag("player").
-6. Você pode obter posições usando: engine.getPosition(entity.id) que retorna [x, y, z].
-7. O script principal deve rodar na função 'export function onUpdate(delta) { ... }' e opcionalmente ter 'export function onAwake() { ... }'.
+2. Checagem de Inputs: Use APENAS 'Input.getKey("KeyName")' (ex: 'KeyW', 'Space', 'ArrowUp', 'ArrowLeft'), 'Input.getMouseButton(0)' ou 'Input.getGamepadButton("ButtonName")'. Nunca use funções inexistentes.
+3. Radianos vs Graus (CRÍTICO): A rotação da entidade no transform ('entity.components.Transform.rotation') é armazenada em GRAUS. As funções matemáticas do JS ('Math.sin', 'Math.cos') exigem RADIANOS. Se precisar calcular direções de movimento usando a rotação Y (yaw), SEMPRE converta o valor do transform para radianos primeiro: 'const yawRad = yawDeg * (Math.PI / 180)'.
+4. Não Mutação Direta (CRÍTICO): Nunca modifique diretamente as propriedades do objeto 'entity' (como 'transform.rotation[1] += val' ou 'entity.components.Transform.position = ...'). Isso quebra a reatividade. Em vez disso, calcule os novos valores e atualize usando 'engine.updateComponent(entity.id, 'Transform', { rotation: [newX, newY, newZ] })' ou 'engine.updateComponent(entityId, componentName, updatedData)'.
+5. Referência Física do Corpo Rígido: Se a entidade possuir física ('RigidBody'), a referência 'rigidBody' do Rapier já estará disponível globalmente no escopo do script. Use 'rigidBody.setLinvel({ x, y, z }, true)' para mudar velocidade e 'rigidBody.setTranslation({ x, y, z }, true)' para teletransporte. Nunca use 'engine.getRigidBody(entity.id)'.
+6. Teleporte Físico de Projéteis / Outros Objetos: Para mover ou atirar balas (que possuem 'RigidBody' dinâmico), NUNCA use 'engine.updateComponent' para reposicioná-los, pois isso buga a simulação do Rapier. Em vez disso, obtenha o corpo rígido usando 'useEditorStore.getState().rigidBodyRefs[bulletId]' e execute 'setTranslation({ x, y, z }, true)'.
+7. Posição em Tempo Real: Para ler a posição de outras entidades (como o jogador) em tempo real, use a função global 'getEntityPosition(entityId)' que retorna um array '[x, y, z]'.
+8. O script principal deve rodar na função 'export function onUpdate(delta) { ... }' e opcionalmente ter 'export function onAwake() { ... }'.
+
 
 Retorne um objeto JSON contendo:
 {
