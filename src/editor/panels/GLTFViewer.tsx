@@ -1,4 +1,4 @@
-import { Suspense, useMemo, useRef, useEffect } from 'react';
+import { Suspense, useMemo, useRef, useEffect, ReactNode } from 'react';
 import { useLoader } from '@react-three/fiber';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { TransformControls, useAnimations } from '@react-three/drei';
@@ -7,7 +7,6 @@ import * as THREE from 'three';
 import { useEditorStore } from '../store/editorStore';
 import { useShallow } from 'zustand/react/shallow';
 import type { Entity } from '../../engine/ecs/types';
-import { EntityMesh } from './SceneEntities';
 
 // ── Um modelo GLTF carregado ─────────────────────────────────
 
@@ -59,7 +58,7 @@ function shrinkTexture(texture: THREE.Texture, maxSize = 512) {
   }
 }
 
-export function GLTFMesh({ entity }: { entity: Entity }) {
+export function GLTFMesh({ entity, children }: { entity: Entity; children?: ReactNode }) {
   const groupRef = useRef<THREE.Group>(null!);
 
   const {
@@ -428,15 +427,9 @@ export function GLTFMesh({ entity }: { entity: Entity }) {
           <boxGeometry />
           <meshBasicMaterial color="#44aaff" wireframe />
         </mesh>
-      {entity.childrenIds && entity.childrenIds.map(id => {
-        const activeScene = useEditorStore.getState().scenes[useEditorStore.getState().activeSceneId];
-        const childEntity = activeScene?.entities[id];
-        if (!childEntity) return null;
-        if (childEntity.components.GLTFModel) {
-          return <GLTFMesh key={id} entity={childEntity} />;
-        }
-        return <EntityMesh key={id} entity={childEntity} entities={activeScene.entities} />;
-      })}
+      )}
+
+      {children}
     </group>
   );
 

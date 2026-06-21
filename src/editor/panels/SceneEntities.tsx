@@ -776,7 +776,13 @@ export function EntityMesh({ entity, entities }: { entity: Entity; entities: Rec
   if (entity.components.GLTFModel) {
     return (
       <Suspense fallback={null}>
-        <GLTFMesh entity={entity} />
+        <GLTFMesh entity={entity}>
+          {entity.childrenIds && entity.childrenIds.map(id => {
+            const childEntity = entities[id];
+            if (!childEntity) return null;
+            return <EntityMesh key={id} entity={childEntity} entities={entities} />;
+          })}
+        </GLTFMesh>
       </Suspense>
     );
   }
@@ -1024,9 +1030,6 @@ export function EntityMesh({ entity, entities }: { entity: Entity; entities: Rec
         {entity.childrenIds && entity.childrenIds.map(id => {
           const childEntity = entities[id];
           if (!childEntity) return null;
-          if (childEntity.components.GLTFModel) {
-            return <GLTFMesh key={id} entity={childEntity} />;
-          }
           return <EntityMesh key={id} entity={childEntity} entities={entities} />;
         })}
       </mesh>
@@ -1124,9 +1127,6 @@ export function EntityMesh({ entity, entities }: { entity: Entity; entities: Rec
       {entity.childrenIds && entity.childrenIds.map(id => {
         const childEntity = entities[id];
         if (!childEntity) return null;
-        if (childEntity.components.GLTFModel) {
-          return <GLTFMesh key={id} entity={childEntity} />;
-        }
         return <EntityMesh key={id} entity={childEntity} entities={entities} />;
       })}
     </mesh>
