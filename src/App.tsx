@@ -13,9 +13,10 @@ import { MenuBar } from './editor/panels/MenuBar';
 import { Toast } from './editor/panels/Toast';
 import { useEditorStore } from './editor/store/editorStore';
 import { DedicatedCodeEditor } from './editor/panels/DedicatedCodeEditor';
+import { AIAssistantPanel } from './editor/panels/AIAssistantPanel';
 import './index.css';
 import { useEffect, useState } from 'react';
-import { Terminal, FolderOpen, Code, Files } from 'lucide-react';
+import { Terminal, FolderOpen, Code, Files, Sparkles } from 'lucide-react';
 
 export default function App() {
   if (window.location.pathname.startsWith('/preview') || (window as any).__freedom3d_standalone__) {
@@ -433,7 +434,7 @@ export default function App() {
           <div className="resizer-row" onMouseDown={handleBottomResize} />
           <div className="bottom-panel" style={{ height: bottomHeight }}>
             <div className="bottom-tabs">
-              {(['console', 'assets', 'script', 'explorer'] as const).map((tab) => (
+              {(['console', 'assets', 'script', 'explorer', 'ai-assistant'] as const).map((tab) => (
                 <button
                   key={tab}
                   className={`bottom-tab ${bottomTab === tab ? 'active' : ''}`}
@@ -443,7 +444,10 @@ export default function App() {
                   {tab === 'assets' && <FolderOpen size={14} />}
                   {tab === 'script' && <Code size={14} />}
                   {tab === 'explorer' && <Files size={14} />}
-                  <span style={{ textTransform: 'capitalize' }}>{tab === 'explorer' ? 'Explorer' : tab}</span>
+                  {tab === 'ai-assistant' && <Sparkles size={14} />}
+                  <span style={{ textTransform: 'capitalize' }}>
+                    {tab === 'explorer' ? 'Explorer' : (tab === 'ai-assistant' ? 'Assistente IA' : tab)}
+                  </span>
                 </button>
               ))}
             </div>
@@ -452,6 +456,7 @@ export default function App() {
               {bottomTab === 'assets' && <AssetBrowser />}
               {bottomTab === 'script' && <ScriptEditor />}
               {bottomTab === 'explorer' && <ProjectExplorer />}
+              {bottomTab === 'ai-assistant' && <AIAssistantPanel />}
             </div>
           </div>
         </div>

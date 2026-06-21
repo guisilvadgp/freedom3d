@@ -1,4 +1,5 @@
-import { Suspense, useMemo, useRef, useEffect, ReactNode } from 'react';
+import { Suspense, useMemo, useRef, useEffect } from 'react';
+import type { ReactNode } from 'react';
 import { useLoader } from '@react-three/fiber';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { TransformControls, useAnimations } from '@react-three/drei';
