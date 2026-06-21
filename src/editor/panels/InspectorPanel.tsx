@@ -1947,6 +1947,29 @@ export function InspectorPanel({ style }: { style?: React.CSSProperties }) {
             onChange={(e) => useEditorStore.getState().renameEntity(selectedEntityId, e.target.value)}
           />
         </div>
+        <div className="field-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', marginBottom: '8px', borderBottom: '1px solid #222', paddingBottom: '8px' }}>
+          <label className="field-label" style={{ color: '#888', fontSize: '10px' }}>ID</label>
+          <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#a0a0ff', flex: 1, userSelect: 'all', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {selectedEntityId}
+          </span>
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(selectedEntityId);
+            }}
+            style={{
+              background: '#222233',
+              border: '1px solid #444',
+              color: '#ccc',
+              padding: '2px 6px',
+              fontSize: '10px',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+            title="Copiar ID para a área de transferência"
+          >
+            Copiar
+          </button>
+        </div>
         <div className="field-row">
           <label className="field-label">Active</label>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
