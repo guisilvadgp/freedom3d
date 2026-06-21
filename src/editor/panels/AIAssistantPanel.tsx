@@ -1131,6 +1131,37 @@ Regras essenciais para os códigos nos Scripts:
 7. Posição em Tempo Real: Para ler a posição de outras entidades (como o jogador) em tempo real, use a função global 'getEntityPosition(entityId)' que retorna um array '[x, y, z]'.
 8. O script principal deve rodar na função 'export function onUpdate(delta) { ... }' e opcionalmente ter 'export function onAwake() { ... }'.
 
+Regras para Câmeras e Seguimento Suave (Smooth Follow) (CRÍTICO):
+1. Flag Principal da Câmera: Toda cena gerada deve ter exatamente uma Câmera Principal. Esta entidade deve conter o componente 'Camera' configurado com '"isMain": true' e '"offset": [0, 0, 0]'.
+2. Seguimento de Terceira Pessoa (Chase Camera): 
+   - Para jogos de corrida, nave, plataforma 3D ou aventura em terceira pessoa, NUNCA anexe a câmera como filha do jogador, pois isso causa tremores e rotações bruscas.
+   - Em vez disso, crie uma entidade de câmera separada (ex: com nome "Main Camera" e ID "camera_principal") e use um script nela ou no jogador para atualizá-la suavemente usando interpolação linear (lerp) na função 'onUpdate'.
+   - Exemplo de script de seguimento suave no jogador:
+     const mainCam = engine.find("Main Camera");
+     if (mainCam) {
+       const pPos = getEntityPosition(entity.id);
+       const targetRot = entity.components.Transform.rotation;
+       const yawRad = targetRot[1] * (Math.PI / 180);
+       // Calcula posição ideal atrás do jogador
+       const idealX = pPos[0] + Math.sin(yawRad) * 8.0; // 8 metros atrás
+       const idealY = pPos[1] + 3.0;                  // 3 metros acima
+       const idealZ = pPos[2] + Math.cos(yawRad) * 8.0;
+       
+       // Interpolação suave (lerp)
+       const camTransform = mainCam.components.Transform;
+       const camPos = camTransform.position;
+       const lerpX = camPos[0] + (idealX - camPos[0]) * 5.0 * delta;
+       const lerpY = camPos[1] + (idealY - camPos[1]) * 5.0 * delta;
+       const lerpZ = camPos[2] + (idealZ - camPos[2]) * 5.0 * delta;
+       
+       engine.updateComponent(mainCam.id, 'Transform', {
+         position: [lerpX, lerpY, lerpZ],
+         rotation: [-15, targetRot[1] + 180, 0] // Apontar para o jogador
+       });
+     }
+3. Câmera de Primeira Pessoa (FPS):
+   - Para jogos em primeira pessoa (FPS), a Câmera Principal deve ser configurada como FILHA da entidade do Jogador para acompanhar o seu movimento exato.
+   - O script do Jogador deve manipular as rotações localmente: a rotação no eixo Y (Yaw) rotaciona a entidade do Jogador inteira, e a rotação no eixo X (Pitch) rotaciona apenas a Câmera Principal (usando 'engine.updateComponent(camera.id, "Transform", { rotation: [rotX, 0, 0] })').
 
 Retorne um objeto JSON contendo:
 {
@@ -1144,7 +1175,7 @@ Retorne um objeto JSON contendo:
   "fogFar": number
 }
 
-Gere um jogo espetacular para o prompt do usuário. Adicione física onde fizer sentido, luzes bonitas, cenários divertidos e controle total de perseguição de câmera.`;
+Gere um jogo espetacular para o prompt do usuário. Adicione física onde fizer sentido, luzes bonitas, cenários divertidos e controle total de perseguição de câmera suave.`;
 
       addLocalLog('info', '🧠 Enviando instruções do projeto para a IA...');
 
