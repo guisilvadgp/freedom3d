@@ -608,18 +608,10 @@ function SpatialAudio({
 }) {
   const groupRef = useRef<THREE.Group>(null);
   const audioRef = useRef<THREE.PositionalAudio | null>(null);
-  const audioElRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    const audioEl = document.createElement('audio');
-    audioEl.src = url;
-    audioEl.loop = loop;
-    audioEl.crossOrigin = 'anonymous';
-    audioEl.preload = 'auto';
-    audioElRef.current = audioEl;
-
-    const sound = new THREE.PositionalAudio(getGlobalAudioListener());
-    sound.setMediaElementSource(audioEl);
+    const listener = getGlobalAudioListener();
+    const sound = new THREE.PositionalAudio(listener);
 
     // Configurações iniciais de espacialização
     const rDist = typeof refDistance === 'number' ? refDistance : 5;
@@ -632,10 +624,7 @@ function SpatialAudio({
     sound.setMaxDistance(mDist);
     sound.setDistanceModel(model);
     sound.setVolume(volume ?? 1.0);
-
-    audioEl.play().catch((err) => {
-      console.warn("Autoplay impedido ou falha no streaming do som espacial:", err);
-    });
+    sound.setLoop(loop);
 
     audioRef.current = sound;
     
@@ -643,9 +632,26 @@ function SpatialAudio({
       groupRef.current.add(sound);
     }
 
+    // Carrega o áudio via AudioLoader decodificando em memória RAM (melhor para áudio espacial 3D)
+    const audioLoader = new THREE.AudioLoader();
+    audioLoader.load(
+      url,
+      (buffer) => {
+        sound.setBuffer(buffer);
+        if (!sound.isPlaying) {
+          sound.play();
+        }
+      },
+      undefined,
+      (err) => {
+        console.warn("Falha ao carregar buffer do som espacial:", err);
+      }
+    );
+
     return () => {
-      audioEl.pause();
-      audioEl.src = '';
+      if (sound.isPlaying) {
+        sound.stop();
+      }
       if (groupRef.current) {
         groupRef.current.remove(sound);
       }
