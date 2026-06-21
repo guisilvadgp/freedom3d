@@ -1169,8 +1169,9 @@ function XRSync() {
   const eulerTemp = useRef(new THREE.Euler());
   const quatTemp = useRef(new THREE.Quaternion());
   const initialHeadsetHeight = useRef<number | null>(null);
+  const currentHeightRef = useRef(1.6);
 
-  useFrame((state) => {
+  useFrame((state, delta) => {
     if (!groupRef.current) return;
     const currentScene = sceneRef.current;
     if (!currentScene) return;
@@ -1220,10 +1221,18 @@ function XRSync() {
     }
 
     // Se estiver agachado, divide a altura padrão (1.6m) por 2 (0.8m)
-    const baseHeight = (window as any).isFreedom3DCrouching ? 0.8 : 1.6;
+    const targetHeight = (window as any).isFreedom3DCrouching ? 0.8 : 1.6;
+    
+    // Suaviza a transição de altura usando lerp com delta
+    currentHeightRef.current = THREE.MathUtils.lerp(
+      currentHeightRef.current,
+      targetHeight,
+      Math.min(12 * delta, 1.0)
+    );
+
     const targetY = initialHeadsetHeight.current !== null
-      ? ePos[1] + baseHeight - initialHeadsetHeight.current
-      : ePos[1] + baseHeight;
+      ? ePos[1] + currentHeightRef.current - initialHeadsetHeight.current
+      : ePos[1] + currentHeightRef.current;
 
     groupRef.current.position.set(
       ePos[0] + offset[0],
