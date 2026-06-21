@@ -266,6 +266,14 @@ function GLTFMesh({ entity }: { entity: Entity }) {
                 }
               }
 
+              // Rugosidade e Metal no material original do GLTF
+              if (typeof model.roughness === 'number') {
+                if ('roughness' in mat) mat.roughness = model.roughness;
+              }
+              if (typeof model.metalness === 'number') {
+                if ('metalness' in mat) mat.metalness = model.metalness;
+              }
+
               // No material original, só aplicamos textura customizada se o usuário especificou uma
               if (model.textureUrl) {
                 const texUrl = getTextureUrl(model.textureUrl);

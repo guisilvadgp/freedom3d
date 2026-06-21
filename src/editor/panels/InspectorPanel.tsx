@@ -390,7 +390,7 @@ function GLTFModelInspector({ entityId }: { entityId: string }) {
         />
       </div>
 
-      {m.overrideMaterial && m.overrideMaterial !== 'none' && m.overrideMaterial !== 'basic' && (
+      {m.overrideMaterial !== 'basic' && (
         <>
           <div className="field-row">
             <label className="field-label">Roughness</label>
