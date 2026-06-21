@@ -401,14 +401,21 @@ const liveSyncPlugin = () => {
           }
 
           if (fs.existsSync(filePath)) {
-            if (fileName.endsWith('.glb') || fileName.endsWith('.gltf')) {
+            const lowerName = fileName.toLowerCase();
+            if (lowerName.endsWith('.glb') || lowerName.endsWith('.gltf')) {
               res.setHeader('Content-Type', 'model/gltf-binary');
-            } else if (fileName.endsWith('.mp3')) {
+            } else if (lowerName.endsWith('.mp3')) {
               res.setHeader('Content-Type', 'audio/mpeg');
-            } else if (fileName.endsWith('.wav')) {
+            } else if (lowerName.endsWith('.wav')) {
               res.setHeader('Content-Type', 'audio/wav');
-            } else if (fileName.endsWith('.ogg')) {
+            } else if (lowerName.endsWith('.ogg')) {
               res.setHeader('Content-Type', 'audio/ogg');
+            } else if (lowerName.endsWith('.png')) {
+              res.setHeader('Content-Type', 'image/png');
+            } else if (lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg')) {
+              res.setHeader('Content-Type', 'image/jpeg');
+            } else if (lowerName.endsWith('.webp')) {
+              res.setHeader('Content-Type', 'image/webp');
             } else {
               res.setHeader('Content-Type', 'application/octet-stream');
             }
@@ -642,8 +649,15 @@ const liveSyncPlugin = () => {
                   }
                 });
                 for (const folder of folders) {
-                  const projectAssetPath = path.join(projectsDir, folder, 'assets', fileName);
-                  if (fs.existsSync(projectAssetPath)) {
+                  // 1. Procura na pasta assets
+                  let projectAssetPath = path.join(projectsDir, folder, 'assets', fileName);
+                  if (fs.existsSync(projectAssetPath) && fs.statSync(projectAssetPath).isFile()) {
+                    filePath = projectAssetPath;
+                    break;
+                  }
+                  // 2. Procura na raiz do projeto (como skyboxes/ ou sons/ na raiz)
+                  projectAssetPath = path.join(projectsDir, folder, fileName);
+                  if (fs.existsSync(projectAssetPath) && fs.statSync(projectAssetPath).isFile()) {
                     filePath = projectAssetPath;
                     break;
                   }
@@ -652,10 +666,21 @@ const liveSyncPlugin = () => {
             }
 
             if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
-              if (fileName.endsWith('.glb') || fileName.endsWith('.gltf')) {
+              const lowerName = fileName.toLowerCase();
+              if (lowerName.endsWith('.glb') || lowerName.endsWith('.gltf')) {
                 res.setHeader('Content-Type', 'model/gltf-binary');
-              } else if (fileName.endsWith('.mp3')) {
+              } else if (lowerName.endsWith('.mp3')) {
                 res.setHeader('Content-Type', 'audio/mpeg');
+              } else if (lowerName.endsWith('.wav')) {
+                res.setHeader('Content-Type', 'audio/wav');
+              } else if (lowerName.endsWith('.ogg')) {
+                res.setHeader('Content-Type', 'audio/ogg');
+              } else if (lowerName.endsWith('.png')) {
+                res.setHeader('Content-Type', 'image/png');
+              } else if (lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg')) {
+                res.setHeader('Content-Type', 'image/jpeg');
+              } else if (lowerName.endsWith('.webp')) {
+                res.setHeader('Content-Type', 'image/webp');
               } else {
                 res.setHeader('Content-Type', 'application/octet-stream');
               }
