@@ -3,7 +3,6 @@ import { v4 as uuidv4 } from 'uuid';
 import type { Entity, EntityId, Scene, SceneId, AnyComponent, ComponentType } from '../../engine/ecs/types';
 import type { SceneMetadata } from '../../engine/core/persistence';
 import {
-  createEntity,
   createCube,
   createSphere,
   createPlane,
@@ -312,8 +311,6 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       get().takeHistorySnapshot();
       const scene = get().activeScene();
       let entity: Entity;
-      const extraEntities: Record<string, Entity> = {};
-      
       switch (type) {
         case 'cube': entity = createCube(); break;
         case 'sphere': entity = createSphere(); break;
@@ -324,25 +321,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         case 'empty': entity = createEmpty(); break;
         case 'directional': entity = createDirectionalLight(); break;
         case 'point': entity = createPointLight(); break;
-        case 'first-person': {
-          entity = createFirstPersonPlayer();
-          const camId = uuidv4();
-          entity.childrenIds.push(camId);
-          
-          const cameraEntity = createEntity('Main Camera', entity.id);
-          cameraEntity.id = camId;
-          cameraEntity.components.Camera = {
-            type: 'Camera',
-            fov: 75,
-            near: 0.1,
-            far: 1000,
-            isMain: true,
-            offset: [0, 0, 0],
-          };
-          cameraEntity.components.Transform!.position = [0, 0.4, 0];
-          extraEntities[camId] = cameraEntity;
-          break;
-        }
+        case 'first-person': entity = createFirstPersonPlayer(); break;
         case 'third-person': entity = createThirdPersonPlayer(); break;
         case 'vr-position': entity = createVRPosition(); break;
         default: entity = createCube();
@@ -353,7 +332,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           ...s.scenes,
           [scene.id]: {
             ...scene,
-            entities: { ...scene.entities, [entity.id]: entity, ...extraEntities },
+            entities: { ...scene.entities, [entity.id]: entity },
             rootEntityIds: [...scene.rootEntityIds, entity.id],
           },
         },

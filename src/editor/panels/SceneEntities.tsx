@@ -1,5 +1,5 @@
 import { XROrigin } from '@react-three/xr';
-import { useRef, useState, useEffect, Suspense } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { TransformControls, Edges, Sparkles, PerspectiveCamera } from '@react-three/drei';
 import { RigidBody, MeshCollider } from '@react-three/rapier';
@@ -8,7 +8,6 @@ import { useEditorStore } from '../store/editorStore';
 import { useShallow } from 'zustand/react/shallow';
 import type { Entity } from '../../engine/ecs/types';
 import { attemptTeleport } from './SceneView';
-import { GLTFModelRenderer } from './GLTFViewer';
 
 // ── Audio Listener Global Singleton ──────────────────────────
 let globalAudioListener: THREE.AudioListener | null = null;
@@ -125,6 +124,11 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
   const lastTriggerPressed = useRef(false);
   const gazeDirectionRef = useRef(new THREE.Vector3(0, 0, -1));
   const gazeOriginRef = useRef(new THREE.Vector3(0, 0, 0));
+  const isCrouching = useRef(false);
+  const cachedPlayerId = useRef<string | null>(null);
+  useEffect(() => {
+    cachedPlayerId.current = null;
+  }, [sceneActiveId]);
 
   // Setup WebXR "Tap" Event
   useEffect(() => {
@@ -281,24 +285,40 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
         }
       }
 
-      // VR Locomotion (Smooth movement + turning)
+      // VR Locomotion (Smooth movement + turning, Jump + Crouch)
       const session = state.gl.xr.getSession();
       if (session) {
         let moveX = 0;
         let moveZ = 0;
         let turnX = 0;
+        let jumpPressed = false;
+        let crouchPressed = false;
 
         for (const source of session.inputSources) {
           if (source.gamepad) {
             const axes = source.gamepad.axes;
+            const buttons = source.gamepad.buttons;
+            
             if (source.handedness === 'left') {
               if (axes.length >= 4) {
                 moveX = axes[2];
                 moveZ = axes[3];
               }
+              // Grip no controle esquerdo para agachar
+              if (buttons.length > 1 && buttons[1].pressed) {
+                crouchPressed = true;
+              }
             } else if (source.handedness === 'right') {
               if (axes.length >= 4) {
                 turnX = axes[2];
+              }
+              // Botão A do controle direito (buttons[4]) para pular
+              if (buttons.length > 4 && buttons[4].pressed) {
+                jumpPressed = true;
+              }
+              // Botão B do controle direito (buttons[5]) para agachar
+              if (buttons.length > 5 && buttons[5].pressed) {
+                crouchPressed = true;
               }
             }
           }
@@ -338,8 +358,24 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
                 extTriggerPressed = true;
               }
             }
+
+            // Mapeamentos de Pular (A) e Agachar (C) do Gamepad Bluetooth
+            if (gp.buttons.length > config.buttonA && (gp.buttons[config.buttonA].pressed || gp.buttons[config.buttonA].value > 0.5)) {
+              jumpPressed = true;
+            }
+            if (gp.buttons.length > config.buttonC && (gp.buttons[config.buttonC].pressed || gp.buttons[config.buttonC].value > 0.5)) {
+              crouchPressed = true;
+            }
             break;
           }
+        }
+
+        // Fallbacks de Teclado no VR
+        if (Input.getKey('Space')) {
+          jumpPressed = true;
+        }
+        if (Input.getKey('ControlLeft') || Input.getKey('KeyC')) {
+          crouchPressed = true;
         }
 
         // Dispara o clique do gatilho configurado
@@ -354,31 +390,43 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
           lastTriggerPressed.current = false;
         }
 
-        const rb = rigidBodyRefsRef.current[entity.id];
+        // Resolve a entidade alvo (player físico) para aplicar a locomoção, rotação, pulo e agachamento
+        const storeState = useEditorStore.getState();
+        const currentScene = storeState.activeScene();
+        if (currentScene) {
+          if (!cachedPlayerId.current || !currentScene.entities[cachedPlayerId.current]) {
+            const found = Object.values(currentScene.entities).find(e => e.tags?.includes('player') || e.components.Camera?.isMain);
+            cachedPlayerId.current = found?.id ?? null;
+          }
+        }
+        const targetEntity = cachedPlayerId.current ? currentScene.entities[cachedPlayerId.current] : entity;
+        const targetRb = rigidBodyRefsRef.current[targetEntity.id];
 
+        // 1. Rotação Suave do Player
         const turnSpeed = 1.5;
         if (Math.abs(turnX) > 0.05) {
           currentRotationY.current -= turnX * turnSpeed * delta * (180 / Math.PI);
           const newEulerY = currentRotationY.current;
 
-          if (rb) {
+          if (targetRb) {
             const qRot = new THREE.Quaternion().setFromEuler(
               new THREE.Euler(0, (newEulerY * Math.PI) / 180, 0)
             );
-            rb.setRotation(qRot, true);
+            targetRb.setRotation(qRot, true);
           } else {
             // Se não houver RB, atualiza a store de forma throttlada (10Hz) para evitar lags no render
             const now = performance.now();
             if (now - lastRotationUpdate.current > 100) {
               lastRotationUpdate.current = now;
-              const currentRot = entity.components.Transform?.rotation || [0, 0, 0];
-              updateComponentRef.current(entity.id, 'Transform', {
+              const currentRot = targetEntity.components.Transform?.rotation || [0, 0, 0];
+              updateComponentRef.current(targetEntity.id, 'Transform', {
                 rotation: [currentRot[0], newEulerY, currentRot[2]]
               });
             }
           }
         }
 
+        // 2. Movimentação Suave do Player
         const forward = forwardVec.current.copy(gazeDirectionRef.current);
         forward.y = 0;
         forward.normalize();
@@ -387,18 +435,27 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
         right.crossVectors(forward, new THREE.Vector3(0, 1, 0));
         right.normalize();
 
-        const moveSpeed = 4.0;
+        // Reduz a velocidade se estiver agachado
+        const speedMultiplier = isCrouching.current ? 0.5 : 1.0;
+        const moveSpeed = 4.0 * speedMultiplier;
         const move = moveVec.current
           .set(0, 0, 0)
           .addScaledVector(forward, -moveZ)
           .addScaledVector(right, moveX)
           .multiplyScalar(moveSpeed);
 
-        if (rb) {
-          const currentVel = rb.linvel();
-          rb.setLinvel({ x: move.x, y: currentVel.y, z: move.z }, true);
+        if (targetRb) {
+          const currentVel = targetRb.linvel();
+          
+          // Pulo (Jump)
+          let newVelY = currentVel.y;
+          if (jumpPressed && Math.abs(currentVel.y) < 0.05) {
+            newVelY = 5.5; // força do pulo
+          }
+          
+          targetRb.setLinvel({ x: move.x, y: newVelY, z: move.z }, true);
         } else {
-          const currentPos = entity.components.Transform?.position || [0, 0, 0];
+          const currentPos = targetEntity.components.Transform?.position || [0, 0, 0];
           const newPos: [number, number, number] = [
             currentPos[0] + move.x * delta,
             currentPos[1],
@@ -409,7 +466,46 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
           const now = performance.now();
           if (now - lastPositionUpdate.current > 100) {
             lastPositionUpdate.current = now;
-            updateComponentRef.current(entity.id, 'Transform', { position: newPos });
+            updateComponentRef.current(targetEntity.id, 'Transform', { position: newPos });
+          }
+        }
+
+        // 3. Agachamento (Crouch)
+        if (crouchPressed && !isCrouching.current) {
+          isCrouching.current = true;
+          if (targetEntity.components.Transform) {
+            const currentScale = targetEntity.components.Transform.scale || [1, 1, 1];
+            const currentPos = targetEntity.components.Transform.position || [0, 0, 0];
+            
+            const newScale: [number, number, number] = [currentScale[0], 0.5, currentScale[2]];
+            const newPos: [number, number, number] = [currentPos[0], currentPos[1] - 0.5, currentPos[2]];
+            
+            updateComponentRef.current(targetEntity.id, 'Transform', {
+              scale: newScale,
+              position: newPos
+            });
+
+            if (targetRb) {
+              targetRb.setTranslation({ x: newPos[0], y: newPos[1], z: newPos[2] }, true);
+            }
+          }
+        } else if (!crouchPressed && isCrouching.current) {
+          isCrouching.current = false;
+          if (targetEntity.components.Transform) {
+            const currentScale = targetEntity.components.Transform.scale || [1, 1, 1];
+            const currentPos = targetEntity.components.Transform.position || [0, 0, 0];
+            
+            const newScale: [number, number, number] = [currentScale[0], 1.0, currentScale[2]];
+            const newPos: [number, number, number] = [currentPos[0], currentPos[1] + 0.5, currentPos[2]];
+            
+            updateComponentRef.current(targetEntity.id, 'Transform', {
+              scale: newScale,
+              position: newPos
+            });
+
+            if (targetRb) {
+              targetRb.setTranslation({ x: newPos[0], y: newPos[1], z: newPos[2] }, true);
+            }
           }
         }
       }
@@ -925,30 +1021,16 @@ function EntityMesh({ entity, entities }: { entity: Entity; entities: Record<str
   if (!mesh) {
     // Entities without mesh (Light, Audio, Particles, Empty objects)
     const emptyMesh = (
-      <group
-        ref={meshRef as any}
-        name={entity.id}
+      <mesh
+        ref={meshRef}
         position={(!rigidBody || !isPlaying) ? pos : undefined}
         rotation={(!rigidBody || !isPlaying) ? rot : undefined}
         scale={scale}
         onPointerDown={isStandalone ? undefined : handlePointerDown}
         onPointerUp={isStandalone ? undefined : handlePointerUp}
       >
-        {entity.components.GLTFModel ? (
-          <Suspense fallback={
-            <mesh>
-              <sphereGeometry args={[0.2, 8, 8]} />
-              <meshBasicMaterial color="#44aaff" wireframe opacity={0.5} transparent visible={!isGameView} />
-            </mesh>
-          }>
-            <GLTFModelRenderer entity={entity} />
-          </Suspense>
-        ) : (
-          <mesh>
-            <sphereGeometry args={[0.2, 8, 8]} />
-            <meshBasicMaterial color={light ? light.color : "#ffffff"} wireframe opacity={0.3} transparent visible={!isGameView} />
-          </mesh>
-        )}
+        <sphereGeometry args={[0.2, 8, 8]} />
+        <meshBasicMaterial color={light ? light.color : "#ffffff"} wireframe opacity={0.3} transparent visible={!isGameView} />
 
         {renderLight()}
         {audio && audio.src && (
@@ -989,7 +1071,7 @@ function EntityMesh({ entity, entities }: { entity: Entity; entities: Record<str
           if (!childEntity) return null;
           return <EntityMesh key={id} entity={childEntity} entities={entities} />;
         })}
-      </group>
+      </mesh>
     );
 
     return (
@@ -1005,15 +1087,26 @@ function EntityMesh({ entity, entities }: { entity: Entity; entities: Record<str
             colliders={rigidBody.collider === 'none' || rigidBody.collider === 'trimesh' ? false : (rigidBody.collider || 'cuboid')}
           >
             {emptyMesh}
-            {rigidBody.collider === 'trimesh' && (meshRef.current as any)?.geometry && (
+            {rigidBody.collider === 'trimesh' && (
               <MeshCollider type="trimesh">
-                <mesh geometry={(meshRef.current as any).geometry}>
+                <mesh geometry={(meshRef.current as any)?.geometry}>
                   <meshBasicMaterial />
                 </mesh>
               </MeshCollider>
             )}
           </RigidBody>
         ) : emptyMesh}
+
+        {isSelected && !isGameView && (
+          <TransformControls
+            object={meshRef}
+            mode={editorMode as any}
+            translationSnap={snapEnabled ? snapValue : null}
+            rotationSnap={snapEnabled ? (Math.PI / 12) : null}
+            scaleSnap={snapEnabled ? snapValue : null}
+            onChange={handleChange}
+          />
+        )}
       </>
     );
   }
@@ -1021,7 +1114,6 @@ function EntityMesh({ entity, entities }: { entity: Entity; entities: Record<str
   const innerMesh = (
     <mesh
       ref={meshRef}
-      name={entity.id}
       position={(!rigidBody || !isPlaying) ? pos : undefined}
       rotation={(!rigidBody || !isPlaying) ? rot : undefined}
       scale={scale}
@@ -1099,6 +1191,18 @@ function EntityMesh({ entity, entities }: { entity: Entity; entities: Record<str
           )}
         </RigidBody>
       ) : innerMesh}
+
+      {isSelected && !isGameView && (
+        <TransformControls
+          object={meshRef}
+          mode={editorMode as any}
+          translationSnap={snapEnabled ? snapValue : null}
+          rotationSnap={snapEnabled ? (Math.PI / 12) : null}
+          scaleSnap={snapEnabled ? snapValue : null}
+          onChange={handleChange}
+          onMouseDown={() => useEditorStore.getState().takeHistorySnapshot()}
+        />
+      )}
     </>
   );
 }
@@ -1199,60 +1303,10 @@ function XRSync() {
 }
 
 export function SceneEntities() {
-  const { scene, selectedEntityId, editorMode, snapEnabled, snapValue, activeViewport } = useEditorStore(useShallow(s => ({
-    scene: s.scenes[s.activeSceneId],
-    selectedEntityId: s.selectedEntityId,
-    editorMode: s.editorMode,
-    snapEnabled: s.snapEnabled,
-    snapValue: s.snapValue,
-    activeViewport: s.activeViewport
-  })));
-
-  const threeScene = useThree(s => s.scene);
+  const scene = useEditorStore(s => s.scenes[s.activeSceneId]);
   const isStandalone = typeof window !== 'undefined' && window.location.pathname === '/preview';
-  const isGameView = activeViewport === 'game';
-
-  const [selectedObject, setSelectedObject] = useState<THREE.Object3D | null>(null);
-
-  useEffect(() => {
-    if (!selectedEntityId || isStandalone) {
-      setSelectedObject(null);
-      return;
-    }
-    const obj = threeScene.getObjectByName(selectedEntityId);
-    setSelectedObject(obj || null);
-
-    // Garante atualizacao se o objeto demorar 1 frame para montar na arvore do Three.js
-    if (!obj) {
-      const timeout = setTimeout(() => {
-        setSelectedObject(threeScene.getObjectByName(selectedEntityId) || null);
-      }, 50);
-      return () => clearTimeout(timeout);
-    }
-  }, [selectedEntityId, threeScene, scene, isStandalone]);
 
   if (!scene) return null;
-
-  const handleTransformChange = () => {
-    if (selectedObject && selectedEntityId) {
-      const position = [
-        selectedObject.position.x,
-        selectedObject.position.y,
-        selectedObject.position.z,
-      ];
-      const rotation = [
-        (selectedObject.rotation.x * 180) / Math.PI,
-        (selectedObject.rotation.y * 180) / Math.PI,
-        (selectedObject.rotation.z * 180) / Math.PI,
-      ];
-      const scale = [
-        selectedObject.scale.x,
-        selectedObject.scale.y,
-        selectedObject.scale.z,
-      ];
-      useEditorStore.getState().updateComponent(selectedEntityId, 'Transform', { position, rotation, scale });
-    }
-  };
 
   return (
     <>
@@ -1263,18 +1317,6 @@ export function SceneEntities() {
         if (!entity) return null;
         return <EntityMesh key={id} entity={entity} entities={scene.entities} />;
       })}
-
-      {selectedObject && !isGameView && (
-        <TransformControls
-          object={selectedObject}
-          mode={editorMode as any}
-          translationSnap={snapEnabled ? snapValue : null}
-          rotationSnap={snapEnabled ? (Math.PI / 12) : null}
-          scaleSnap={snapEnabled ? snapValue : null}
-          onChange={handleTransformChange}
-          onMouseDown={() => useEditorStore.getState().takeHistorySnapshot()}
-        />
-      )}
     </>
   );
 }

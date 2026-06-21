@@ -3,6 +3,7 @@ import { OrbitControls, Grid, GizmoHelper, GizmoViewport, Stats } from '@react-t
 import { useRef, Suspense, useEffect, useState } from 'react';
 import { useEditorStore } from '../store/editorStore';
 import { SceneEntities } from './SceneEntities';
+import { GLTFViewers } from './GLTFViewer';
 import { GameLoop } from '../../engine/systems/GameLoop';
 import { Physics } from '@react-three/rapier';
 import { XR, createXRStore } from '@react-three/xr';
@@ -222,6 +223,7 @@ export function SceneView({
       <Suspense fallback={null}>
         <Physics paused={!isPlaying} debug={showGizmos && !isGameView}>
           <SceneEntities />
+          <GLTFViewers />
           {/* Systems */}
           <GameLoop />
         </Physics>
