@@ -735,6 +735,7 @@ function OrionAudioComponent({
 
 function EntityMesh({ entity, entities }: { entity: Entity; entities: Record<string, Entity> }) {
   const meshRef = useRef<THREE.Mesh>(null!);
+  const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
 
   const {
     selectedEntityId,
@@ -777,7 +778,6 @@ function EntityMesh({ entity, entities }: { entity: Entity; entities: Record<str
   const scale = transform.scale as [number, number, number];
 
   // ── Drag detection: evita seleção acidental ao arrastar a câmera ──
-  const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
   const isPlayer = entity.tags?.includes('player') || !!entity.components.Camera?.isMain;
 
   const handlePointerDown = (e: any) => {
