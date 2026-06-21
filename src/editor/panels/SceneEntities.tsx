@@ -8,6 +8,8 @@ import { useEditorStore } from '../store/editorStore';
 import { useShallow } from 'zustand/react/shallow';
 import type { Entity } from '../../engine/ecs/types';
 import { attemptTeleport } from './SceneView';
+import { Input } from '../../engine/systems/InputManager';
+
 
 // ── Audio Listener Global Singleton ──────────────────────────
 let globalAudioListener: THREE.AudioListener | null = null;
