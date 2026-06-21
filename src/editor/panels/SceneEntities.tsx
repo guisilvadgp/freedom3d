@@ -438,39 +438,13 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
         // 3. Agachamento (Crouch)
         if (crouchPressed && !isCrouching.current) {
           isCrouching.current = true;
-          if (targetEntity.components.Transform) {
-            const currentScale = targetEntity.components.Transform.scale || [1, 1, 1];
-            const currentPos = targetEntity.components.Transform.position || [0, 0, 0];
-            
-            const newScale: [number, number, number] = [currentScale[0], 0.5, currentScale[2]];
-            const newPos: [number, number, number] = [currentPos[0], currentPos[1] - 0.5, currentPos[2]];
-            
-            updateComponentRef.current(targetEntity.id, 'Transform', {
-              scale: newScale,
-              position: newPos
-            });
-
-            if (targetRb) {
-              targetRb.setTranslation({ x: newPos[0], y: newPos[1], z: newPos[2] }, true);
-            }
+          if (typeof window !== 'undefined') {
+            (window as any).isFreedom3DCrouching = true;
           }
         } else if (!crouchPressed && isCrouching.current) {
           isCrouching.current = false;
-          if (targetEntity.components.Transform) {
-            const currentScale = targetEntity.components.Transform.scale || [1, 1, 1];
-            const currentPos = targetEntity.components.Transform.position || [0, 0, 0];
-            
-            const newScale: [number, number, number] = [currentScale[0], 1.0, currentScale[2]];
-            const newPos: [number, number, number] = [currentPos[0], currentPos[1] + 0.5, currentPos[2]];
-            
-            updateComponentRef.current(targetEntity.id, 'Transform', {
-              scale: newScale,
-              position: newPos
-            });
-
-            if (targetRb) {
-              targetRb.setTranslation({ x: newPos[0], y: newPos[1], z: newPos[2] }, true);
-            }
+          if (typeof window !== 'undefined') {
+            (window as any).isFreedom3DCrouching = false;
           }
         }
       }
@@ -1245,12 +1219,11 @@ function XRSync() {
       }
     }
 
-    // No WebXR (VR), usamos uma altura padrão de 1.6m para a visão inicial, ignorando o offset Y.
-    // Isso permite que o offset Y seja ajustado livremente no editor para a câmera do computador
-    // sem interferir no WebXR do celular.
+    // Se estiver agachado, divide a altura padrão (1.6m) por 2 (0.8m)
+    const baseHeight = (window as any).isFreedom3DCrouching ? 0.8 : 1.6;
     const targetY = initialHeadsetHeight.current !== null
-      ? ePos[1] + 1.6 - initialHeadsetHeight.current
-      : ePos[1] + 1.6;
+      ? ePos[1] + baseHeight - initialHeadsetHeight.current
+      : ePos[1] + baseHeight;
 
     groupRef.current.position.set(
       ePos[0] + offset[0],
