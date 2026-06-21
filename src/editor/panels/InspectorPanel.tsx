@@ -1836,6 +1836,26 @@ export function InspectorPanel({ style }: { style?: React.CSSProperties }) {
   const entity = selectedEntity();
   const scene = activeScene();
 
+  const [imageFiles, setImageFiles] = useState<string[]>([]);
+  const sceneName = scene?.name || 'default';
+
+  useEffect(() => {
+    let active = true;
+    const fetchImages = async () => {
+      try {
+        const res = await fetch(`/api/explorer-image/list?project=${encodeURIComponent(sceneName)}`);
+        if (res.ok && active) {
+          const files = await res.json();
+          setImageFiles(files);
+        }
+      } catch (err) {
+        console.error('Error fetching image files in InspectorPanel:', err);
+      }
+    };
+    fetchImages();
+    return () => { active = false; };
+  }, [sceneName]);
+
   if (!selectedEntityId || !entity) {
     return (
       <div className="panel inspector-panel" style={style}>
