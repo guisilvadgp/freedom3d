@@ -1,5 +1,5 @@
 import { XROrigin } from '@react-three/xr';
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, Suspense } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { TransformControls, Edges, Sparkles, PerspectiveCamera } from '@react-three/drei';
 import { RigidBody, MeshCollider } from '@react-three/rapier';
