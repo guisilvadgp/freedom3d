@@ -784,6 +784,16 @@ function OrionAudioComponent({
   }
 }
 
+const mapColliderType = (type: string | undefined): 'cuboid' | 'ball' | 'hull' | 'trimesh' | false => {
+  if (!type || type === 'none') return false;
+  const t = type.toLowerCase();
+  if (t === 'cuboid' || t === 'box') return 'cuboid';
+  if (t === 'ball' || t === 'sphere') return 'ball';
+  if (t === 'trimesh') return false;
+  if (t === 'hull' || t === 'cylinder' || t === 'capsule') return 'hull';
+  return 'cuboid';
+};
+
 export function EntityMesh({ entity, entities }: { entity: Entity; entities: Record<string, Entity> }) {
   const meshRef = useRef<THREE.Mesh>(null!);
   const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
@@ -1095,7 +1105,7 @@ export function EntityMesh({ entity, entities }: { entity: Entity; entities: Rec
             type={rigidBody.isStatic ? 'fixed' : 'dynamic'}
             mass={rigidBody.mass}
             gravityScale={rigidBody.useGravity ? 1 : 0}
-            colliders={rigidBody.collider === 'none' || rigidBody.collider === 'trimesh' ? false : (rigidBody.collider || 'cuboid')}
+            colliders={mapColliderType(rigidBody.collider)}
           >
             {emptyMesh}
             {rigidBody.collider === 'trimesh' && (
@@ -1192,7 +1202,7 @@ export function EntityMesh({ entity, entities }: { entity: Entity; entities: Rec
           type={rigidBody.isStatic ? 'fixed' : 'dynamic'}
           mass={rigidBody.mass}
           gravityScale={rigidBody.useGravity ? 1 : 0}
-          colliders={rigidBody.collider === 'none' || rigidBody.collider === 'trimesh' ? false : (rigidBody.collider || 'cuboid')}
+          colliders={mapColliderType(rigidBody.collider)}
         >
           {innerMesh}
           {rigidBody.collider === 'trimesh' && (
