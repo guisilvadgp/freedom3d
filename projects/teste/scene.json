@@ -1,0 +1,415 @@
+{
+  "id": "teste",
+  "name": "teste",
+  "entities": {
+    "c5887af8-1aed-4160-8287-dfe7676edc42": {
+      "id": "c5887af8-1aed-4160-8287-dfe7676edc42",
+      "name": "Directional Light",
+      "parentId": null,
+      "childrenIds": [],
+      "active": true,
+      "tags": [],
+      "components": {
+        "Transform": {
+          "type": "Transform",
+          "position": [
+            5,
+            15,
+            5
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Light": {
+          "type": "Light",
+          "lightType": "directional",
+          "color": "#ffffff",
+          "intensity": 1.5,
+          "castShadow": true
+        }
+      }
+    },
+    "e0ca8a69-88e8-4414-b30b-73a6c1a2d64b": {
+      "id": "e0ca8a69-88e8-4414-b30b-73a6c1a2d64b",
+      "name": "Runway",
+      "parentId": null,
+      "childrenIds": [],
+      "active": true,
+      "tags": [],
+      "components": {
+        "Transform": {
+          "type": "Transform",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            -90,
+            0,
+            0
+          ],
+          "scale": [
+            8,
+            120,
+            1
+          ]
+        },
+        "MeshRenderer": {
+          "type": "MeshRenderer",
+          "geometry": "plane",
+          "material": "standard",
+          "color": "#111116",
+          "castShadow": false,
+          "receiveShadow": true
+        },
+        "RigidBody": {
+          "type": "RigidBody",
+          "mass": 0,
+          "isStatic": true,
+          "useGravity": false,
+          "collider": "cuboid"
+        }
+      }
+    },
+    "c324ca53-b0b0-4dff-9c05-a944f939a798": {
+      "id": "c324ca53-b0b0-4dff-9c05-a944f939a798",
+      "name": "spacecraft 3d model",
+      "parentId": null,
+      "childrenIds": [],
+      "active": true,
+      "tags": [
+        "gltf"
+      ],
+      "components": {
+        "Transform": {
+          "type": "Transform",
+          "position": [
+            0,
+            1.5,
+            45
+          ],
+          "rotation": [
+            0,
+            180,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "GLTFModel": {
+          "type": "GLTFModel",
+          "src": "/api/project/get-asset?project=teste&file=spacecraft%203d%20model.glb",
+          "fileName": "spacecraft 3d model.glb",
+          "modelScale": 0.015,
+          "castShadow": true,
+          "receiveShadow": true,
+          "overrideMaterial": "none",
+          "color": "#ffffff",
+          "roughness": 0.44,
+          "metalness": 0.1,
+          "textureUrl": "",
+          "normalMapUrl": "",
+          "normalScale": 1
+        },
+        "RigidBody": {
+          "type": "RigidBody",
+          "mass": 1,
+          "isStatic": false,
+          "useGravity": false,
+          "collider": "cuboid"
+        },
+        "Script": {
+          "type": "Script",
+          "scriptName": "SpaceShipController",
+          "code": "export let moveSpeed = 40;\nexport let boostMultiplier = 2.5;\nexport let rotationSpeed = 60;\nexport let rollSpeed = 45;\n\nlet currentVelocity = new THREE.Vector3();\nlet currentAngularVelocity = new THREE.Vector3();\nlet lastCamPos = null;\n\nexport function onAwake() {\n  lastCamPos = null;\n}\n\nexport function onUpdate(delta) {\n  if (!entity.components.Transform) return;\n  const shipPos = getEntityPosition(entity.id) || [0, 0, 0];\n  const rot = entity.components.Transform.rotation;\n  let quaternion;\n  if (typeof rigidBody !== 'undefined' && rigidBody) {\n    const rbRot = rigidBody.rotation();\n    quaternion = new THREE.Quaternion(rbRot.x, rbRot.y, rbRot.z, rbRot.w);\n  } else {\n    const pitchRad = rot[0] * (Math.PI / 180);\n    const yawRad = rot[1] * (Math.PI / 180);\n    const rollRad = rot[2] * (Math.PI / 180);\n    const euler = new THREE.Euler(pitchRad, yawRad, rollRad, 'YXZ');\n    quaternion = new THREE.Quaternion().setFromEuler(euler);\n  }\n  const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(quaternion);\n  const right = new THREE.Vector3(1, 0, 0).applyQuaternion(quaternion);\n  const up = new THREE.Vector3(0, 1, 0).applyQuaternion(quaternion);\n  let moveX = 0;\n  let moveY = 0;\n  let moveZ = 0;\n  if (Input.getKey(\"KeyW\")) moveZ += 1;\n  if (Input.getKey(\"KeyS\")) moveZ -= 1;\n  if (Input.getKey(\"KeyD\")) moveX -= 1;\n  if (Input.getKey(\"KeyA\")) moveX += 1;\n  if (Input.getKey(\"Space\")) moveY += 1;\n  if (Input.getKey(\"ShiftLeft\")) moveY -= 1;\n  const activeSpeed = Input.getKey(\"ControlLeft\") ? moveSpeed * boostMultiplier : moveSpeed;\n  let pitchInput = 0;\n  let yawInput = 0;\n  let rollInput = 0;\n  if (Input.getKey(\"ArrowUp\")) pitchInput -= 1;\n  if (Input.getKey(\"ArrowDown\")) pitchInput += 1;\n  if (Input.getKey(\"KeyQ\")) yawInput += 1;\n  if (Input.getKey(\"KeyE\")) yawInput -= 1;\n  if (Input.getKey(\"ArrowLeft\")) rollInput += 1;\n  if (Input.getKey(\"ArrowRight\")) rollInput -= 1;\n  if (typeof rigidBody !== 'undefined' && rigidBody) {\n    const targetVel = new THREE.Vector3().addScaledVector(forward, moveZ * activeSpeed).addScaledVector(right, moveX * (activeSpeed * 0.5)).addScaledVector(up, moveY * (activeSpeed * 0.5));\n    currentVelocity.lerp(targetVel, delta * 4);\n    rigidBody.setLinvel({ x: currentVelocity.x, y: currentVelocity.y, z: currentVelocity.z }, true);\n    const targetAngVel = new THREE.Vector3(pitchInput * (rotationSpeed * Math.PI / 180), yawInput * (rotationSpeed * Math.PI / 180), rollInput * (rollSpeed * Math.PI / 180));\n    targetAngVel.applyQuaternion(quaternion);\n    currentAngularVelocity.lerp(targetAngVel, delta * 5);\n    rigidBody.setAngvel({ x: currentAngularVelocity.x, y: currentAngularVelocity.y, z: currentAngularVelocity.z }, true);\n  } else {\n    const moveVec = new THREE.Vector3().addScaledVector(forward, moveZ * activeSpeed * delta).addScaledVector(right, moveX * (activeSpeed * 0.5) * delta).addScaledVector(up, moveY * (activeSpeed * 0.5) * delta);\n    const newPos = [shipPos[0] + moveVec.x, shipPos[1] + moveVec.y, shipPos[2] + moveVec.z];\n    const newRot = [rot[0] + (pitchInput * rotationSpeed * delta), rot[1] + (yawInput * rotationSpeed * delta), rot[2] + (rollInput * rollSpeed * delta)];\n    updateComponent(entity.id, 'Transform', { position: newPos, rotation: newRot });\n  }\n  const mainCam = engine.find(\"Main Camera\");\n  if (mainCam) {\n    const updatedShipPos = getEntityPosition(entity.id) || shipPos;\n    const targetCamPos = new THREE.Vector3().fromArray(updatedShipPos).addScaledVector(forward, -12).addScaledVector(up, 3.5);\n    let currentCamPos;\n    if (lastCamPos) {\n      currentCamPos = lastCamPos.clone().lerp(targetCamPos, delta * 6);\n    } else {\n      currentCamPos = targetCamPos;\n    }\n    lastCamPos = currentCamPos.clone();\n    const lookTarget = new THREE.Vector3().fromArray(updatedShipPos).addScaledVector(up, 1.0);\n    const lookMat = new THREE.Matrix4().lookAt(currentCamPos, lookTarget, up);\n    const lookQuat = new THREE.Quaternion().setFromRotationMatrix(lookMat);\n    const lookEuler = new THREE.Euler().setFromQuaternion(lookQuat, 'YXZ');\n    engine.updateComponent(mainCam.id, 'Transform', {\n      position: [currentCamPos.x, currentCamPos.y, currentCamPos.z],\n      rotation: [\n        lookEuler.x * 180 / Math.PI,\n        lookEuler.y * 180 / Math.PI,\n        lookEuler.z * 180 / Math.PI\n      ]\n    });\n  }\n}"
+        }
+      }
+    },
+    "aa2fe08d-3b84-4013-b438-1c8c8d33ad25": {
+      "id": "aa2fe08d-3b84-4013-b438-1c8c8d33ad25",
+      "name": "Main Camera",
+      "parentId": null,
+      "childrenIds": [],
+      "active": true,
+      "tags": [],
+      "components": {
+        "Transform": {
+          "type": "Transform",
+          "position": [
+            0,
+            5,
+            55
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Camera": {
+          "type": "Camera",
+          "fov": 65,
+          "near": 0.1,
+          "far": 1000,
+          "isMain": true,
+          "offset": [
+            0,
+            0,
+            0
+          ]
+        }
+      }
+    },
+    "asteroid-1": {
+      "id": "asteroid-1",
+      "name": "Asteroid Alpha",
+      "parentId": null,
+      "childrenIds": [],
+      "active": true,
+      "tags": [],
+      "components": {
+        "Transform": {
+          "type": "Transform",
+          "position": [
+            0,
+            12,
+            -20
+          ],
+          "rotation": [
+            15,
+            30,
+            45
+          ],
+          "scale": [
+            12,
+            12,
+            12
+          ]
+        },
+        "MeshRenderer": {
+          "type": "MeshRenderer",
+          "geometry": "sphere",
+          "material": "standard",
+          "color": "#5a5b63",
+          "castShadow": true,
+          "receiveShadow": true
+        },
+        "RigidBody": {
+          "type": "RigidBody",
+          "mass": 0,
+          "isStatic": true,
+          "useGravity": false,
+          "collider": "ball"
+        }
+      }
+    },
+    "asteroid-2": {
+      "id": "asteroid-2",
+      "name": "Asteroid Beta",
+      "parentId": null,
+      "childrenIds": [],
+      "active": true,
+      "tags": [],
+      "components": {
+        "Transform": {
+          "type": "Transform",
+          "position": [
+            -35,
+            5,
+            -60
+          ],
+          "rotation": [
+            40,
+            10,
+            20
+          ],
+          "scale": [
+            18,
+            18,
+            18
+          ]
+        },
+        "MeshRenderer": {
+          "type": "MeshRenderer",
+          "geometry": "box",
+          "material": "standard",
+          "color": "#48494f",
+          "castShadow": true,
+          "receiveShadow": true
+        },
+        "RigidBody": {
+          "type": "RigidBody",
+          "mass": 0,
+          "isStatic": true,
+          "useGravity": false,
+          "collider": "cuboid"
+        }
+      }
+    },
+    "asteroid-3": {
+      "id": "asteroid-3",
+      "name": "Asteroid Gamma",
+      "parentId": null,
+      "childrenIds": [],
+      "active": true,
+      "tags": [],
+      "components": {
+        "Transform": {
+          "type": "Transform",
+          "position": [
+            30,
+            20,
+            -90
+          ],
+          "rotation": [
+            10,
+            70,
+            15
+          ],
+          "scale": [
+            25,
+            25,
+            25
+          ]
+        },
+        "MeshRenderer": {
+          "type": "MeshRenderer",
+          "geometry": "sphere",
+          "material": "standard",
+          "color": "#6e6f7a",
+          "castShadow": true,
+          "receiveShadow": true
+        },
+        "RigidBody": {
+          "type": "RigidBody",
+          "mass": 0,
+          "isStatic": true,
+          "useGravity": false,
+          "collider": "ball"
+        }
+      }
+    },
+    "asteroid-4": {
+      "id": "asteroid-4",
+      "name": "Asteroid Delta",
+      "parentId": null,
+      "childrenIds": [],
+      "active": true,
+      "tags": [],
+      "components": {
+        "Transform": {
+          "type": "Transform",
+          "position": [
+            -15,
+            30,
+            -140
+          ],
+          "rotation": [
+            5,
+            5,
+            50
+          ],
+          "scale": [
+            15,
+            15,
+            15
+          ]
+        },
+        "MeshRenderer": {
+          "type": "MeshRenderer",
+          "geometry": "box",
+          "material": "standard",
+          "color": "#393a40",
+          "castShadow": true,
+          "receiveShadow": true
+        },
+        "RigidBody": {
+          "type": "RigidBody",
+          "mass": 0,
+          "isStatic": true,
+          "useGravity": false,
+          "collider": "cuboid"
+        }
+      }
+    },
+    "asteroid-5": {
+      "id": "asteroid-5",
+      "name": "Asteroid Epsilon",
+      "parentId": null,
+      "childrenIds": [],
+      "active": true,
+      "tags": [],
+      "components": {
+        "Transform": {
+          "type": "Transform",
+          "position": [
+            25,
+            -10,
+            -40
+          ],
+          "rotation": [
+            12,
+            24,
+            36
+          ],
+          "scale": [
+            14,
+            14,
+            14
+          ]
+        },
+        "MeshRenderer": {
+          "type": "MeshRenderer",
+          "geometry": "sphere",
+          "material": "standard",
+          "color": "#525359",
+          "castShadow": true,
+          "receiveShadow": true
+        },
+        "RigidBody": {
+          "type": "RigidBody",
+          "mass": 0,
+          "isStatic": true,
+          "useGravity": false,
+          "collider": "ball"
+        }
+      }
+    }
+  },
+  "rootEntityIds": [
+    "c5887af8-1aed-4160-8287-dfe7676edc42",
+    "e0ca8a69-88e8-4414-b30b-73a6c1a2d64b",
+    "c324ca53-b0b0-4dff-9c05-a944f939a798",
+    "aa2fe08d-3b84-4013-b438-1c8c8d33ad25",
+    "asteroid-1",
+    "asteroid-2",
+    "asteroid-3",
+    "asteroid-4",
+    "asteroid-5"
+  ],
+  "backgroundColor": "#020208",
+  "ambientColor": "#ffffff",
+  "ambientIntensity": 0.4,
+  "fogEnabled": true,
+  "fogColor": "#020208",
+  "fogNear": 20,
+  "fogFar": 200,
+  "skyboxUrl": "skybox/ChatGPT Image 21 de jun. de 2026, 16_59_08.png"
+}
