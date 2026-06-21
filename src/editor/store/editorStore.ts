@@ -15,6 +15,7 @@ import {
   createVRPosition,
   createEmpty,
   createCapsule,
+  createCamera,
 } from '../../engine/ecs/EntityFactory';
 
 export type EditorMode = 'select' | 'translate' | 'rotate' | 'scale';
@@ -321,6 +322,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         case 'empty': entity = createEmpty(); break;
         case 'directional': entity = createDirectionalLight(); break;
         case 'point': entity = createPointLight(); break;
+        case 'camera': entity = createCamera(); break;
         case 'first-person': entity = createFirstPersonPlayer(); break;
         case 'third-person': entity = createThirdPersonPlayer(); break;
         case 'vr-position': entity = createVRPosition(); break;

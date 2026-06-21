@@ -118,6 +118,10 @@ export function HierarchyPanel({ style }: { style?: React.CSSProperties }) {
               {t.icon} {t.label}
             </button>
           ))}
+          <div className="create-menu-section">Cameras</div>
+          <button className="create-menu-item" onClick={() => handleCreate('camera')}>
+            <Video size={14} /> Camera
+          </button>
           <div className="create-menu-section">Players</div>
           {PLAYER_TYPES.map((t) => (
             <button key={t.id} className="create-menu-item" onClick={() => handleCreate(t.id)}>
