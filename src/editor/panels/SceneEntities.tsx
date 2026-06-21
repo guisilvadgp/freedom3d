@@ -31,40 +31,55 @@ function GlobalAudioListenerHandler() {
   useEffect(() => {
     const listener = getGlobalAudioListener();
 
-    // Ativa o contexto de áudio em navegadores mobile se estiver suspenso
-    if (listener.context && listener.context.state === 'suspended') {
-      const resumeContext = () => {
+    const resumeContext = () => {
+      if (listener.context && listener.context.state === 'suspended') {
         listener.context.resume().then(() => {
-          window.removeEventListener('click', resumeContext);
-          window.removeEventListener('touchstart', resumeContext);
+          console.log("🔊 AudioContext retomado via evento de captura.");
+          cleanup();
+        }).catch(err => {
+          console.warn("Falha ao retomar AudioContext:", err);
         });
-      };
-      window.addEventListener('click', resumeContext);
-      window.addEventListener('touchstart', resumeContext);
-    }
+      } else if (listener.context && listener.context.state === 'running') {
+        cleanup();
+      }
+    };
+
+    const cleanup = () => {
+      window.removeEventListener('click', resumeContext, { capture: true });
+      window.removeEventListener('touchstart', resumeContext, { capture: true });
+      window.removeEventListener('mousedown', resumeContext, { capture: true });
+      window.removeEventListener('keydown', resumeContext, { capture: true });
+    };
+
+    // Registra na fase de captura para contornar e.stopPropagation() dos elementos da UI
+    window.addEventListener('click', resumeContext, { capture: true });
+    window.addEventListener('touchstart', resumeContext, { capture: true });
+    window.addEventListener('mousedown', resumeContext, { capture: true });
+    window.addEventListener('keydown', resumeContext, { capture: true });
 
     // Adiciona o listener diretamente à cena raiz
     if (listener.parent !== scene) {
       scene.add(listener);
     }
+
+    return cleanup;
   }, [scene]);
 
-  // Força retomar o AudioContext ao clicar no Play da simulação
+  // Força retomar o AudioContext ao iniciar a simulação (Play)
   useEffect(() => {
     if (isPlaying) {
       const listener = getGlobalAudioListener();
       if (listener && listener.context && listener.context.state === 'suspended') {
         listener.context.resume().then(() => {
           console.log('🔊 AudioContext retomado ao iniciar simulacao (Play).');
+        }).catch(err => {
+          console.warn("Falha ao retomar AudioContext no Play:", err);
         });
       }
     }
   }, [isPlaying]);
 
   // Sincroniza a posição e rotação mundial do listener com a câmera ativa a cada frame.
-  // Isso desvincula o listener de hierarquias de câmeras problemáticas (como a ArrayCamera do XR, 
-  // que não reside na árvore da cena) e garante que o áudio seja espacializado perfeitamente 
-  // com base nas coordenadas mundiais reais de onde o jogador e o headset estão.
   useFrame(() => {
     const listener = getGlobalAudioListener();
     if (listener.parent === scene) {
@@ -570,16 +585,10 @@ function Audio2D({ url, loop, volume }: { url: string; loop: boolean; volume: nu
   const audioRef = useRef<THREE.Audio | null>(null);
 
   useEffect(() => {
-    const audioEl = document.createElement('audio');
-    audioEl.src = url;
-    audioEl.loop = loop;
-    audioEl.crossOrigin = 'anonymous';
-    audioEl.preload = 'auto';
-
     const listener = getGlobalAudioListener();
     const sound = new THREE.Audio(listener);
-    sound.setMediaElementSource(audioEl);
     sound.setVolume(volume);
+    sound.setLoop(loop);
 
     audioRef.current = sound;
 
@@ -587,14 +596,26 @@ function Audio2D({ url, loop, volume }: { url: string; loop: boolean; volume: nu
       groupRef.current.add(sound);
     }
 
-    // Reproduz via streaming nativo sem carregar decodificado na RAM
-    audioEl.play().catch((err) => {
-      console.warn("Autoplay impedido ou falha no streaming do áudio 2D:", err);
-    });
+    // Carrega o áudio via AudioLoader decodificando em memória RAM
+    const audioLoader = new THREE.AudioLoader();
+    audioLoader.load(
+      url,
+      (buffer) => {
+        sound.setBuffer(buffer);
+        if (!sound.isPlaying) {
+          sound.play();
+        }
+      },
+      undefined,
+      (err) => {
+        console.warn("Falha ao carregar buffer do áudio 2D:", err);
+      }
+    );
 
     return () => {
-      audioEl.pause();
-      audioEl.src = '';
+      if (sound.isPlaying) {
+        sound.stop();
+      }
       if (groupRef.current) {
         groupRef.current.remove(sound);
       }
