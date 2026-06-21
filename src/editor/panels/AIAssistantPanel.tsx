@@ -26,9 +26,55 @@ export function AIAssistantPanel() {
   const [prompt, setPrompt] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [logs, setLogs] = useState<LogMessage[]>([]);
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem('gemini_api_key') || '');
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem('pollinations_api_key') || '');
+  const [models, setModels] = useState<{ id: string }[]>([]);
+  const [selectedModel, setSelectedModel] = useState('openai');
+  const [loadingModels, setLoadingModels] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const logEndRef = useRef<HTMLDivElement>(null);
+
+  const fetchModels = async (key: string) => {
+    setLoadingModels(true);
+    try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (key) {
+        headers['Authorization'] = `Bearer ${key}`;
+      }
+      const response = await fetch('https://gen.pollinations.ai/v1/models', {
+        headers
+      });
+      if (response.ok) {
+        const json = await response.json();
+        const chatModels = (json.data || []).filter((m: any) => {
+          const id = m.id.toLowerCase();
+          return !id.includes('flux') && !id.includes('diffusion') && !id.includes('dall-e') && !id.includes('midjourney') && !id.includes('audio') && !id.includes('tts') && !id.includes('whisper');
+        });
+        
+        if (chatModels.length === 0) {
+          setModels([{ id: 'openai' }, { id: 'mistral' }, { id: 'qwen' }]);
+        } else {
+          setModels(chatModels);
+        }
+        
+        if (chatModels.length > 0 && !chatModels.some((m: any) => m.id === selectedModel)) {
+          setSelectedModel(chatModels[0].id);
+        }
+      } else {
+        setModels([{ id: 'openai' }, { id: 'mistral' }, { id: 'qwen' }]);
+      }
+    } catch (err) {
+      console.error('Erro ao buscar modelos:', err);
+      setModels([{ id: 'openai' }, { id: 'mistral' }, { id: 'qwen' }]);
+    } finally {
+      setLoadingModels(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchModels(apiKey);
+  }, [apiKey]);
 
   useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -39,11 +85,12 @@ export function AIAssistantPanel() {
   };
 
   const handleSaveApiKey = (key: string) => {
-    localStorage.setItem('gemini_api_key', key.trim());
+    localStorage.setItem('pollinations_api_key', key.trim());
     setApiKey(key.trim());
-    showToast('Chave de API salva com sucesso!');
+    showToast('Chave de API da Pollinations salva!');
     setShowSettings(false);
   };
+
 
   // Lógica offline para os templates internos
   const generateOfflineTemplate = async (templateType: 'race' | 'fps' | 'platform' | 'coins') => {
@@ -1012,7 +1059,7 @@ export function onUpdate(delta) {
 
     setIsLoading(true);
     setLogs([]);
-    addLocalLog('info', '🔮 Conectando com o Google Gemini...');
+    addLocalLog('info', '🔮 Conectando com a API da Pollinations...');
     
     const scene = activeScene();
     if (!scene) {
@@ -1099,35 +1146,85 @@ Gere um jogo espetacular para o prompt do usuário. Adicione física onde fizer 
 
       addLocalLog('info', '🧠 Enviando instruções do projeto para a IA...');
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                { text: systemPrompt + `\n\nSolicitação do Usuário: "${prompt}"` }
-              ]
-            }
-          ],
-          generationConfig: {
-            responseMimeType: "application/json",
-            temperature: 0.3
-          }
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Falha de conexão com a API do Gemini. Verifique a chave.');
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      if (apiKey) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
       }
 
-      const data = await response.json();
-      const text = data.candidates[0].content.parts[0].text;
-      
+      let dataText = '';
+      let success = false;
+
+      // 1. Tenta por POST na rota recomendada (OpenAI-compatible)
+      try {
+        const response = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            model: selectedModel || 'openai',
+            messages: [
+              { 
+                role: 'system', 
+                content: systemPrompt
+              },
+              { role: 'user', content: prompt }
+            ],
+            temperature: 0.3
+          })
+        });
+        if (response.ok) {
+          const json = await response.json();
+          dataText = json.choices?.[0]?.message?.content || '';
+          if (dataText) success = true;
+        }
+      } catch (postErr) {
+        console.warn('POST para gen.pollinations.ai falhou, tentando fallback:', postErr);
+      }
+
+      // 2. Se falhar, tenta o POST na rota legada text.pollinations.ai
+      if (!success) {
+        try {
+          const response = await fetch('https://text.pollinations.ai/', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              model: selectedModel || 'openai',
+              messages: [
+                { 
+                  role: 'system', 
+                  content: systemPrompt
+                },
+                { role: 'user', content: prompt }
+              ]
+            })
+          });
+          if (response.ok) {
+            dataText = await response.text();
+            if (dataText) success = true;
+          }
+        } catch (legacyPostErr) {
+          console.warn('POST para text.pollinations.ai falhou:', legacyPostErr);
+        }
+      }
+
+      // 3. Fallback final via GET (altamente resiliente, não exige chave, livre de CORS)
+      if (!success) {
+        const url = `https://text.pollinations.ai/${encodeURIComponent(prompt)}?model=${encodeURIComponent(selectedModel || 'openai')}&system=${encodeURIComponent(systemPrompt)}`;
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error('Falha na resposta da API após tentar POST e GET');
+        }
+        dataText = await response.text();
+      }
+
       addLocalLog('info', '📦 Resposta recebida da IA. Analisando estrutura...');
-      const parsedScene = JSON.parse(text);
+      let cleanedJsonText = dataText.trim();
+      if (cleanedJsonText.startsWith('```')) {
+        cleanedJsonText = cleanedJsonText.replace(/^```json\n|^```\n/g, '').replace(/```$/g, '').trim();
+      }
+      
+      const parsedScene = JSON.parse(cleanedJsonText);
 
       addLocalLog('info', '🧱 Gerando entidades e compilando scripts...');
       
@@ -1192,18 +1289,45 @@ Gere um jogo espetacular para o prompt do usuário. Adicione física onde fizer 
       <div className="ai-body">
         {showSettings && (
           <div className="api-settings-box">
-            <h4>Configuração do Gemini AI</h4>
-            <p>Insira sua Gemini API Key para permitir que a inteligência artificial crie layouts livres personalizados além dos templates integrados.</p>
+            <h4>Configuração da IA (Pollinations)</h4>
+            <p>Insira sua Pollinations API Key (opcional) e selecione o modelo de IA para geração livre.</p>
             <div className="api-input-group">
               <input 
                 type="password" 
-                placeholder="Cole sua API Key do Gemini aqui..." 
+                placeholder="Cole sua API Key da Pollinations aqui (opcional)..." 
                 value={apiKey} 
                 onChange={(e) => setApiKey(e.target.value)} 
               />
               <button onClick={() => handleSaveApiKey(apiKey)}>Salvar</button>
             </div>
-            <span className="api-link">Obtenha uma chave grátis em: <a href="https://aistudio.google.com/" target="_blank" rel="noreferrer">Google AI Studio</a></span>
+            <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Modelo de IA:</label>
+              {loadingModels ? (
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Carregando modelos...</span>
+              ) : (
+                <select
+                  value={selectedModel}
+                  onChange={(e) => setSelectedModel(e.target.value)}
+                  style={{
+                    background: 'var(--bg-base)',
+                    border: '1px solid var(--border-bright)',
+                    color: 'white',
+                    padding: '6px 10px',
+                    borderRadius: '4px',
+                    fontSize: '11px',
+                    outline: 'none',
+                    width: '100%'
+                  }}
+                >
+                  {models.map(m => (
+                    <option key={m.id} value={m.id}>{m.id}</option>
+                  ))}
+                  {models.length === 0 && (
+                    <option value="openai">openai (Padrão)</option>
+                  )}
+                </select>
+              )}
+            </div>
           </div>
         )}
 
