@@ -19,6 +19,8 @@ export interface MeshRendererComponent {
   castShadow: boolean;
   receiveShadow: boolean;
   emissiveIntensity?: number;
+  roughness?: number;
+  metalness?: number;
 }
 
 export interface LightComponent {

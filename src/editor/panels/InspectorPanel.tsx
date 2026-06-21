@@ -146,6 +146,47 @@ function MeshRendererInspector({ entityId }: { entityId: string }) {
           </div>
         </div>
       )}
+      {(m.material === 'standard' || m.material === 'emissive') && (
+        <>
+          <div className="field-row">
+            <label className="field-label">Roughness</label>
+            <div className="field-slider-container" style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                className="field-slider"
+                style={{ flex: 1 }}
+                value={m.roughness ?? (m.material === 'emissive' ? 0.2 : 0.6)}
+                onChange={(e) => updateComponent(entityId, 'MeshRenderer', { roughness: parseFloat(e.target.value) })}
+              />
+              <span className="field-slider-value" style={{ minWidth: '28px', fontSize: '10px', textAlign: 'right' }}>
+                {(m.roughness ?? (m.material === 'emissive' ? 0.2 : 0.6)).toFixed(2)}
+              </span>
+            </div>
+          </div>
+
+          <div className="field-row">
+            <label className="field-label">Metalness</label>
+            <div className="field-slider-container" style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                className="field-slider"
+                style={{ flex: 1 }}
+                value={m.metalness ?? 0.1}
+                onChange={(e) => updateComponent(entityId, 'MeshRenderer', { metalness: parseFloat(e.target.value) })}
+              />
+              <span className="field-slider-value" style={{ minWidth: '28px', fontSize: '10px', textAlign: 'right' }}>
+                {(m.metalness ?? 0.1).toFixed(2)}
+              </span>
+            </div>
+          </div>
+        </>
+      )}
       <div className="field-row">
         <label className="field-label">Color</label>
         <input

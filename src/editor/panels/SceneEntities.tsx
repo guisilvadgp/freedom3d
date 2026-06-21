@@ -896,11 +896,18 @@ function EntityMesh({ entity, entities }: { entity: Entity; entities: Record<str
             color={color}
             emissive={color}
             emissiveIntensity={mesh.emissiveIntensity ?? 2.0}
-            roughness={0.2}
-            metalness={0.1}
+            roughness={mesh.roughness ?? 0.2}
+            metalness={mesh.metalness ?? 0.1}
           />
         );
-      default: return <meshStandardMaterial color={color} roughness={0.6} metalness={0.1} />;
+      default:
+        return (
+          <meshStandardMaterial
+            color={color}
+            roughness={mesh.roughness ?? 0.6}
+            metalness={mesh.metalness ?? 0.1}
+          />
+        );
     }
   };
 
