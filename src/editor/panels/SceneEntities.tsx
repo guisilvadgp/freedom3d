@@ -9,6 +9,7 @@ import { useShallow } from 'zustand/react/shallow';
 import type { Entity } from '../../engine/ecs/types';
 import { attemptTeleport } from './SceneView';
 import { Input } from '../../engine/systems/InputManager';
+import { GLTFMesh } from './GLTFViewer';
 
 
 // ── Audio Listener Global Singleton ──────────────────────────
@@ -733,7 +734,7 @@ function OrionAudioComponent({
   }
 }
 
-function EntityMesh({ entity, entities }: { entity: Entity; entities: Record<string, Entity> }) {
+export function EntityMesh({ entity, entities }: { entity: Entity; entities: Record<string, Entity> }) {
   const meshRef = useRef<THREE.Mesh>(null!);
   const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
 
@@ -771,6 +772,14 @@ function EntityMesh({ entity, entities }: { entity: Entity; entities: Record<str
 
   if (!transform) return null;
   if (!entity.active) return null;
+
+  if (entity.components.GLTFModel) {
+    return (
+      <Suspense fallback={null}>
+        <GLTFMesh entity={entity} />
+      </Suspense>
+    );
+  }
 
   const isSelected = selectedEntityId === entity.id;
   const pos = transform.position as [number, number, number];
@@ -1015,6 +1024,9 @@ function EntityMesh({ entity, entities }: { entity: Entity; entities: Record<str
         {entity.childrenIds && entity.childrenIds.map(id => {
           const childEntity = entities[id];
           if (!childEntity) return null;
+          if (childEntity.components.GLTFModel) {
+            return <GLTFMesh key={id} entity={childEntity} />;
+          }
           return <EntityMesh key={id} entity={childEntity} entities={entities} />;
         })}
       </mesh>
@@ -1112,6 +1124,9 @@ function EntityMesh({ entity, entities }: { entity: Entity; entities: Record<str
       {entity.childrenIds && entity.childrenIds.map(id => {
         const childEntity = entities[id];
         if (!childEntity) return null;
+        if (childEntity.components.GLTFModel) {
+          return <GLTFMesh key={id} entity={childEntity} />;
+        }
         return <EntityMesh key={id} entity={childEntity} entities={entities} />;
       })}
     </mesh>
