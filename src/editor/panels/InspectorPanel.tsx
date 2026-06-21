@@ -1852,6 +1852,22 @@ export function InspectorPanel({ style }: { style?: React.CSSProperties }) {
               onChange={(e) => updateSceneSettings({ backgroundColor: e.target.value })} />
           </div>
           <div className="field-row">
+            <label className="field-label">Skybox (2:1)</label>
+            <select
+              className="field-input select-dark"
+              value={scene.skyboxUrl || ''}
+              onChange={(e) => updateSceneSettings({ skyboxUrl: e.target.value || undefined })}
+              style={{ flex: 1, padding: '4px', fontSize: '11px', background: '#111122', border: '1px solid var(--border)', color: '#fff', borderRadius: '4px' }}
+            >
+              <option value="">(Nenhum - Usar cor de fundo)</option>
+              {imageFiles.map((file) => (
+                <option key={file} value={file}>
+                  {file}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field-row">
             <label className="field-label">Ambient Color</label>
             <input type="color" className="field-color" value={scene.ambientColor}
               onChange={(e) => updateSceneSettings({ ambientColor: e.target.value })} />

@@ -1,4 +1,4 @@
-import { Canvas, useThree, useFrame } from '@react-three/fiber';
+import { Canvas, useThree, useFrame, useLoader } from '@react-three/fiber';
 import { OrbitControls, Grid, GizmoHelper, GizmoViewport, Stats } from '@react-three/drei';
 import { useRef, Suspense, useEffect, useState } from 'react';
 import { useEditorStore } from '../store/editorStore';
@@ -159,6 +159,26 @@ function EditorCameraHandler() {
   return null;
 }
 
+function Skybox({ url }: { url: string }) {
+  const { scene } = useThree();
+  const texture = useLoader(THREE.TextureLoader, url);
+
+  useEffect(() => {
+    if (texture) {
+      texture.mapping = THREE.EquirectangularReflectionMapping;
+      texture.colorSpace = THREE.SRGBColorSpace;
+      scene.background = texture;
+      scene.environment = texture;
+      return () => {
+        scene.background = null;
+        scene.environment = null;
+      };
+    }
+  }, [texture, scene]);
+
+  return null;
+}
+
 export function SceneView({
   isStandalone,
   sceneLoaded = true,
@@ -204,12 +224,31 @@ export function SceneView({
     e.preventDefault();
   };
 
+  const getSkyboxUrl = (fileName: string) => {
+    if (!fileName) return '';
+    if (fileName.startsWith('/') || fileName.startsWith('http') || fileName.startsWith('blob:') || fileName.startsWith('data:')) {
+      return fileName;
+    }
+    const projectName = scene.name || 'default';
+    if (isStandalone) {
+      const isOffline = (window as any).__freedom3d_standalone__;
+      return isOffline ? './assets/' + fileName : `/api/asset/${encodeURIComponent(fileName)}`;
+    }
+    return `/api/project/get-asset?project=${encodeURIComponent(projectName)}&file=${encodeURIComponent(fileName)}`;
+  };
+
   const content = (
     <>
       {!isGameView && <EditorCameraHandler />}
       <LoadingTracker sceneLoaded={sceneLoaded} onProgress={onProgress} onLoaded={onLoaded} />
       {/* Background */}
-      <color attach="background" args={[scene.backgroundColor]} />
+      {scene.skyboxUrl ? (
+        <Suspense fallback={<color attach="background" args={[scene.backgroundColor]} />}>
+          <Skybox url={getSkyboxUrl(scene.skyboxUrl)} />
+        </Suspense>
+      ) : (
+        <color attach="background" args={[scene.backgroundColor]} />
+      )}
 
       {/* Fog */}
       {scene.fogEnabled && (

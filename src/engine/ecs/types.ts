@@ -188,5 +188,6 @@ export interface Scene {
   fogColor: string;
   fogNear: number;
   fogFar: number;
+  skyboxUrl?: string;
 }
 
