@@ -1002,7 +1002,7 @@ export function EntityMesh({ entity, entities }: { entity: Entity; entities: Rec
             playOnStart={audio.playOnStart}
             is3D={audio.is3D ?? true}
             delay={audio.delay ?? 0}
-            isPlaying={isPlaying || isStandalone}
+            isPlaying={isPlaying}
             refDistance={audio.refDistance}
             rolloffFactor={audio.rolloffFactor}
             maxDistance={audio.maxDistance}
@@ -1094,7 +1094,7 @@ export function EntityMesh({ entity, entities }: { entity: Entity; entities: Rec
           playOnStart={audio.playOnStart}
           is3D={audio.is3D ?? true}
           delay={audio.delay ?? 0}
-          isPlaying={isPlaying || isStandalone}
+          isPlaying={isPlaying}
           refDistance={audio.refDistance}
           rolloffFactor={audio.rolloffFactor}
           maxDistance={audio.maxDistance}
