@@ -26,6 +26,7 @@ function getGlobalAudioListener(): THREE.AudioListener {
 function GlobalAudioListenerHandler() {
   const camera = useThree(s => s.camera);
   const scene = useThree(s => s.scene);
+  const isPlaying = useEditorStore(s => s.isPlaying);
   
   useEffect(() => {
     const listener = getGlobalAudioListener();
@@ -47,6 +48,18 @@ function GlobalAudioListenerHandler() {
       scene.add(listener);
     }
   }, [scene]);
+
+  // Força retomar o AudioContext ao clicar no Play da simulação
+  useEffect(() => {
+    if (isPlaying) {
+      const listener = getGlobalAudioListener();
+      if (listener && listener.context && listener.context.state === 'suspended') {
+        listener.context.resume().then(() => {
+          console.log('🔊 AudioContext retomado ao iniciar simulacao (Play).');
+        });
+      }
+    }
+  }, [isPlaying]);
 
   // Sincroniza a posição e rotação mundial do listener com a câmera ativa a cada frame.
   // Isso desvincula o listener de hierarquias de câmeras problemáticas (como a ArrayCamera do XR, 
@@ -553,7 +566,8 @@ function VRTeleportRing({ entity }: { entity: Entity }) {
 
 // ── Audio Helper Components (Spatial and 2D with volume and delay) ──
 function Audio2D({ url, loop, volume }: { url: string; loop: boolean; volume: number }) {
-  const audioElRef = useRef<HTMLAudioElement | null>(null);
+  const groupRef = useRef<THREE.Group>(null);
+  const audioRef = useRef<THREE.Audio | null>(null);
 
   useEffect(() => {
     const audioEl = document.createElement('audio');
@@ -561,11 +575,17 @@ function Audio2D({ url, loop, volume }: { url: string; loop: boolean; volume: nu
     audioEl.loop = loop;
     audioEl.crossOrigin = 'anonymous';
     audioEl.preload = 'auto';
-    audioElRef.current = audioEl;
 
-    const sound = new THREE.Audio(getGlobalAudioListener());
+    const listener = getGlobalAudioListener();
+    const sound = new THREE.Audio(listener);
     sound.setMediaElementSource(audioEl);
     sound.setVolume(volume);
+
+    audioRef.current = sound;
+
+    if (groupRef.current) {
+      groupRef.current.add(sound);
+    }
 
     // Reproduz via streaming nativo sem carregar decodificado na RAM
     audioEl.play().catch((err) => {
@@ -575,18 +595,21 @@ function Audio2D({ url, loop, volume }: { url: string; loop: boolean; volume: nu
     return () => {
       audioEl.pause();
       audioEl.src = '';
+      if (groupRef.current) {
+        groupRef.current.remove(sound);
+      }
       sound.disconnect();
     };
   }, [url, loop]);
 
-  // Atualiza volume em tempo real
+  // Atualiza volume em tempo real pelo GainNode do Three.js
   useEffect(() => {
-    if (audioElRef.current) {
-      audioElRef.current.volume = volume;
+    if (audioRef.current) {
+      audioRef.current.setVolume(volume);
     }
   }, [volume]);
 
-  return null;
+  return <group ref={groupRef} />;
 }
 
 function SpatialAudio({ 
