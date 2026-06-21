@@ -83,6 +83,7 @@ interface EditorStore {
   activeViewport: 'scene' | 'game';
   setActiveViewport: (viewport: 'scene' | 'game') => void;
   isPlaying: boolean;
+  playModeBackupScene: Scene | null;
   togglePlay: () => void;
   showGrid: boolean;
   toggleGrid: () => void;
@@ -275,13 +276,33 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     activeViewport: 'scene',
     setActiveViewport: (viewport) => set({ activeViewport: viewport }),
     isPlaying: false,
+    playModeBackupScene: null,
     togglePlay: () => set((s) => {
       const isNowPlaying = !s.isPlaying;
-      return {
-        isPlaying: isNowPlaying,
-        activeViewport: isNowPlaying ? 'game' : 'scene',
-        consoleLogs: isNowPlaying ? [] : s.consoleLogs
-      };
+      
+      if (isNowPlaying) {
+        // Salva backup da cena ativa antes de iniciar o play mode
+        const activeScene = s.scenes[s.activeSceneId];
+        const backup = activeScene ? JSON.parse(JSON.stringify(activeScene)) : null;
+        return {
+          isPlaying: true,
+          playModeBackupScene: backup,
+          activeViewport: 'game',
+          consoleLogs: []
+        };
+      } else {
+        // Restaura o backup preservando o estado original
+        const backup = s.playModeBackupScene;
+        const updatedScenes = backup ? { ...s.scenes, [s.activeSceneId]: backup } : s.scenes;
+        return {
+          isPlaying: false,
+          scenes: updatedScenes,
+          playModeBackupScene: null,
+          activeViewport: 'scene',
+          selectedEntityId: null,
+          rigidBodyRefs: {} // reseta referências dos rigidbodies físicos da execução anterior
+        };
+      }
     }),
     showGrid: true,
     toggleGrid: () => set((s) => ({ showGrid: !s.showGrid })),
