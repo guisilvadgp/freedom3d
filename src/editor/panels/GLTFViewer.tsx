@@ -5,7 +5,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { TransformControls } from '@react-three/drei';
-import { RigidBody, MeshCollider } from '@react-three/rapier';
+import { RigidBody, MeshCollider, CuboidCollider } from '@react-three/rapier';
 import * as THREE from 'three';
 import { useEditorStore } from '../store/editorStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -107,6 +107,42 @@ function optimizeAnimations(animations: THREE.AnimationClip[]) {
   }
 }
 
+// Remove assinaturas de animação no nível do buffer binário do FBX no mobile.
+// Isso impede que o FBXLoader processe as curvas complexas poupando toneladas de memória RAM e CPU.
+function stripAnimationsFromFBXBuffer(buffer: ArrayBuffer): ArrayBuffer {
+  const view = new Uint8Array(buffer);
+  const targets = [
+    [65, 110, 105, 109, 97, 116, 105, 111, 110, 83, 116, 97, 99, 107], // AnimationStack
+    [65, 110, 105, 109, 97, 116, 105, 111, 110, 76, 97, 121, 101, 114], // AnimationLayer
+    [65, 110, 105, 109, 97, 116, 105, 111, 110, 67, 117, 114, 118, 101, 78, 111, 100, 101], // AnimationCurveNode
+    [65, 110, 105, 109, 97, 116, 105, 111, 110, 67, 117, 114, 118, 101] // AnimationCurve
+  ];
+  
+  for (let t = 0; t < targets.length; t++) {
+    const bytes = targets[t];
+    const len = bytes.length;
+    
+    for (let i = 0; i <= view.length - len; i++) {
+      let match = true;
+      for (let j = 0; j < len; j++) {
+        if (view[i + j] !== bytes[j]) {
+          match = false;
+          break;
+        }
+      }
+      
+      if (match) {
+        // Substitui a palavra por 'X's para invalidar a leitura sem corromper o alinhamento
+        for (let j = 0; j < len; j++) {
+          view[i + j] = 88; // ASCII 'X'
+        }
+        i += len - 1;
+      }
+    }
+  }
+  return buffer;
+}
+
 async function loadModelAsync(src: string, isFbx: boolean): Promise<any> {
   if (modelCache.has(src)) {
     return modelCache.get(src);
@@ -120,22 +156,44 @@ async function loadModelAsync(src: string, isFbx: boolean): Promise<any> {
     await loadQueue;
 
     if (isFbx) {
-      const loader = new FBXLoader(THREE.DefaultLoadingManager);
-      const fbx = await loader.loadAsync(src);
-      
-      // Sanitiza dados de relações circulares no FBX para evitar recursão infinita no clone
-      sanitizeFBXUserData(fbx);
-      
-      // Otimiza as faixas de animação do FBX
-      if (fbx.animations) {
-        optimizeAnimations(fbx.animations);
+      try {
+        const response = await fetch(src);
+        let buffer = await response.arrayBuffer();
+        
+        if (isMobile) {
+          console.log('[Mobile Safeguard] Limpando animações pesadas do binário FBX para evitar crash...');
+          buffer = stripAnimationsFromFBXBuffer(buffer);
+        }
+        
+        const loader = new FBXLoader(THREE.DefaultLoadingManager);
+        const fbx = loader.parse(buffer, src);
+        
+        // Sanitiza dados de relações circulares no FBX para evitar recursão infinita no clone
+        sanitizeFBXUserData(fbx);
+        
+        if (fbx.animations) {
+          optimizeAnimations(fbx.animations);
+        }
+        
+        // Encolhe texturas do modelo template assim que carrega para otimizar VRAM
+        shrinkModelTextures(fbx);
+        
+        modelCache.set(src, fbx);
+        return fbx;
+      } catch (err) {
+        console.warn('[FBX Custom Parse] Falha no parse binário, tentando carregar via loadAsync tradicional:', err);
+        const loader = new FBXLoader(THREE.DefaultLoadingManager);
+        const fbx = await loader.loadAsync(src);
+        
+        sanitizeFBXUserData(fbx);
+        if (fbx.animations) {
+          optimizeAnimations(fbx.animations);
+        }
+        shrinkModelTextures(fbx);
+        
+        modelCache.set(src, fbx);
+        return fbx;
       }
-      
-      // Encolhe texturas do modelo template assim que carrega para otimizar VRAM
-      shrinkModelTextures(fbx);
-      
-      modelCache.set(src, fbx);
-      return fbx;
     } else {
       const loader = new GLTFLoader(THREE.DefaultLoadingManager);
       const gltf = await loader.loadAsync(src);
@@ -153,7 +211,7 @@ async function loadModelAsync(src: string, isFbx: boolean): Promise<any> {
     }
   })();
 
-  // Atualiza o ponteiro da fila com tratamento de erros para não travar a fila
+  // Para não prender a fila caso haja erros
   loadQueue = promise.then(() => {}, () => {});
 
   pendingLoads.set(src, promise);
@@ -168,7 +226,6 @@ function shrinkTexture(texture: THREE.Texture, maxSize = 512) {
   if (!texture || !texture.image) return;
 
   const img = texture.image as any;
-  // Obter dimensões originais da imagem da textura
   const width = img.width || img.naturalWidth || 0;
   const height = img.height || img.naturalHeight || 0;
 
@@ -292,7 +349,20 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
   };
 
   const [loadedData, setLoadedData] = useState<{ scene: THREE.Group | THREE.Object3D; animations: THREE.AnimationClip[] } | null>(null);
+  const [hasSkinnedMesh, setHasSkinnedMesh] = useState(false);
   const { gl: renderer } = useThree();
+
+  useEffect(() => {
+    if (loadedData?.scene) {
+      let skinned = false;
+      loadedData.scene.traverse((child: any) => {
+        if ((child as any).isSkinnedMesh) skinned = true;
+      });
+      setHasSkinnedMesh(skinned);
+    } else {
+      setHasSkinnedMesh(false);
+    }
+  }, [loadedData]);
 
   // 1. Carregamento Assíncrono do Modelo
   useEffect(() => {
@@ -632,7 +702,6 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
               const textureKeys = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap'];
               textureKeys.forEach((key) => {
                 if (mat[key] && mat[key].isTexture) {
-                  // Só descarta a textura se ela for um override dinâmico (diferente da textura do material original do template)
                   const origMat = child.userData.originalMaterial;
                   if (!origMat || mat[key] !== origMat[key]) {
                     mat[key].dispose();
@@ -734,7 +803,6 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
   ]);
 
   // Se os dados do modelo ainda não foram carregados, renderiza o placeholder mas MANTÉM os filhos montados.
-  // IMPORTANTE: Não monta o RigidBody ou MeshCollider aqui para evitar que o Rapier WASM trave ao reconstruir trimeshes dinamicamente.
   if (!loadedData) {
     return (
       <group
@@ -774,6 +842,29 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
     </group>
   );
 
+  // Fallback seguro de colisores primitivos para SkinnedMeshes (previne crash de Heap no Rapier WASM)
+  const renderSkinnedCollider = () => {
+    const box = new THREE.Box3().setFromObject(loadedData.scene);
+    const size = new THREE.Vector3();
+    box.getSize(size);
+    const center = new THREE.Vector3();
+    box.getCenter(center);
+
+    // Ajusta o tamanho baseado na escala
+    const hx = Math.max(size.x * 0.5 * scale[0], 0.1);
+    const hy = Math.max(size.y * 0.5 * scale[1], 0.1);
+    const hz = Math.max(size.z * 0.5 * scale[2], 0.1);
+
+    return (
+      <CuboidCollider 
+        args={[hx, hy, hz]} 
+        position={[center.x * scale[0], center.y * scale[1], center.z * scale[2]]} 
+      />
+    );
+  };
+
+  const collidersProp = hasSkinnedMesh ? false : mapColliderType(rigidBody?.collider);
+
   return (
     <>
       {(rigidBody && isPlaying) ? (
@@ -783,9 +874,11 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
           type={rigidBody.isStatic ? 'fixed' : 'dynamic'}
           mass={rigidBody.mass}
           gravityScale={rigidBody.useGravity ? 1 : 0}
-          colliders={mapColliderType(rigidBody.collider)}
+          colliders={collidersProp}
         >
-          {rigidBody.collider === 'trimesh' ? (
+          {hasSkinnedMesh && renderSkinnedCollider()}
+
+          {(!hasSkinnedMesh && rigidBody.collider === 'trimesh') ? (
             <MeshCollider type="trimesh">
               <group ref={groupRef} scale={scale}>
                 <primitive object={loadedData.scene} />

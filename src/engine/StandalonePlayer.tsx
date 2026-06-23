@@ -447,6 +447,49 @@ export function StandalonePlayer() {
       return originalFetch(input, init);
     };
 
+    // Monkey patch para THREE.ImageLoader para carregar imagens com fetch
+    // Isso garante que todas as texturas sejam interceptadas pelo Cache Storage
+    const originalImageLoaderLoad = THREE.ImageLoader.prototype.load;
+    THREE.ImageLoader.prototype.load = function (
+      url: string,
+      onLoad?: (image: HTMLImageElement) => void,
+      onProgress?: (event: ProgressEvent) => void,
+      onError?: (event: ErrorEvent) => void
+    ) {
+      if (!url || url.startsWith('blob:') || url.startsWith('data:')) {
+        return originalImageLoaderLoad.call(this, url, onLoad, onProgress, onError);
+      }
+
+      const cachedImage = document.createElement('img');
+      if (this.crossOrigin) cachedImage.crossOrigin = this.crossOrigin;
+
+      window.fetch(url)
+        .then(res => res.blob())
+        .then(blob => {
+          const blobUrl = URL.createObjectURL(blob);
+          const handleLoad = () => {
+            cachedImage.removeEventListener('load', handleLoad);
+            cachedImage.removeEventListener('error', handleErrorEvent);
+            URL.revokeObjectURL(blobUrl);
+            if (onLoad) onLoad(cachedImage);
+          };
+          const handleErrorEvent = (err: any) => {
+            cachedImage.removeEventListener('load', handleLoad);
+            cachedImage.removeEventListener('error', handleErrorEvent);
+            URL.revokeObjectURL(blobUrl);
+            if (onError) onError(err);
+          };
+          cachedImage.addEventListener('load', handleLoad);
+          cachedImage.addEventListener('error', handleErrorEvent);
+          cachedImage.src = blobUrl;
+        })
+        .catch(() => {
+          originalImageLoaderLoad.call(this, url, onLoad, onProgress, onError);
+        });
+
+      return cachedImage;
+    };
+
     (window as any).__updateFreedom3DCacheSize = updateCacheSize;
     updateCacheSize();
 
@@ -523,6 +566,7 @@ export function StandalonePlayer() {
       window.removeEventListener('keydown', handleKeyDown);
       console.error = origError;
       window.fetch = originalFetch;
+      THREE.ImageLoader.prototype.load = originalImageLoaderLoad;
       delete (window as any).__updateFreedom3DCacheSize;
     };
   }, []);
