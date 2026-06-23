@@ -132,6 +132,13 @@ export function GLTFModelRender({ entity, children }: { entity: Entity; children
 
         // Otimização de texturas por meio do redimensionamento dinâmico
         if (mesh.material) {
+          // Clona os materiais para isolar a instância e permitir customizações individuais sem afetar o cache
+          if (Array.isArray(mesh.material)) {
+            mesh.material = mesh.material.map((mat) => mat.clone());
+          } else {
+            mesh.material = mesh.material.clone();
+          }
+
           const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
           materials.forEach((mat: any) => {
             // Salva o material original
@@ -541,6 +548,13 @@ export function FBXModelRender({ entity, children }: { entity: Entity; children?
         mesh.receiveShadow = model.receiveShadow;
 
         if (mesh.material) {
+          // Clona os materiais para isolar a instância e permitir customizações individuais sem afetar o cache
+          if (Array.isArray(mesh.material)) {
+            mesh.material = mesh.material.map((mat) => mat.clone());
+          } else {
+            mesh.material = mesh.material.clone();
+          }
+
           const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
           materials.forEach((mat: any) => {
             if (!mesh.userData.originalMaterial) {
