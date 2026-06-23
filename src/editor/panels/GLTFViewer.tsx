@@ -18,6 +18,7 @@ THREE.Cache.enabled = false;
 // Cache global para evitar carregar e decodificar o mesmo arquivo múltiplas vezes
 const modelCache = new Map<string, any>();
 const pendingLoads = new Map<string, Promise<any>>();
+const EMPTY_ANIMATIONS: THREE.AnimationClip[] = [];
 
 async function loadModelAsync(src: string, isFbx: boolean): Promise<any> {
   if (modelCache.has(src)) {
@@ -432,7 +433,7 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
   };
 
   const animator = entity.components.Animator;
-  const { ref: animRef, actions, names } = useAnimations(loadedData?.animations || [], groupRef);
+  const { ref: animRef, actions, names } = useAnimations(loadedData?.animations || EMPTY_ANIMATIONS);
 
   useEffect(() => {
     if (animator && names && names.length > 0) {
