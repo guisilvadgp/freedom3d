@@ -244,8 +244,8 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
         const rawScene = isFbx ? rawModel : rawModel.scene;
         const animations = rawModel.animations || [];
 
-        // Clona a cena original para isolar esta instância
-        const clone = SkeletonUtils.clone(rawScene);
+        // Clona a cena original para isolar esta instância de forma segura (previne crash por referência circular no fbx)
+        const clone = isFbx ? rawScene.clone() : SkeletonUtils.clone(rawScene);
 
         // Aplica configurações iniciais (as texturas já estão devidamente reduzidas no template)
         clone.traverse((child: any) => {

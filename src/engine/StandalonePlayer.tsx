@@ -22,7 +22,7 @@ async function getCacheSize() {
     const keys = await cache.keys();
     let totalSize = 0;
     for (const request of keys) {
-      const response = await cache.match(request);
+      const response = await cache.match(request, { ignoreVary: true });
       if (response) {
         const len = response.headers.get('content-length');
         if (len) {
@@ -415,7 +415,7 @@ export function StandalonePlayer() {
         try {
           const cache = await window.caches.open('freedom3d-assets-cache');
           
-          const cachedResponse = await cache.match(input);
+          const cachedResponse = await cache.match(input, { ignoreVary: true });
           if (cachedResponse) {
             return cachedResponse;
           }
