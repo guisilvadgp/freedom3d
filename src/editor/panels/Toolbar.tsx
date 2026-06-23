@@ -56,11 +56,11 @@ export function Toolbar() {
           <Save size={15} />
           <span className="btn-label">{isSaving ? 'Salvando...' : 'Salvar'}</span>
         </button>
-        <button className="toolbar-btn" onClick={() => fileInputRef.current?.click()} title="Import GLTF Model">
+        <button className="toolbar-btn" onClick={() => fileInputRef.current?.click()} title="Import 3D Model (GLTF/FBX)">
           <Upload size={15} />
-          <span className="btn-label">Import GLTF</span>
+          <span className="btn-label">Import Model</span>
         </button>
-        <input type="file" accept=".gltf,.glb" ref={fileInputRef} style={{ display: 'none' }} onChange={handleImport} />
+        <input type="file" accept=".gltf,.glb,.fbx" ref={fileInputRef} style={{ display: 'none' }} onChange={handleImport} />
       </div>
 
       <div className="toolbar-divider" />

@@ -406,8 +406,8 @@ export function StandalonePlayer() {
       
       if (method.toUpperCase() === 'GET' && (urlStr.includes('/api/asset/') || urlStr.includes('/get-asset') || urlStr.includes('/api/project/get-asset'))) {
         try {
-          // Arquivos 3D brutos e pesados (.gltf/.glb) devem ser baixados da rede local diretamente para evitar estouro de RAM no clone/cache.put
-          const isModel3D = urlStr.toLowerCase().split('?')[0].endsWith('.gltf') || urlStr.toLowerCase().split('?')[0].endsWith('.glb');
+          // Arquivos 3D brutos e pesados (.gltf/.glb/.fbx) devem ser baixados da rede local diretamente para evitar estouro de RAM no clone/cache.put
+          const isModel3D = urlStr.toLowerCase().split('?')[0].endsWith('.gltf') || urlStr.toLowerCase().split('?')[0].endsWith('.glb') || urlStr.toLowerCase().split('?')[0].endsWith('.fbx');
           
           const cache = await window.caches.open('freedom3d-assets-cache');
           

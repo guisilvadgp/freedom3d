@@ -630,7 +630,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
 
         const entity: Entity = {
           id: uuidv4(),
-          name: file.name.replace(/\.(gltf|glb)$/i, ''),
+          name: file.name.replace(/\.(gltf|glb|fbx)$/i, ''),
           parentId: null,
           childrenIds: [],
           active: true,
@@ -686,7 +686,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
 
         const entity: Entity = {
           id: uuidv4(),
-          name: fileName.replace(/\.(gltf|glb)$/i, ''),
+          name: fileName.replace(/\.(gltf|glb|fbx)$/i, ''),
           parentId: null,
           childrenIds: [],
           active: true,
