@@ -15,14 +15,18 @@ import type { Entity } from '../../engine/ecs/types';
 // O cacheamento persistente e ultrarrapido ja e feito nativamente pelo Cache Storage no patch do fetch.
 THREE.Cache.enabled = false;
 
-// Cache global para evitar carregar e decodificar o mesmo arquivo múltiplas vezes
+// Detecção simples de dispositivo móvel
+const isMobile = typeof navigator !== 'undefined' && /Mobi|Android|iPhone/i.test(navigator.userAgent);
+
+// Cache global para evitar carregar e decodificar o mesmo arquivo múltiplas vezes (apenas no Desktop)
 const modelCache = new Map<string, any>();
 const pendingLoads = new Map<string, Promise<any>>();
 const EMPTY_ANIMATIONS: THREE.AnimationClip[] = [];
 let loadQueue: Promise<any> = Promise.resolve();
 
 async function loadModelAsync(src: string, isFbx: boolean): Promise<any> {
-  if (modelCache.has(src)) {
+  // No mobile, desabilitamos o cache em RAM para evitar estouro de memória (OOM)
+  if (!isMobile && modelCache.has(src)) {
     return modelCache.get(src);
   }
   if (pendingLoads.has(src)) {
@@ -36,12 +40,12 @@ async function loadModelAsync(src: string, isFbx: boolean): Promise<any> {
     if (isFbx) {
       const loader = new FBXLoader(THREE.DefaultLoadingManager);
       const fbx = await loader.loadAsync(src);
-      modelCache.set(src, fbx);
+      if (!isMobile) modelCache.set(src, fbx);
       return fbx;
     } else {
       const loader = new GLTFLoader(THREE.DefaultLoadingManager);
       const gltf = await loader.loadAsync(src);
-      modelCache.set(src, gltf);
+      if (!isMobile) modelCache.set(src, gltf);
       return gltf;
     }
   })();
@@ -160,13 +164,13 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
   };
 
   const [loadedData, setLoadedData] = useState<{ scene: THREE.Group | THREE.Object3D; animations: THREE.AnimationClip[] } | null>(null);
-  const { gl: renderer, camera } = useThree();
+  const { gl: renderer } = useThree();
 
-  // 1. Carregamento Assíncrono do Modelo e Compilação GPU em Background
+  // 1. Carregamento Assíncrono do Modelo
   useEffect(() => {
     let isMounted = true;
 
-    const loadAndCompile = async () => {
+    const loadAndPrepare = async () => {
       if (!model.src) return;
       try {
         const rawModel = await loadModelAsync(model.src, isFbx);
@@ -210,26 +214,22 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
           }
         });
 
-        // Pré-compilação e upload assíncrono para a GPU de todas as texturas e shaders
-        // Isso evita que a thread principal trave ao instanciar o modelo 3D
-        await renderer.compileAsync(clone, camera);
-
         if (isMounted) {
           setLoadedData({ scene: clone, animations });
         }
       } catch (err) {
-        console.error('[UnifiedModelRender] Erro de carregamento/compilação:', model.src, err);
+        console.error('[UnifiedModelRender] Erro de carregamento:', model.src, err);
       }
     };
 
-    loadAndCompile();
+    loadAndPrepare();
 
     return () => {
       isMounted = false;
     };
-  }, [model.src, isFbx, renderer, camera]);
+  }, [model.src, isFbx]);
 
-  // 2. Atualiza sombras de forma reativa sem recarregar/recompilar o modelo inteiro
+  // 2. Atualiza sombras de forma reativa sem recarregar o modelo inteiro
   useEffect(() => {
     if (loadedData?.scene) {
       loadedData.scene.traverse((child: any) => {
@@ -241,7 +241,7 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
     }
   }, [loadedData, model.castShadow, model.receiveShadow]);
 
-  // 3. Efeito reativo para modificar materiais e texturas do clone em tempo real sem clonar a cena inteira novamente
+  // 3. Efeito reativo para modificar materiais e texturas do clone em tempo real
   useEffect(() => {
     if (!loadedData?.scene) return;
     const clonedScene = loadedData.scene;
@@ -317,10 +317,19 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
                   tex.wrapT = THREE.RepeatWrapping;
                   shrinkTexture(tex, 512);
                   if (renderer.initTexture) renderer.initTexture(tex);
+                  
+                  // Libera textura override anterior para evitar vazamento em VRAM
+                  if (mat.map && mat.map.isTexture && (!mesh.userData.originalMaterial || mat.map !== mesh.userData.originalMaterial.map)) {
+                    mat.map.dispose();
+                  }
+
                   mat.map = tex;
                   mat.needsUpdate = true;
                 });
               } else if (model.textureUrl === '') {
+                if (mat.map && mat.map.isTexture && (!mesh.userData.originalMaterial || mat.map !== mesh.userData.originalMaterial.map)) {
+                  mat.map.dispose();
+                }
                 mat.map = null;
                 mat.needsUpdate = true;
               }
@@ -332,6 +341,12 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
                   tex.wrapT = THREE.RepeatWrapping;
                   shrinkTexture(tex, 512);
                   if (renderer.initTexture) renderer.initTexture(tex);
+
+                  // Libera normal map override anterior para evitar vazamento em VRAM
+                  if (mat.normalMap && mat.normalMap.isTexture && (!mesh.userData.originalMaterial || mat.normalMap !== mesh.userData.originalMaterial.normalMap)) {
+                    mat.normalMap.dispose();
+                  }
+
                   mat.normalMap = tex;
                   if (typeof model.normalScale === 'number' && mat.normalScale) {
                     mat.normalScale.set(model.normalScale, model.normalScale);
@@ -339,6 +354,9 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
                   mat.needsUpdate = true;
                 });
               } else if (model.normalMapUrl === '') {
+                if (mat.normalMap && mat.normalMap.isTexture && (!mesh.userData.originalMaterial || mat.normalMap !== mesh.userData.originalMaterial.normalMap)) {
+                  mat.normalMap.dispose();
+                }
                 mat.normalMap = null;
                 mat.needsUpdate = true;
               }
@@ -444,7 +462,7 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
   const [names, setNames] = useState<string[]>([]);
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
 
-  // Inicializa o AnimationMixer assim que o modelo é carregado e compilado
+  // Inicializa o AnimationMixer assim que o modelo é carregado
   useEffect(() => {
     if (!loadedData?.scene) {
       mixerRef.current = null;
@@ -474,6 +492,24 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
       mixer.stopAllAction();
       mixer.uncacheRoot(scene);
       mixerRef.current = null;
+
+      // Limpa os materiais clonados e texturas criadas dinamicamente para liberar VRAM
+      scene.traverse((child: any) => {
+        if (child.isMesh) {
+          if (child.material) {
+            const materials = Array.isArray(child.material) ? child.material : [child.material];
+            materials.forEach((mat: any) => {
+              const textureKeys = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap'];
+              textureKeys.forEach((key) => {
+                if (mat[key] && mat[key].isTexture) {
+                  mat[key].dispose();
+                }
+              });
+              mat.dispose();
+            });
+          }
+        }
+      });
     };
   }, [loadedData]);
 
