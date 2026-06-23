@@ -1037,7 +1037,7 @@ export function EntityMesh({ entity, entities }: { entity: Entity; entities: Rec
     });
   };
 
-  const renderGeometry = () => {
+  function renderGeometry() {
     if (!mesh) return null;
     switch (mesh.geometry) {
       case 'box': return <boxGeometry args={[1, 1, 1]} />;
@@ -1098,7 +1098,7 @@ export function EntityMesh({ entity, entities }: { entity: Entity; entities: Rec
     );
   }
 
-  const renderMaterial = () => {
+  function renderMaterial() {
     if (!mesh) return null;
     const color = mesh.color;
     switch (mesh.material) {
@@ -1127,7 +1127,7 @@ export function EntityMesh({ entity, entities }: { entity: Entity; entities: Rec
     }
   };
 
-  const renderLight = () => {
+  function renderLight() {
     if (!light) return null;
     const isMobile = typeof navigator !== 'undefined' && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
     const shadowMapSize = isMobile ? 512 : 1024;
@@ -1345,12 +1345,11 @@ export function EntityMesh({ entity, entities }: { entity: Entity; entities: Rec
           gravityScale={rigidBody.useGravity ? 1 : 0}
           colliders={mapColliderType(rigidBody.collider)}
         >
-          {innerMesh}
-          {rigidBody.collider === 'trimesh' && (
+          {rigidBody.collider === 'trimesh' ? (
             <MeshCollider type="trimesh">
               {innerMesh}
             </MeshCollider>
-          )}
+          ) : innerMesh}
         </RigidBody>
       ) : innerMesh}
 
