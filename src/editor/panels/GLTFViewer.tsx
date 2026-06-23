@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import type { ReactNode } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -18,15 +18,47 @@ THREE.Cache.enabled = false;
 // Detecção simples de dispositivo móvel
 const isMobile = typeof navigator !== 'undefined' && /Mobi|Android|iPhone/i.test(navigator.userAgent);
 
-// Cache global para evitar carregar e decodificar o mesmo arquivo múltiplas vezes (apenas no Desktop)
+// Cache global para evitar carregar e decodificar o mesmo arquivo múltiplas vezes
 const modelCache = new Map<string, any>();
 const pendingLoads = new Map<string, Promise<any>>();
 const EMPTY_ANIMATIONS: THREE.AnimationClip[] = [];
 let loadQueue: Promise<any> = Promise.resolve();
 
+// Limpa o cache global de modelos e descarta suas geometrias e texturas da GPU
+export function clearModelCache() {
+  modelCache.forEach((model) => {
+    const scene = model.scene || model;
+    scene.traverse((child: any) => {
+      if (child.isMesh) {
+        if (child.geometry) {
+          try {
+            child.geometry.dispose();
+          } catch (e) {}
+        }
+        if (child.material) {
+          const materials = Array.isArray(child.material) ? child.material : [child.material];
+          materials.forEach((mat: any) => {
+            const textureKeys = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap'];
+            textureKeys.forEach((key) => {
+              if (mat[key] && mat[key].isTexture) {
+                try {
+                  mat[key].dispose();
+                } catch (e) {}
+              }
+            });
+            try {
+              mat.dispose();
+            } catch (e) {}
+          });
+        }
+      }
+    });
+  });
+  modelCache.clear();
+}
+
 async function loadModelAsync(src: string, isFbx: boolean): Promise<any> {
-  // No mobile, desabilitamos o cache em RAM para evitar estouro de memória (OOM)
-  if (!isMobile && modelCache.has(src)) {
+  if (modelCache.has(src)) {
     return modelCache.get(src);
   }
   if (pendingLoads.has(src)) {
@@ -40,12 +72,20 @@ async function loadModelAsync(src: string, isFbx: boolean): Promise<any> {
     if (isFbx) {
       const loader = new FBXLoader(THREE.DefaultLoadingManager);
       const fbx = await loader.loadAsync(src);
-      if (!isMobile) modelCache.set(src, fbx);
+      
+      // Encolhe texturas do modelo template assim que carrega para otimizar VRAM
+      shrinkModelTextures(fbx);
+      
+      modelCache.set(src, fbx);
       return fbx;
     } else {
       const loader = new GLTFLoader(THREE.DefaultLoadingManager);
       const gltf = await loader.loadAsync(src);
-      if (!isMobile) modelCache.set(src, gltf);
+      
+      // Encolhe texturas do modelo template assim que carrega para otimizar VRAM
+      shrinkModelTextures(gltf.scene);
+      
+      modelCache.set(src, gltf);
       return gltf;
     }
   })();
@@ -94,6 +134,15 @@ function shrinkTexture(texture: THREE.Texture, maxSize = 512) {
     if (ctx) {
       ctx.drawImage(img, 0, 0, newWidth, newHeight);
 
+      // Libera o ImageBitmap/imagem original da memória GPU imediatamente
+      if (img && typeof img.close === 'function') {
+        try {
+          img.close();
+        } catch (e) {
+          console.warn('[Texture Shrink] Falha ao fechar ImageBitmap:', e);
+        }
+      }
+
       texture.image = canvas;
       texture.generateMipmaps = false;
       texture.minFilter = THREE.LinearFilter;
@@ -103,6 +152,22 @@ function shrinkTexture(texture: THREE.Texture, maxSize = 512) {
   } catch (err) {
     console.error('[Texture Shrink] Erro ao redimensionar textura:', err);
   }
+}
+
+function shrinkModelTextures(object: THREE.Object3D) {
+  object.traverse((child: any) => {
+    if (child.isMesh && child.material) {
+      const materials = Array.isArray(child.material) ? child.material : [child.material];
+      materials.forEach((mat: any) => {
+        const textureKeys = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap'];
+        textureKeys.forEach((key) => {
+          if (mat[key] && mat[key].isTexture) {
+            shrinkTexture(mat[key], 512);
+          }
+        });
+      });
+    }
+  });
 }
 
 const mapColliderType = (type: string | undefined): 'cuboid' | 'ball' | 'hull' | 'trimesh' | false => {
@@ -182,7 +247,7 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
         // Clona a cena original para isolar esta instância
         const clone = SkeletonUtils.clone(rawScene);
 
-        // Aplica configurações iniciais e reduz texturas
+        // Aplica configurações iniciais (as texturas já estão devidamente reduzidas no template)
         clone.traverse((child: any) => {
           if (child.isMesh) {
             child.castShadow = model.castShadow;
@@ -203,12 +268,6 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
                 if (!child.userData.originalColor && mat.color) {
                   child.userData.originalColor = mat.color.clone();
                 }
-                const textureKeys = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap'];
-                textureKeys.forEach((key) => {
-                  if (mat[key] && mat[key].isTexture) {
-                    shrinkTexture(mat[key], 512);
-                  }
-                });
               });
             }
           }
@@ -510,7 +569,11 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
               const textureKeys = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap'];
               textureKeys.forEach((key) => {
                 if (mat[key] && mat[key].isTexture) {
-                  mat[key].dispose();
+                  // Só descarta a textura se ela for um override dinâmico (diferente da textura do material original do template)
+                  const origMat = child.userData.originalMaterial;
+                  if (!origMat || mat[key] !== origMat[key]) {
+                    mat[key].dispose();
+                  }
                 }
               });
               mat.dispose();
@@ -715,6 +778,14 @@ export function GLTFErrorFallback({ fileName }: { fileName: string }) {
 
 export function GLTFViewers() {
   const scene = useEditorStore(s => s.scenes[s.activeSceneId]);
+  const activeSceneId = useEditorStore(s => s.activeSceneId);
+
+  // Limpa o cache global de modelos carregados na RAM/VRAM ao trocar de cena no editor
+  useEffect(() => {
+    return () => {
+      clearModelCache();
+    };
+  }, [activeSceneId]);
 
   return (
     <>
