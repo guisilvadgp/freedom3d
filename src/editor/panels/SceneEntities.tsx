@@ -25,7 +25,6 @@ function getGlobalAudioListener(): THREE.AudioListener {
 
 function GlobalAudioListenerHandler() {
   const camera = useThree(s => s.camera);
-  const scene = useThree(s => s.scene);
   const isPlaying = useEditorStore(s => s.isPlaying);
   
   useEffect(() => {
@@ -57,13 +56,23 @@ function GlobalAudioListenerHandler() {
     window.addEventListener('mousedown', resumeContext, { capture: true });
     window.addEventListener('keydown', resumeContext, { capture: true });
 
-    // Adiciona o listener diretamente à cena raiz
-    if (listener.parent !== scene) {
-      scene.add(listener);
+    // Remove do pai antigo se houver
+    if (listener.parent) {
+      listener.parent.remove(listener);
     }
 
-    return cleanup;
-  }, [scene]);
+    // Reseta posição e rotação local para alinhar perfeitamente com a câmera ativa
+    listener.position.set(0, 0, 0);
+    listener.quaternion.set(0, 0, 0, 1);
+
+    // Adiciona o listener diretamente como filho da câmera ativa
+    camera.add(listener);
+
+    return () => {
+      camera.remove(listener);
+      cleanup();
+    };
+  }, [camera]);
 
   // Força retomar o AudioContext ao iniciar a simulação (Play)
   useEffect(() => {
@@ -78,17 +87,6 @@ function GlobalAudioListenerHandler() {
       }
     }
   }, [isPlaying]);
-
-  // Sincroniza a posição e rotação mundial do listener com a câmera ativa a cada frame.
-  useFrame(() => {
-    const listener = getGlobalAudioListener();
-    if (listener.parent === scene) {
-      camera.updateMatrixWorld(true);
-      camera.getWorldPosition(listener.position);
-      camera.getWorldQuaternion(listener.quaternion);
-      listener.updateMatrixWorld(true);
-    }
-  });
 
   return null;
 }
