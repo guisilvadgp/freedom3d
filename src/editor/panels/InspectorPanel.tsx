@@ -19,6 +19,13 @@ import {
   Trash2
 } from 'lucide-react';
 
+const parseFloat = (value: any): number => {
+  if (typeof value === 'string') {
+    return window.parseFloat(value.replace(',', '.'));
+  }
+  return window.parseFloat(value);
+};
+
 function Vec3Field({
   label, value, onChange,
 }: {
