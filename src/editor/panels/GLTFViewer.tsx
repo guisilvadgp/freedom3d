@@ -379,6 +379,7 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
 
         // Clona a cena original de forma segura (com userData limpo de refs circulares, SkeletonUtils funciona perfeitamente para FBX e GLTF)
         const clone = SkeletonUtils.clone(rawScene);
+        clone.userData.entityId = entity.id;
 
         // Aplica configurações iniciais (as texturas já estão devidamente reduzidas no template)
         clone.traverse((child: any) => {
@@ -810,6 +811,7 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
         position={pos}
         rotation={rot}
         scale={scale}
+        userData={{ entityId: entity.id }}
       >
         <mesh>
           <boxGeometry args={[1, 1, 1]} />
@@ -828,6 +830,7 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
       scale={scale}
       onPointerDown={isStandalone ? undefined : handlePointerDown}
       onPointerUp={isStandalone ? undefined : handlePointerUp}
+      userData={{ entityId: entity.id }}
     >
       <primitive object={loadedData.scene} />
 
@@ -880,13 +883,13 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
 
           {(!hasSkinnedMesh && rigidBody.collider === 'trimesh') ? (
             <MeshCollider type="trimesh">
-              <group ref={groupRef} scale={scale}>
+              <group ref={groupRef} scale={scale} userData={{ entityId: entity.id }}>
                 <primitive object={loadedData.scene} />
                 {children}
               </group>
             </MeshCollider>
           ) : (
-            <group ref={groupRef} scale={scale}>
+            <group ref={groupRef} scale={scale} userData={{ entityId: entity.id }}>
               <primitive object={loadedData.scene} />
               {children}
             </group>

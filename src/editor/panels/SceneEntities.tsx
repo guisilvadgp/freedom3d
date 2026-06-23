@@ -1198,6 +1198,7 @@ export function EntityMesh({ entity, entities }: { entity: Entity; entities: Rec
         scale={scale}
         onPointerDown={isStandalone ? undefined : handlePointerDown}
         onPointerUp={isStandalone ? undefined : handlePointerUp}
+        userData={{ entityId: entity.id }}
       >
         <sphereGeometry args={[0.2, 8, 8]} />
         <meshBasicMaterial color={light ? light.color : "#ffffff"} wireframe opacity={0.3} transparent visible={!isGameView} />
@@ -1291,7 +1292,7 @@ export function EntityMesh({ entity, entities }: { entity: Entity; entities: Rec
       receiveShadow={mesh.receiveShadow}
       onPointerDown={isStandalone ? undefined : handlePointerDown}
       onPointerUp={isStandalone ? undefined : handlePointerUp}
-      userData={{ isPlayer }}
+      userData={{ isPlayer, entityId: entity.id }}
     >
       {renderGeometry()}
       {renderMaterial()}
