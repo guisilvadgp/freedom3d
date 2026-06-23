@@ -399,7 +399,10 @@ export function StandalonePlayer() {
     };
 
     // Monkey patch para cachear assets de forma persistente no Cache Storage
-    const originalFetch = window.fetch;
+    if (!(window as any).__orionNativeFetch__) {
+      (window as any).__orionNativeFetch__ = window.fetch;
+    }
+    const originalFetch = (window as any).__orionNativeFetch__;
     window.fetch = async (input, init) => {
       const urlStr = typeof input === 'string' ? input : (input as Request).url || '';
       const method = (init && init.method) || 'GET';

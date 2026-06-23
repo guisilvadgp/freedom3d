@@ -590,6 +590,25 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
     isPlaying
   ]);
 
+  // Se os dados do modelo ainda não foram carregados, renderiza o placeholder mas MANTÉM os filhos montados.
+  // IMPORTANTE: Não monta o RigidBody ou MeshCollider aqui para evitar que o Rapier WASM trave ao reconstruir trimeshes dinamicamente.
+  if (!loadedData) {
+    return (
+      <group
+        ref={groupRef}
+        position={pos}
+        rotation={rot}
+        scale={scale}
+      >
+        <mesh>
+          <boxGeometry args={[1, 1, 1]} />
+          <meshBasicMaterial color="#6366f1" wireframe transparent opacity={0.2} />
+        </mesh>
+        {children}
+      </group>
+    );
+  }
+
   const group = (
     <group
       ref={groupRef}
@@ -599,14 +618,7 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
       onPointerDown={isStandalone ? undefined : handlePointerDown}
       onPointerUp={isStandalone ? undefined : handlePointerUp}
     >
-      {loadedData ? (
-        <primitive object={loadedData.scene} />
-      ) : (
-        <mesh>
-          <boxGeometry args={[1, 1, 1]} />
-          <meshBasicMaterial color="#6366f1" wireframe transparent opacity={0.2} />
-        </mesh>
-      )}
+      <primitive object={loadedData.scene} />
 
       {isSelected && (
         <mesh visible={false}>
@@ -633,27 +645,13 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
           {rigidBody.collider === 'trimesh' ? (
             <MeshCollider type="trimesh">
               <group ref={groupRef} scale={scale}>
-                {loadedData ? (
-                  <primitive object={loadedData.scene} />
-                ) : (
-                  <mesh>
-                    <boxGeometry args={[1, 1, 1]} />
-                    <meshBasicMaterial color="#6366f1" wireframe transparent opacity={0.2} />
-                  </mesh>
-                )}
+                <primitive object={loadedData.scene} />
                 {children}
               </group>
             </MeshCollider>
           ) : (
             <group ref={groupRef} scale={scale}>
-              {loadedData ? (
-                <primitive object={loadedData.scene} />
-              ) : (
-                <mesh>
-                  <boxGeometry args={[1, 1, 1]} />
-                  <meshBasicMaterial color="#6366f1" wireframe transparent opacity={0.2} />
-                </mesh>
-              )}
+              <primitive object={loadedData.scene} />
               {children}
             </group>
           )}
