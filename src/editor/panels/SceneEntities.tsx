@@ -23,20 +23,6 @@ function getGlobalAudioListener(): THREE.AudioListener {
   return globalAudioListener;
 }
 
-// Rastreamento e interceptação global de new Audio() para poder pará-los no Stop
-if (typeof window !== 'undefined' && !(window as any).__orion_audio_patched__) {
-  (window as any).__orion_audio_patched__ = true;
-  (window as any).__orion_active_audios__ = new Set();
-  
-  const OriginalAudio = window.Audio;
-  (window as any).Audio = function(...args: any[]) {
-    const instance = new OriginalAudio(...args);
-    (window as any).__orion_active_audios__.add(instance);
-    return instance;
-  } as any;
-  (window as any).Audio.prototype = OriginalAudio.prototype;
-}
-
 function GlobalAudioListenerHandler() {
   const camera = useThree(s => s.camera);
   const isPlaying = useEditorStore(s => s.isPlaying);
@@ -88,10 +74,10 @@ function GlobalAudioListenerHandler() {
     };
   }, [camera]);
 
-  // Força retomar o AudioContext ao iniciar a simulação (Play) ou pára tudo no (Stop)
+  // Força retomar o AudioContext ao iniciar a simulação (Play) ou suspende tudo no (Stop)
   useEffect(() => {
+    const listener = getGlobalAudioListener();
     if (isPlaying) {
-      const listener = getGlobalAudioListener();
       if (listener && listener.context && listener.context.state === 'suspended') {
         listener.context.resume().then(() => {
           console.log('🔊 AudioContext retomado ao iniciar simulacao (Play).');
@@ -101,6 +87,15 @@ function GlobalAudioListenerHandler() {
       }
     } else {
       // Se parou de reproduzir (Stop)
+      // Suspende o AudioContext principal do Three.js para garantir silêncio absoluto
+      if (listener && listener.context && listener.context.state === 'running') {
+        listener.context.suspend().then(() => {
+          console.log('🔇 AudioContext suspenso ao parar simulacao (Stop).');
+        }).catch(err => {
+          console.warn("Falha ao suspender AudioContext no Stop:", err);
+        });
+      }
+
       // Pausa e desliga todos os áudios HTML5 no DOM
       if (typeof window !== 'undefined') {
         document.querySelectorAll('audio').forEach(el => {
