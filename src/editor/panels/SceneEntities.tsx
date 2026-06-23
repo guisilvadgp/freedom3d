@@ -596,12 +596,46 @@ function Audio2D({ url, loop, volume }: { url: string; loop: boolean; volume: nu
 
     // Carrega o áudio via AudioLoader decodificando em memória RAM
     const audioLoader = new THREE.AudioLoader();
+    let cleanupAudioContextListener: (() => void) | null = null;
+
     audioLoader.load(
       url,
       (buffer) => {
         sound.setBuffer(buffer);
         if (!sound.isPlaying) {
-          sound.play();
+          const playOrWait = () => {
+            if (listener.context && listener.context.state === 'running') {
+              if (!sound.isPlaying && sound.buffer) {
+                sound.play();
+              }
+              if (cleanupAudioContextListener) {
+                cleanupAudioContextListener();
+                cleanupAudioContextListener = null;
+              }
+            }
+          };
+
+          if (listener.context && listener.context.state === 'running') {
+            sound.play();
+          } else {
+            cleanupAudioContextListener = () => {
+              window.removeEventListener('click', playOrWait, { capture: true });
+              window.removeEventListener('touchstart', playOrWait, { capture: true });
+              window.removeEventListener('mousedown', playOrWait, { capture: true });
+              window.removeEventListener('keydown', playOrWait, { capture: true });
+              if (listener.context) {
+                listener.context.removeEventListener('statechange', playOrWait);
+              }
+            };
+
+            window.addEventListener('click', playOrWait, { capture: true });
+            window.addEventListener('touchstart', playOrWait, { capture: true });
+            window.addEventListener('mousedown', playOrWait, { capture: true });
+            window.addEventListener('keydown', playOrWait, { capture: true });
+            if (listener.context) {
+              listener.context.addEventListener('statechange', playOrWait);
+            }
+          }
         }
       },
       undefined,
@@ -611,6 +645,9 @@ function Audio2D({ url, loop, volume }: { url: string; loop: boolean; volume: nu
     );
 
     return () => {
+      if (cleanupAudioContextListener) {
+        cleanupAudioContextListener();
+      }
       if (sound.isPlaying) {
         sound.stop();
       }
@@ -676,12 +713,46 @@ function SpatialAudio({
 
     // Carrega o áudio via AudioLoader decodificando em memória RAM (melhor para áudio espacial 3D)
     const audioLoader = new THREE.AudioLoader();
+    let cleanupAudioContextListener: (() => void) | null = null;
+
     audioLoader.load(
       url,
       (buffer) => {
         sound.setBuffer(buffer);
         if (!sound.isPlaying) {
-          sound.play();
+          const playOrWait = () => {
+            if (listener.context && listener.context.state === 'running') {
+              if (!sound.isPlaying && sound.buffer) {
+                sound.play();
+              }
+              if (cleanupAudioContextListener) {
+                cleanupAudioContextListener();
+                cleanupAudioContextListener = null;
+              }
+            }
+          };
+
+          if (listener.context && listener.context.state === 'running') {
+            sound.play();
+          } else {
+            cleanupAudioContextListener = () => {
+              window.removeEventListener('click', playOrWait, { capture: true });
+              window.removeEventListener('touchstart', playOrWait, { capture: true });
+              window.removeEventListener('mousedown', playOrWait, { capture: true });
+              window.removeEventListener('keydown', playOrWait, { capture: true });
+              if (listener.context) {
+                listener.context.removeEventListener('statechange', playOrWait);
+              }
+            };
+
+            window.addEventListener('click', playOrWait, { capture: true });
+            window.addEventListener('touchstart', playOrWait, { capture: true });
+            window.addEventListener('mousedown', playOrWait, { capture: true });
+            window.addEventListener('keydown', playOrWait, { capture: true });
+            if (listener.context) {
+              listener.context.addEventListener('statechange', playOrWait);
+            }
+          }
         }
       },
       undefined,
@@ -691,6 +762,9 @@ function SpatialAudio({
     );
 
     return () => {
+      if (cleanupAudioContextListener) {
+        cleanupAudioContextListener();
+      }
       if (sound.isPlaying) {
         sound.stop();
       }
