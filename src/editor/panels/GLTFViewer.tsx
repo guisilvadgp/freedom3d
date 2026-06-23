@@ -554,16 +554,6 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
     isPlaying
   ]);
 
-  // Se os dados do modelo ainda não foram carregados e compilados, renderiza o placeholder
-  if (!loadedData) {
-    return (
-      <mesh position={pos} rotation={rot} scale={scale}>
-        <boxGeometry args={[1, 1, 1]} />
-        <meshBasicMaterial color="#6366f1" wireframe transparent opacity={0.2} />
-      </mesh>
-    );
-  }
-
   const group = (
     <group
       ref={groupRef}
@@ -573,7 +563,14 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
       onPointerDown={isStandalone ? undefined : handlePointerDown}
       onPointerUp={isStandalone ? undefined : handlePointerUp}
     >
-      <primitive object={loadedData.scene} />
+      {loadedData ? (
+        <primitive object={loadedData.scene} />
+      ) : (
+        <mesh>
+          <boxGeometry args={[1, 1, 1]} />
+          <meshBasicMaterial color="#6366f1" wireframe transparent opacity={0.2} />
+        </mesh>
+      )}
 
       {isSelected && (
         <mesh visible={false}>
@@ -600,13 +597,27 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
           {rigidBody.collider === 'trimesh' ? (
             <MeshCollider type="trimesh">
               <group ref={groupRef} scale={scale}>
-                <primitive object={loadedData.scene} />
+                {loadedData ? (
+                  <primitive object={loadedData.scene} />
+                ) : (
+                  <mesh>
+                    <boxGeometry args={[1, 1, 1]} />
+                    <meshBasicMaterial color="#6366f1" wireframe transparent opacity={0.2} />
+                  </mesh>
+                )}
                 {children}
               </group>
             </MeshCollider>
           ) : (
             <group ref={groupRef} scale={scale}>
-              <primitive object={loadedData.scene} />
+              {loadedData ? (
+                <primitive object={loadedData.scene} />
+              ) : (
+                <mesh>
+                  <boxGeometry args={[1, 1, 1]} />
+                  <meshBasicMaterial color="#6366f1" wireframe transparent opacity={0.2} />
+                </mesh>
+              )}
               {children}
             </group>
           )}
