@@ -333,6 +333,15 @@ export function StandalonePlayer() {
 
   // Estados do Cache de Assets
   const [cacheSize, setCacheSize] = useState<number>(0);
+  const [isXRSupported, setIsXRSupported] = useState(false);
+
+  useEffect(() => {
+    if (typeof navigator !== 'undefined' && navigator.xr) {
+      navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+        setIsXRSupported(supported);
+      });
+    }
+  }, []);
 
   const updateCacheSize = async () => {
     const size = await getCacheSize();
@@ -352,14 +361,9 @@ export function StandalonePlayer() {
       togglePlay(); // Inicia física e scripts
     }
 
-    // Entrar no modo VR diretamente ao iniciar apenas se for suportado
-    if (navigator.xr) {
-      navigator.xr.isSessionSupported('immersive-vr').then(supported => {
-        if (supported) {
-          xrStore.enterVR().catch(() => { }); // silencia falhas de permissão
-        } else {
-          console.log('ℹ️ Dispositivo não suporta WebXR imersivo. Rodando apenas em tela cheia.');
-        }
+    if (isXRSupported) {
+      xrStore.enterVR().catch((err) => {
+        console.warn('Erro ao iniciar sessão WebXR:', err);
       });
     }
   };
@@ -674,40 +678,88 @@ export function StandalonePlayer() {
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', alignItems: 'center' }}>
-                <button
-                  onClick={handlePlay}
-                  style={{
-                    background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
-                    color: '#fff',
-                    border: 'none',
-                    padding: '16px 40px',
-                    fontSize: '16px',
-                    fontWeight: 700,
-                    letterSpacing: '1px',
-                    borderRadius: '30px',
-                    cursor: 'pointer',
-                    boxShadow: '0 4px 20px rgba(99, 102, 241, 0.4)',
-                    transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    outline: 'none',
-                    margin: '0 auto'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'scale(1.05)';
-                    e.currentTarget.style.boxShadow = '0 6px 25px rgba(99, 102, 241, 0.6)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'scale(1)';
-                    e.currentTarget.style.boxShadow = '0 4px 20px rgba(99, 102, 241, 0.4)';
-                  }}
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                  PLAY GAME
-                </button>
+                {isXRSupported ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
+                    <button
+                      onClick={handlePlay}
+                      style={{
+                        background: 'linear-gradient(135deg, #10b981, #059669)',
+                        color: '#fff',
+                        border: 'none',
+                        padding: '18px 48px',
+                        fontSize: '18px',
+                        fontWeight: 800,
+                        letterSpacing: '1px',
+                        borderRadius: '30px',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 20px rgba(16, 185, 129, 0.4)',
+                        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        outline: 'none',
+                        margin: '0 auto'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'scale(1.05)';
+                        e.currentTarget.style.boxShadow = '0 6px 25px rgba(16, 185, 129, 0.6)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'scale(1)';
+                        e.currentTarget.style.boxShadow = '0 4px 20px rgba(16, 185, 129, 0.4)';
+                      }}
+                    >
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M21 7.5c0-.83-.67-1.5-1.5-1.5H4.5C3.67 6 3 6.67 3 7.5v9c0 .83.67 1.5 1.5 1.5h15c.83 0 1.5-.67 1.5-1.5v-9zM6 14.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm12 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z" />
+                      </svg>
+                      INICIAR WEBXR (VR)
+                    </button>
+                    <p style={{ color: '#10b981', fontSize: '12px', fontWeight: 600, letterSpacing: '1px', marginTop: '5px' }}>
+                      ✓ DISPOSITIVO VR COMPATÍVEL DETECTADO
+                    </p>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', alignItems: 'center' }}>
+                    <div style={{ color: '#fb923c', fontSize: '13px', maxWidth: '380px', margin: '0 auto', lineHeight: '1.6', background: 'rgba(251, 146, 60, 0.08)', padding: '14px 20px', borderRadius: '12px', border: '1px solid rgba(251, 146, 60, 0.15)', fontFamily: 'sans-serif', textAlign: 'center' }}>
+                      ⚠️ Nenhum headset/óculos VR detectado neste navegador. 
+                      Para vivenciar em Realidade Virtual, abra este link diretamente no navegador do seu VR Headset (ex: Meta Quest) ou óculos compatível.
+                    </div>
+                    <button
+                      onClick={handlePlay}
+                      style={{
+                        background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                        color: '#fff',
+                        border: 'none',
+                        padding: '16px 40px',
+                        fontSize: '16px',
+                        fontWeight: 700,
+                        letterSpacing: '1px',
+                        borderRadius: '30px',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 20px rgba(99, 102, 241, 0.4)',
+                        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        outline: 'none',
+                        margin: '0 auto'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'scale(1.05)';
+                        e.currentTarget.style.boxShadow = '0 6px 25px rgba(99, 102, 241, 0.6)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'scale(1)';
+                        e.currentTarget.style.boxShadow = '0 4px 20px rgba(99, 102, 241, 0.4)';
+                      }}
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                      INICIAR PREVIEW (2D)
+                    </button>
+                  </div>
+                )}
 
                 <button
                   onClick={(e) => {

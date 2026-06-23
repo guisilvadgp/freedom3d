@@ -480,9 +480,17 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
     const clipNames: string[] = [];
 
     animations.forEach((clip) => {
-      const action = mixer.clipAction(clip);
-      acts[clip.name] = action;
-      clipNames.push(clip.name);
+      try {
+        if (clip) {
+          const action = mixer.clipAction(clip);
+          if (action) {
+            acts[clip.name] = action;
+            clipNames.push(clip.name);
+          }
+        }
+      } catch (err) {
+        console.warn('[UnifiedModelRender] Erro ao carregar animação:', clip?.name, err);
+      }
     });
 
     setActions(acts);
@@ -513,10 +521,11 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
     };
   }, [loadedData]);
 
-  // Atualiza o mixer a cada frame
+  // Atualiza o mixer a cada frame de forma segura (previne quebras por delta inválido no WebXR)
   useFrame((state, delta) => {
     if (mixerRef.current) {
-      mixerRef.current.update(delta);
+      const safeDelta = isNaN(delta) || delta < 0 || delta > 0.5 ? 0 : delta;
+      mixerRef.current.update(safeDelta);
     }
   });
 
