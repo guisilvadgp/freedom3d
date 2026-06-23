@@ -2,6 +2,7 @@ import { Suspense, useMemo, useRef, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { useLoader } from '@react-three/fiber';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { TransformControls, useAnimations, useFBX } from '@react-three/drei';
 import { RigidBody, MeshCollider } from '@react-three/rapier';
 import * as THREE from 'three';
@@ -120,7 +121,7 @@ export function GLTFModelRender({ entity, children }: { entity: Entity; children
 
   const gltf = useLoader(GLTFLoader, model.src);
   const clonedScene = useMemo(() => {
-    const clone = gltf.scene.clone(true);
+    const clone = SkeletonUtils.clone(gltf.scene);
 
     // Aplicar shadow em todos os meshes internos e otimizar texturas no mobile/desktop para economizar VRAM
     clone.traverse((child) => {
@@ -531,7 +532,7 @@ export function FBXModelRender({ entity, children }: { entity: Entity; children?
 
   const fbx = useFBX(model.src);
   const clonedScene = useMemo(() => {
-    const clone = fbx.clone(true);
+    const clone = SkeletonUtils.clone(fbx);
 
     clone.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
