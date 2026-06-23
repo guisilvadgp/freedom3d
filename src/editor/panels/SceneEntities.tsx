@@ -23,6 +23,20 @@ function getGlobalAudioListener(): THREE.AudioListener {
   return globalAudioListener;
 }
 
+// Rastreamento e interceptação global de new Audio() para poder pará-los no Stop
+if (typeof window !== 'undefined' && !(window as any).__orion_audio_patched__) {
+  (window as any).__orion_audio_patched__ = true;
+  (window as any).__orion_active_audios__ = new Set();
+  
+  const OriginalAudio = window.Audio;
+  (window as any).Audio = function(...args: any[]) {
+    const instance = new OriginalAudio(...args);
+    (window as any).__orion_active_audios__.add(instance);
+    return instance;
+  } as any;
+  (window as any).Audio.prototype = OriginalAudio.prototype;
+}
+
 function GlobalAudioListenerHandler() {
   const camera = useThree(s => s.camera);
   const isPlaying = useEditorStore(s => s.isPlaying);
@@ -74,7 +88,7 @@ function GlobalAudioListenerHandler() {
     };
   }, [camera]);
 
-  // Força retomar o AudioContext ao iniciar a simulação (Play)
+  // Força retomar o AudioContext ao iniciar a simulação (Play) ou pára tudo no (Stop)
   useEffect(() => {
     if (isPlaying) {
       const listener = getGlobalAudioListener();
@@ -84,6 +98,27 @@ function GlobalAudioListenerHandler() {
         }).catch(err => {
           console.warn("Falha ao retomar AudioContext no Play:", err);
         });
+      }
+    } else {
+      // Se parou de reproduzir (Stop)
+      // Pausa e desliga todos os áudios HTML5 no DOM
+      if (typeof window !== 'undefined') {
+        document.querySelectorAll('audio').forEach(el => {
+          try {
+            el.pause();
+            el.currentTime = 0;
+          } catch (e) {}
+        });
+
+        // Pausa e reseta todos os objetos de áudio rastreados criados por scripts (new Audio)
+        if ((window as any).__orion_active_audios__) {
+          (window as any).__orion_active_audios__.forEach((aud: any) => {
+            try {
+              aud.pause();
+              aud.currentTime = 0;
+            } catch (e) {}
+          });
+        }
       }
     }
   }, [isPlaying]);

@@ -389,6 +389,16 @@ export function GLTFModelRender({ entity, children }: { entity: Entity; children
   useEffect(() => {
     if (!animator || !actions) return;
     
+    if (!isPlaying) {
+      Object.keys(actions).forEach(key => {
+        const a = actions[key];
+        if (a) {
+          a.stop();
+        }
+      });
+      return;
+    }
+
     // Determinar qual clipe tocar e suas propriedades
     let targetClipName = animator.currentAnimation;
     let targetLoop = animator.loop;
@@ -788,6 +798,16 @@ export function FBXModelRender({ entity, children }: { entity: Entity; children?
   useEffect(() => {
     if (!animator || !actions) return;
     
+    if (!isPlaying) {
+      Object.keys(actions).forEach(key => {
+        const a = actions[key];
+        if (a) {
+          a.stop();
+        }
+      });
+      return;
+    }
+
     let targetClipName = animator.currentAnimation;
     let targetLoop = animator.loop;
     let targetTimeScale = animator.timeScale;
