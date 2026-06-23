@@ -613,6 +613,7 @@ function Audio2D({ url, loop, volume }: { url: string; loop: boolean; volume: nu
   const audioRef = useRef<THREE.Audio | null>(null);
 
   useEffect(() => {
+    let isActive = true;
     const listener = getGlobalAudioListener();
     const sound = new THREE.Audio(listener);
     sound.setVolume(volume);
@@ -631,9 +632,11 @@ function Audio2D({ url, loop, volume }: { url: string; loop: boolean; volume: nu
     audioLoader.load(
       url,
       (buffer) => {
+        if (!isActive) return;
         sound.setBuffer(buffer);
         if (!sound.isPlaying) {
           const playOrWait = () => {
+            if (!isActive) return;
             if (listener.context && listener.context.state === 'running') {
               if (!sound.isPlaying && sound.buffer) {
                 sound.play();
@@ -675,6 +678,7 @@ function Audio2D({ url, loop, volume }: { url: string; loop: boolean; volume: nu
     );
 
     return () => {
+      isActive = false;
       if (cleanupAudioContextListener) {
         cleanupAudioContextListener();
       }
@@ -719,6 +723,7 @@ function SpatialAudio({
   const audioRef = useRef<THREE.PositionalAudio | null>(null);
 
   useEffect(() => {
+    let isActive = true;
     const listener = getGlobalAudioListener();
     const sound = new THREE.PositionalAudio(listener);
 
@@ -748,9 +753,11 @@ function SpatialAudio({
     audioLoader.load(
       url,
       (buffer) => {
+        if (!isActive) return;
         sound.setBuffer(buffer);
         if (!sound.isPlaying) {
           const playOrWait = () => {
+            if (!isActive) return;
             if (listener.context && listener.context.state === 'running') {
               if (!sound.isPlaying && sound.buffer) {
                 sound.play();
@@ -792,6 +799,7 @@ function SpatialAudio({
     );
 
     return () => {
+      isActive = false;
       if (cleanupAudioContextListener) {
         cleanupAudioContextListener();
       }
