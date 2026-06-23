@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
-import { useThree } from '@react-three/fiber';
+import { useThree, useFrame } from '@react-three/fiber';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
-import { TransformControls, useAnimations } from '@react-three/drei';
+import { TransformControls } from '@react-three/drei';
 import { RigidBody, MeshCollider } from '@react-three/rapier';
 import * as THREE from 'three';
 import { useEditorStore } from '../store/editorStore';
@@ -433,7 +433,49 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
   };
 
   const animator = entity.components.Animator;
-  const { ref: animRef, actions, names } = useAnimations(loadedData?.animations || EMPTY_ANIMATIONS);
+  const [actions, setActions] = useState<Record<string, THREE.AnimationAction>>({});
+  const [names, setNames] = useState<string[]>([]);
+  const mixerRef = useRef<THREE.AnimationMixer | null>(null);
+
+  // Inicializa o AnimationMixer assim que o modelo é carregado e compilado
+  useEffect(() => {
+    if (!loadedData?.scene) {
+      mixerRef.current = null;
+      setActions({});
+      setNames([]);
+      return;
+    }
+
+    const scene = loadedData.scene;
+    const animations = loadedData.animations || [];
+    const mixer = new THREE.AnimationMixer(scene);
+    mixerRef.current = mixer;
+
+    const acts: Record<string, THREE.AnimationAction> = {};
+    const clipNames: string[] = [];
+
+    animations.forEach((clip) => {
+      const action = mixer.clipAction(clip);
+      acts[clip.name] = action;
+      clipNames.push(clip.name);
+    });
+
+    setActions(acts);
+    setNames(clipNames);
+
+    return () => {
+      mixer.stopAllAction();
+      mixer.uncacheRoot(scene);
+      mixerRef.current = null;
+    };
+  }, [loadedData]);
+
+  // Atualiza o mixer a cada frame
+  useFrame((state, delta) => {
+    if (mixerRef.current) {
+      mixerRef.current.update(delta);
+    }
+  });
 
   useEffect(() => {
     if (animator && names && names.length > 0) {
@@ -448,7 +490,7 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
   }, [names, animator, entity.id]);
 
   useEffect(() => {
-    if (!animator || !actions) return;
+    if (!animator || !actions || Object.keys(actions).length === 0) return;
     
     let targetClipName = animator.currentAnimation;
     let targetLoop = animator.loop;
@@ -524,7 +566,7 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
       onPointerDown={isStandalone ? undefined : handlePointerDown}
       onPointerUp={isStandalone ? undefined : handlePointerUp}
     >
-      <primitive ref={animRef} object={loadedData.scene} />
+      <primitive object={loadedData.scene} />
 
       {isSelected && (
         <mesh visible={false}>
@@ -551,13 +593,13 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
           {rigidBody.collider === 'trimesh' ? (
             <MeshCollider type="trimesh">
               <group ref={groupRef} scale={scale}>
-                <primitive ref={animRef} object={loadedData.scene} />
+                <primitive object={loadedData.scene} />
                 {children}
               </group>
             </MeshCollider>
           ) : (
             <group ref={groupRef} scale={scale}>
-              <primitive ref={animRef} object={loadedData.scene} />
+              <primitive object={loadedData.scene} />
               {children}
             </group>
           )}
