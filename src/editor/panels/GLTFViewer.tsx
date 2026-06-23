@@ -467,11 +467,13 @@ export function GLTFModelRender({ entity, children }: { entity: Entity; children
             <MeshCollider type="trimesh">
               <group ref={groupRef} scale={scale}>
                 <primitive ref={animRef} object={clonedScene} />
+                {children}
               </group>
             </MeshCollider>
           ) : (
             <group ref={groupRef} scale={scale}>
               <primitive ref={animRef} object={clonedScene} />
+              {children}
             </group>
           )}
         </RigidBody>
@@ -859,11 +861,13 @@ export function FBXModelRender({ entity, children }: { entity: Entity; children?
             <MeshCollider type="trimesh">
               <group ref={groupRef} scale={scale}>
                 <primitive ref={animRef} object={clonedScene} />
+                {children}
               </group>
             </MeshCollider>
           ) : (
             <group ref={groupRef} scale={scale}>
               <primitive ref={animRef} object={clonedScene} />
+              {children}
             </group>
           )}
         </RigidBody>

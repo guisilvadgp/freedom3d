@@ -906,9 +906,48 @@ export function EntityMesh({ entity, entities }: { entity: Entity; entities: Rec
   if (!entity.active) return null;
 
   if (entity.components.GLTFModel) {
+    const audio = entity.components.Audio;
+    const particles = entity.components.ParticleSystem;
+    const light = entity.components.Light;
+    const camera = entity.components.Camera;
+
     return (
       <Suspense fallback={null}>
         <GLTFMesh entity={entity}>
+          {audio && audio.src && (
+            <OrionAudioComponent
+              src={audio.src}
+              loop={audio.loop}
+              volume={audio.volume ?? 1.0}
+              playOnStart={audio.playOnStart}
+              is3D={audio.is3D ?? true}
+              delay={audio.delay ?? 0}
+              isPlaying={isPlaying}
+              refDistance={audio.refDistance}
+              rolloffFactor={audio.rolloffFactor}
+              maxDistance={audio.maxDistance}
+              distanceModel={audio.distanceModel}
+            />
+          )}
+          {particles && (
+            <Sparkles
+              count={particles.count}
+              scale={5}
+              size={particles.size}
+              speed={particles.speed}
+              color={particles.color}
+            />
+          )}
+          {light && renderLight()}
+          {camera && (
+            <PerspectiveCameraWrapper
+              entity={entity}
+              camera={camera}
+              isGameView={isGameView}
+              isStandalone={isStandalone}
+            />
+          )}
+
           {entity.childrenIds && entity.childrenIds.map(id => {
             const childEntity = entities[id];
             if (!childEntity) return null;
