@@ -362,7 +362,7 @@ export function GLTFModelRender({ entity, children }: { entity: Entity; children
   };
 
   const animator = entity.components.Animator;
-  const { actions, names } = useAnimations(gltf.animations, groupRef);
+  const { ref: animRef, actions, names } = useAnimations(gltf.animations);
 
   // Sincroniza a lista de animações encontradas no GLTF com o AnimatorComponent
   useEffect(() => {
@@ -430,7 +430,7 @@ export function GLTFModelRender({ entity, children }: { entity: Entity; children
       onPointerDown={isStandalone ? undefined : handlePointerDown}
       onPointerUp={isStandalone ? undefined : handlePointerUp}
     >
-      <primitive object={clonedScene} />
+      <primitive ref={animRef} object={clonedScene} />
 
       {/* Selection highlight */}
       {isSelected && (
@@ -458,12 +458,12 @@ export function GLTFModelRender({ entity, children }: { entity: Entity; children
           {rigidBody.collider === 'trimesh' ? (
             <MeshCollider type="trimesh">
               <group ref={groupRef} scale={scale}>
-                <primitive object={clonedScene} />
+                <primitive ref={animRef} object={clonedScene} />
               </group>
             </MeshCollider>
           ) : (
             <group ref={groupRef} scale={scale}>
-              <primitive object={clonedScene} />
+              <primitive ref={animRef} object={clonedScene} />
             </group>
           )}
         </RigidBody>
@@ -754,7 +754,7 @@ export function FBXModelRender({ entity, children }: { entity: Entity; children?
   };
 
   const animator = entity.components.Animator;
-  const { actions, names } = useAnimations(fbx.animations, groupRef);
+  const { ref: animRef, actions, names } = useAnimations(fbx.animations);
 
   useEffect(() => {
     if (animator && names && names.length > 0) {
@@ -816,7 +816,7 @@ export function FBXModelRender({ entity, children }: { entity: Entity; children?
       onPointerDown={isStandalone ? undefined : handlePointerDown}
       onPointerUp={isStandalone ? undefined : handlePointerUp}
     >
-      <primitive object={clonedScene} />
+      <primitive ref={animRef} object={clonedScene} />
 
       {isSelected && (
         <mesh visible={false}>
@@ -843,12 +843,12 @@ export function FBXModelRender({ entity, children }: { entity: Entity; children?
           {rigidBody.collider === 'trimesh' ? (
             <MeshCollider type="trimesh">
               <group ref={groupRef} scale={scale}>
-                <primitive object={clonedScene} />
+                <primitive ref={animRef} object={clonedScene} />
               </group>
             </MeshCollider>
           ) : (
             <group ref={groupRef} scale={scale}>
-              <primitive object={clonedScene} />
+              <primitive ref={animRef} object={clonedScene} />
             </group>
           )}
         </RigidBody>
