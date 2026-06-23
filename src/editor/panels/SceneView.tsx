@@ -374,7 +374,7 @@ export function SceneView({
         }}
       >
         <Canvas
-          shadows
+          shadows={{ type: THREE.PCFShadowMap }}
           dpr={[1, isStandalone ? Math.min(window.devicePixelRatio, 1.5) : 2]}
           gl={{ antialias: !isStandalone || !('ontouchstart' in window), powerPreference: 'high-performance', toneMapping: THREE.ACESFilmicToneMapping }}
           camera={{ fov: 60, near: 0.1, far: 1000, position: [5, 5, 8] }}
