@@ -19,6 +19,7 @@ THREE.Cache.enabled = false;
 const modelCache = new Map<string, any>();
 const pendingLoads = new Map<string, Promise<any>>();
 const EMPTY_ANIMATIONS: THREE.AnimationClip[] = [];
+let loadQueue: Promise<any> = Promise.resolve();
 
 async function loadModelAsync(src: string, isFbx: boolean): Promise<any> {
   if (modelCache.has(src)) {
@@ -29,6 +30,9 @@ async function loadModelAsync(src: string, isFbx: boolean): Promise<any> {
   }
 
   const promise = (async () => {
+    // Aguarda que os itens anteriores na fila de carregamento terminem para evitar picos de CPU
+    await loadQueue;
+
     if (isFbx) {
       const loader = new FBXLoader(THREE.DefaultLoadingManager);
       const fbx = await loader.loadAsync(src);
@@ -41,6 +45,9 @@ async function loadModelAsync(src: string, isFbx: boolean): Promise<any> {
       return gltf;
     }
   })();
+
+  // Atualiza o ponteiro da fila com tratamento de erros para não travar a fila
+  loadQueue = promise.then(() => {}, () => {});
 
   pendingLoads.set(src, promise);
   try {
