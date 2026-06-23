@@ -407,7 +407,7 @@ export function GLTFModelRender({ entity, children }: { entity: Entity; children
     if (action) {
       action.reset();
       action.setLoop(targetLoop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity);
-      action.timeScale = isPlaying ? targetTimeScale : 0;
+      action.timeScale = targetTimeScale;
       action.fadeIn(0.3).play();
     }
   }, [
@@ -457,12 +457,12 @@ export function GLTFModelRender({ entity, children }: { entity: Entity; children
         >
           {rigidBody.collider === 'trimesh' ? (
             <MeshCollider type="trimesh">
-              <group scale={scale}>
+              <group ref={groupRef} scale={scale}>
                 <primitive object={clonedScene} />
               </group>
             </MeshCollider>
           ) : (
-            <group scale={scale}>
+            <group ref={groupRef} scale={scale}>
               <primitive object={clonedScene} />
             </group>
           )}
@@ -794,7 +794,7 @@ export function FBXModelRender({ entity, children }: { entity: Entity; children?
     if (action) {
       action.reset();
       action.setLoop(targetLoop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity);
-      action.timeScale = isPlaying ? targetTimeScale : 0;
+      action.timeScale = targetTimeScale;
       action.fadeIn(0.3).play();
     }
   }, [
@@ -842,12 +842,12 @@ export function FBXModelRender({ entity, children }: { entity: Entity; children?
         >
           {rigidBody.collider === 'trimesh' ? (
             <MeshCollider type="trimesh">
-              <group scale={scale}>
+              <group ref={groupRef} scale={scale}>
                 <primitive object={clonedScene} />
               </group>
             </MeshCollider>
           ) : (
-            <group scale={scale}>
+            <group ref={groupRef} scale={scale}>
               <primitive object={clonedScene} />
             </group>
           )}
