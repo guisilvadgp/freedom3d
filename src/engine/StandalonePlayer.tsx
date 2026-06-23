@@ -409,24 +409,19 @@ export function StandalonePlayer() {
       
       if (method.toUpperCase() === 'GET' && (urlStr.includes('/api/asset/') || urlStr.includes('/get-asset') || urlStr.includes('/api/project/get-asset'))) {
         try {
-          // Arquivos 3D brutos e pesados (.gltf/.glb/.fbx) devem ser baixados da rede local diretamente para evitar estouro de RAM no clone/cache.put
-          const isModel3D = urlStr.toLowerCase().split('?')[0].endsWith('.gltf') || urlStr.toLowerCase().split('?')[0].endsWith('.glb') || urlStr.toLowerCase().split('?')[0].endsWith('.fbx');
-          
           const cache = await window.caches.open('freedom3d-assets-cache');
           
-          if (!isModel3D) {
-            const cachedResponse = await cache.match(input);
-            if (cachedResponse) {
-              return cachedResponse;
-            }
+          const cachedResponse = await cache.match(input);
+          if (cachedResponse) {
+            return cachedResponse;
           }
           
           const response = await originalFetch(input, init);
-          if (response.status === 200 && !isModel3D) {
+          if (response.status === 200) {
             try {
-              // Evita clonar e cachear arquivos com mais de 15MB para não sobrecarregar a memória
+              // Evita clonar e cachear arquivos com mais de 30MB para não sobrecarregar a memória temporária de stream
               const contentLength = response.headers.get('content-length');
-              const isLarge = contentLength ? parseInt(contentLength, 10) > 15 * 1024 * 1024 : false;
+              const isLarge = contentLength ? parseInt(contentLength, 10) > 30 * 1024 * 1024 : false;
               
               if (!isLarge) {
                 await cache.put(input, response.clone());
