@@ -57,6 +57,56 @@ export function clearModelCache() {
   modelCache.clear();
 }
 
+// Sanitiza propriedades circulares no userData do FBX que causam loops infinitos no SkeletonUtils.clone
+function sanitizeFBXUserData(object: THREE.Object3D) {
+  object.traverse((child: any) => {
+    if (child.userData) {
+      // FBXLoader anexa relações de conexões que apontam circularmente para outros Object3D
+      delete child.userData.connections;
+      delete child.userData.relations;
+      
+      // Limpa qualquer outra referência cíclica para instâncias Object3D no userData
+      for (const key in child.userData) {
+        const val = child.userData[key];
+        if (val && typeof val === 'object') {
+          if (val.isObject3D || (val.parent && val.children)) {
+            delete child.userData[key];
+          }
+        }
+      }
+    }
+  });
+}
+
+// Otimiza as faixas de animação descartando tracks estáticas redundantes (ex: scale constante)
+function optimizeAnimations(animations: THREE.AnimationClip[]) {
+  if (!animations) return;
+  for (let i = 0; i < animations.length; i++) {
+    const clip = animations[i];
+    if (!clip || !clip.tracks) continue;
+    
+    clip.tracks = clip.tracks.filter(track => {
+      // Remove tracks de escala dos ossos que são estáticas (iguais a 1) para poupar CPU/RAM
+      if (track.name.endsWith('.scale')) {
+        let isStaticOne = true;
+        if (track.values) {
+          for (let j = 0; j < track.values.length; j++) {
+            if (Math.abs(track.values[j] - 1.0) > 0.01) {
+              isStaticOne = false;
+              break;
+            }
+          }
+        }
+        if (isStaticOne) return false;
+      }
+      return true;
+    });
+
+    // Força o cache do Three.js a ler as novas tracks filtradas
+    (clip as any)._cacheKey = null;
+  }
+}
+
 async function loadModelAsync(src: string, isFbx: boolean): Promise<any> {
   if (modelCache.has(src)) {
     return modelCache.get(src);
@@ -73,6 +123,14 @@ async function loadModelAsync(src: string, isFbx: boolean): Promise<any> {
       const loader = new FBXLoader(THREE.DefaultLoadingManager);
       const fbx = await loader.loadAsync(src);
       
+      // Sanitiza dados de relações circulares no FBX para evitar recursão infinita no clone
+      sanitizeFBXUserData(fbx);
+      
+      // Otimiza as faixas de animação do FBX
+      if (fbx.animations) {
+        optimizeAnimations(fbx.animations);
+      }
+      
       // Encolhe texturas do modelo template assim que carrega para otimizar VRAM
       shrinkModelTextures(fbx);
       
@@ -82,6 +140,11 @@ async function loadModelAsync(src: string, isFbx: boolean): Promise<any> {
       const loader = new GLTFLoader(THREE.DefaultLoadingManager);
       const gltf = await loader.loadAsync(src);
       
+      // Otimiza as faixas de animação do GLTF
+      if (gltf.animations) {
+        optimizeAnimations(gltf.animations);
+      }
+
       // Encolhe texturas do modelo template assim que carrega para otimizar VRAM
       shrinkModelTextures(gltf.scene);
       
@@ -244,8 +307,8 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
         const rawScene = isFbx ? rawModel : rawModel.scene;
         const animations = rawModel.animations || [];
 
-        // Clona a cena original para isolar esta instância de forma segura (previne crash por referência circular no fbx)
-        const clone = isFbx ? rawScene.clone() : SkeletonUtils.clone(rawScene);
+        // Clona a cena original de forma segura (com userData limpo de refs circulares, SkeletonUtils funciona perfeitamente para FBX e GLTF)
+        const clone = SkeletonUtils.clone(rawScene);
 
         // Aplica configurações iniciais (as texturas já estão devidamente reduzidas no template)
         clone.traverse((child: any) => {
@@ -584,11 +647,15 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
     };
   }, [loadedData]);
 
-  // Atualiza o mixer a cada frame de forma segura (previne quebras por delta inválido no WebXR)
+  // Atualiza o mixer a cada frame de forma segura e encapsulada em try-catch
   useFrame((state, delta) => {
     if (mixerRef.current) {
-      const safeDelta = isNaN(delta) || delta < 0 || delta > 0.5 ? 0 : delta;
-      mixerRef.current.update(safeDelta);
+      try {
+        const safeDelta = isNaN(delta) || delta < 0 || delta > 0.5 ? 0 : delta;
+        mixerRef.current.update(safeDelta);
+      } catch (err) {
+        console.error('[UnifiedModelRender] Falha ao atualizar mixer de animações:', err);
+      }
     }
   });
 
@@ -607,50 +674,54 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
   useEffect(() => {
     if (!animator || !actions || Object.keys(actions).length === 0) return;
     
-    let targetClipName = animator.currentAnimation;
-    let targetLoop = animator.loop;
-    let targetTimeScale = animator.timeScale;
+    try {
+      let targetClipName = animator.currentAnimation;
+      let targetLoop = animator.loop;
+      let targetTimeScale = animator.timeScale;
 
-    if (animator.currentState && animator.states && animator.states[animator.currentState]) {
-      const activeState = animator.states[animator.currentState];
-      targetClipName = activeState.clipName;
-      targetLoop = activeState.loop;
-      targetTimeScale = activeState.timeScale;
-    }
+      if (animator.currentState && animator.states && animator.states[animator.currentState]) {
+        const activeState = animator.states[animator.currentState];
+        targetClipName = activeState.clipName;
+        targetLoop = activeState.loop;
+        targetTimeScale = activeState.timeScale;
+      }
 
-    if (!isPlaying) {
+      if (!isPlaying) {
+        Object.keys(actions).forEach(key => {
+          const a = actions[key];
+          if (a && key !== targetClipName) {
+            try { a.stop(); } catch (e) {}
+          }
+        });
+
+        const action = actions[targetClipName];
+        if (action) {
+          action.reset();
+          action.paused = true;
+          action.time = 0;
+          action.play();
+        }
+        return;
+      }
+
+      const action = actions[targetClipName];
+
       Object.keys(actions).forEach(key => {
         const a = actions[key];
         if (a && key !== targetClipName) {
-          a.stop();
+          try { a.fadeOut(0.3); } catch (e) {}
         }
       });
 
-      const action = actions[targetClipName];
       if (action) {
         action.reset();
-        action.paused = true;
-        action.time = 0;
-        action.play();
+        action.paused = false;
+        action.setLoop(targetLoop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity);
+        action.timeScale = targetTimeScale;
+        action.fadeIn(0.3).play();
       }
-      return;
-    }
-
-    const action = actions[targetClipName];
-
-    Object.keys(actions).forEach(key => {
-      const a = actions[key];
-      if (a && key !== targetClipName) {
-        a.fadeOut(0.3);
-      }
-    });
-
-    if (action) {
-      action.reset();
-      action.paused = false;
-      action.setLoop(targetLoop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity);
-      action.timeScale = targetTimeScale;
-      action.fadeIn(0.3).play();
+    } catch (err) {
+      console.warn('[UnifiedModelRender] Falha ao setar clipe de animação ativo:', err);
     }
   }, [
     animator?.currentAnimation, 
