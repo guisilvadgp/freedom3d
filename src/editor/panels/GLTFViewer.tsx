@@ -389,16 +389,6 @@ export function GLTFModelRender({ entity, children }: { entity: Entity; children
   useEffect(() => {
     if (!animator || !actions) return;
     
-    if (!isPlaying) {
-      Object.keys(actions).forEach(key => {
-        const a = actions[key];
-        if (a) {
-          a.stop();
-        }
-      });
-      return;
-    }
-
     // Determinar qual clipe tocar e suas propriedades
     let targetClipName = animator.currentAnimation;
     let targetLoop = animator.loop;
@@ -410,6 +400,26 @@ export function GLTFModelRender({ entity, children }: { entity: Entity; children
       targetClipName = activeState.clipName;
       targetLoop = activeState.loop;
       targetTimeScale = activeState.timeScale;
+    }
+
+    if (!isPlaying) {
+      // Parar outras animações
+      Object.keys(actions).forEach(key => {
+        const a = actions[key];
+        if (a && key !== targetClipName) {
+          a.stop();
+        }
+      });
+
+      // Congela a animação selecionada no frame 0 (tempo = 0)
+      const action = actions[targetClipName];
+      if (action) {
+        action.reset();
+        action.paused = true;
+        action.time = 0;
+        action.play();
+      }
+      return;
     }
 
     const action = actions[targetClipName];
@@ -424,6 +434,7 @@ export function GLTFModelRender({ entity, children }: { entity: Entity; children
 
     if (action) {
       action.reset();
+      action.paused = false;
       action.setLoop(targetLoop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity);
       action.timeScale = targetTimeScale;
       action.fadeIn(0.3).play();
@@ -798,16 +809,6 @@ export function FBXModelRender({ entity, children }: { entity: Entity; children?
   useEffect(() => {
     if (!animator || !actions) return;
     
-    if (!isPlaying) {
-      Object.keys(actions).forEach(key => {
-        const a = actions[key];
-        if (a) {
-          a.stop();
-        }
-      });
-      return;
-    }
-
     let targetClipName = animator.currentAnimation;
     let targetLoop = animator.loop;
     let targetTimeScale = animator.timeScale;
@@ -817,6 +818,26 @@ export function FBXModelRender({ entity, children }: { entity: Entity; children?
       targetClipName = activeState.clipName;
       targetLoop = activeState.loop;
       targetTimeScale = activeState.timeScale;
+    }
+
+    if (!isPlaying) {
+      // Parar outras animações
+      Object.keys(actions).forEach(key => {
+        const a = actions[key];
+        if (a && key !== targetClipName) {
+          a.stop();
+        }
+      });
+
+      // Congela a animação selecionada no frame 0 (tempo = 0)
+      const action = actions[targetClipName];
+      if (action) {
+        action.reset();
+        action.paused = true;
+        action.time = 0;
+        action.play();
+      }
+      return;
     }
 
     const action = actions[targetClipName];
@@ -830,6 +851,7 @@ export function FBXModelRender({ entity, children }: { entity: Entity; children?
 
     if (action) {
       action.reset();
+      action.paused = false;
       action.setLoop(targetLoop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity);
       action.timeScale = targetTimeScale;
       action.fadeIn(0.3).play();
