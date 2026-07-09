@@ -28,7 +28,7 @@ export function DedicatedCodeEditor() {
   const [showAiPanel] = useState(true);
   const [apiKey, setApiKey] = useState(() => localStorage.getItem('pollinations_api_key') || '');
   const [models, setModels] = useState<{ id: string; type?: string }[]>([]);
-  const [selectedModel, setSelectedModel] = useState('openai');
+  const [selectedModel, setSelectedModel] = useState(() => localStorage.getItem('pollinations_selected_model') || 'openai');
   const [loadingModels, setLoadingModels] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   
@@ -244,6 +244,10 @@ CRITICAL ENGINE API & ARCHITECTURE GUIDELINES:
 3. RAPIER PHYSICS (CRITICAL): If the entity has a 'RigidBody' component, the global 'rigidBody' instance is available during play. Use Rapier methods for physics-based movement:
    - Teleport: rigidBody.setTranslation({ x, y, z }, true);
    - Linear velocity: rigidBody.setLinvel({ x, y, z }, true);
+   - Angular velocity: rigidBody.setAngvel({ x, y, z }, true);
+   - Check linear velocity: const vel = rigidBody.linvel(); (returns {x, y, z})
+   - Check quaternion rotation: const rot = rigidBody.rotation(); (returns {x, y, z, w})
+   - Set quaternion rotation: rigidBody.setRotation({ x, y, z, w }, true);
    NEVER use 'updateComponent' to move dynamic/kinematic physics objects; always interact through the global 'rigidBody' if it is defined. If you use 'updateComponent' on a rigid body, it will jitter and break the physics simulation.
 4. INPUT & CONTROLS (CRITICAL):
    - ALWAYS use 'Input.getKey("KeyName")' (e.g., 'Input.getKey("Space")', 'Input.getKey("KeyW")') for keyboard checks.
@@ -281,11 +285,36 @@ CRITICAL ENGINE API & ARCHITECTURE GUIDELINES:
       if (hasHit && hitSound) {
         new Audio(hitSound).play().catch(e => {});
       }
+11. MULTIPLAYER NETWORKING (CRITICAL): If your script requires real-time network synchronizations or handles multiplayer games (such as Soccer/Futebol), use 'engine.network':
+    - Check network state: engine.network.isConnected()
+    - Get local player identity: engine.network.getPlayerId()
+    - Send packets to room participants: engine.network.send({ type: 'your-event-name', ... })
+    - Retrieve custom packets received from other players via the global buffer: 'window.soccerMultiplayerState' (e.g. check for incoming ball physics updates using 'window.soccerMultiplayerState["ball-sync"]').
+12. HUD VISOR EVENT INTERACTION (CRITICAL): To update game stats, timers, goals, and alerts on both desktop (HUD2D overlay) and immersive VR environments (HUD3D spatial panel), dispatch global CustomEvents on the 'window' object:
+    - Displaying an on-screen overlay notification:
+      window.dispatchEvent(new CustomEvent('hud-notification', { detail: { text: "Alert Message!" } }));
+    - Modifying scores and label identifiers (e.g. for Home/Away teams):
+      window.dispatchEvent(new CustomEvent('soccer-score-updated', { detail: { home: 3, away: 2, labelHome: "RED", labelAway: "BLU" } }));
+    - Transitioning between match states:
+      window.dispatchEvent(new CustomEvent('soccer-phase', { detail: { phase: "goal", winner: "home" } })); // Valid phases: 'waiting', 'countdown', 'match', 'goal', 'endgame'
+    - Formatting and synchronizing the clock countdown/timer:
+      window.dispatchEvent(new CustomEvent('soccer-timer-updated', { detail: { formattedTime: "04:30" } }));
 
-WEBXR & VR ELABORATION (MANDATORY):
-- Keep WebXR and VR compatibility in mind. Check if VR is active using the global flag: 'window.isVRActive'.
-- When 'window.isVRActive' is true, bypass traditional screen-space or mouse interactions (like locking the mouse or updating screen-space UI overlays) that would break the VR experience.
-- Adapt camera logic, player movement, and rays to support WebXR/VR controller layouts and relative orientations correctly.
+WEBXR & VR/AR COMPATIBILITY GUIDELINES (MANDATORY, BASED ON IMMERSIVE-WEB/WEBXR-SAMPLES):
+1. DYNAMIC XR MODE CHECK: Check if the user is in WebXR/VR/AR immersive session using the global flag 'window.isVRActive'. If 'window.isVRActive === true', bypass desktop-specific controls (like mouse locking, direct screen-space DOM overlays, or WASD-only keys) which break inside the headset.
+2. XR CONTROLLER GAMEPAD INPUTS: When in XR mode, use gamepad mappings for the WebXR input sources. Mapped inputs via 'Input' or direct controller gamepad polling:
+   - Stick Left (axes 0 & 1): Smooth translation/movement relative to the viewer direction.
+   - Stick Right (axes 2 & 3): Rotation. Support "Snap Turn" (instant rotation of 30 or 45 degrees when tilting horizontal axis > 0.7 or < -0.7) or "Smooth Turn" to prevent motion sickness.
+   - Trigger ('select' event / primary button): Triggering actions like firing weapons, clicking VR buttons, UI selection.
+   - Grip Button ('squeeze' event / secondary button): Grabbing objects physically, anchoring, or picking up items.
+3. TELEPORTATION SYSTEM: For comfortable locomotion in VR, implement a raycast from the active XR controller pointing forward and slightly down (parabolic arc). If it hits a collider or plane with the "teleport" tag:
+   - Render a circular reticle (or torus) on the ground at the hit position.
+   - Upon releasing the trigger (selectend event), teleport the player by setting the translation of the dynamic 'rigidBody' or updating the 'Transform' component of the player root entity to the hit position:
+     rigidBody.setTranslation({ x: hitX, y: hitY + 0.1, z: hitZ }, true);
+4. HAND TRACKING (ARTICULATIONS): For hand-based input sources without controllers, use the joint poses ('XRHand' joint array in WebXR). Keep interactions boundingbox-based (proximity touch) to press 3D floating buttons or pinch to grab.
+5. AR SPATIAL HIT-TESTING & DOM OVERLAYS:
+   - In 'immersive-ar', support hit-testing where you cast a ray from the screen/headset center to find intersection with physical surfaces (plane detection). Position virtual objects at the hit-test result matrix.
+   - Ensure interfaces are placed in World Space (Spatial UI floating cards in 3D) rather than 2D viewport space so they are readable in XR. Use Three.js meshes or canvases for spatial text.
 
 Script Context:
 - Active Script Name: "${activeScript?.scriptName || 'Unnamed'}"
@@ -635,7 +664,10 @@ Return ONLY the complete, raw JavaScript code containing the lifecycles. Do NOT 
                 ) : (
                   <select
                     value={selectedModel}
-                    onChange={(e) => setSelectedModel(e.target.value)}
+                    onChange={(e) => {
+                      setSelectedModel(e.target.value);
+                      localStorage.setItem('pollinations_selected_model', e.target.value);
+                    }}
                     style={{
                       background: 'var(--bg-base)',
                       border: '1px solid var(--border-bright)',

@@ -5,7 +5,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { TransformControls } from '@react-three/drei';
-import { RigidBody, MeshCollider, CuboidCollider } from '@react-three/rapier';
+import { RigidBody, MeshCollider, CuboidCollider, BallCollider, CapsuleCollider, CylinderCollider, ConeCollider } from '@react-three/rapier';
 import * as THREE from 'three';
 import { useEditorStore } from '../store/editorStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -14,6 +14,42 @@ import type { Entity } from '../../engine/ecs/types';
 // Desabilitar cache interno do Three.js em memoria RAM para evitar duplicacao de buffers gigantes no JS.
 // O cacheamento persistente e ultrarrapido ja e feito nativamente pelo Cache Storage no patch do fetch.
 THREE.Cache.enabled = false;
+
+// Monkey patch para THREE.ImageBitmapLoader para evitar falhas ao carregar blob URLs
+// Isso resolve o erro "Couldn't load texture blob:..." usando ImageLoader + createImageBitmap
+if (typeof window !== 'undefined' && THREE.ImageBitmapLoader) {
+  const originalImageBitmapLoaderLoad = THREE.ImageBitmapLoader.prototype.load;
+  THREE.ImageBitmapLoader.prototype.load = function (
+    url: string,
+    onLoad?: (image: ImageBitmap) => void,
+    onProgress?: (event: ProgressEvent) => void,
+    onError?: (event: ErrorEvent) => void
+  ) {
+    const imageLoader = new THREE.ImageLoader(this.manager);
+    if (this.crossOrigin) imageLoader.setCrossOrigin(this.crossOrigin);
+    if (this.path) imageLoader.setPath(this.path);
+
+    imageLoader.load(
+      url,
+      (image) => {
+        createImageBitmap(image)
+          .then((imageBitmap) => {
+            if (onLoad) onLoad(imageBitmap);
+          })
+          .catch((err) => {
+            console.warn('[ImageBitmapLoader Patch] Fallback para load original (erro ao criar ImageBitmap):', err);
+            originalImageBitmapLoaderLoad.call(this, url, onLoad, onProgress, onError);
+          });
+      },
+      onProgress,
+      (err) => {
+        console.warn('[ImageBitmapLoader Patch] Fallback para load original (erro ao carregar imagem):', err);
+        originalImageBitmapLoaderLoad.call(this, url, onLoad, onProgress, onError);
+      }
+    );
+  };
+}
+
 
 // Detecção simples de dispositivo móvel
 const isMobile = typeof navigator !== 'undefined' && /Mobi|Android|iPhone/i.test(navigator.userAgent);
@@ -330,6 +366,7 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
   const model = entity.components.GLTFModel!;
   const rigidBody = entity.components.RigidBody;
   const isSelected = selectedEntityId === entity.id;
+  const customCollider = entity.components.Collider as any;
 
   // Drag detection: evita seleção acidental ao arrastar a câmera
   const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
@@ -841,6 +878,17 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
         </mesh>
       )}
 
+      {customCollider && !isGameView && (
+        <mesh position={customCollider.offset}>
+          {customCollider.shape === 'cuboid' && <boxGeometry args={[customCollider.scale[0]*2, customCollider.scale[1]*2, customCollider.scale[2]*2]} />}
+          {customCollider.shape === 'ball' && <sphereGeometry args={[customCollider.scale[0]]} />}
+          {customCollider.shape === 'capsule' && <capsuleGeometry args={[customCollider.scale[0], customCollider.scale[1]*2, 4, 8]} />}
+          {customCollider.shape === 'cylinder' && <cylinderGeometry args={[customCollider.scale[0], customCollider.scale[0], customCollider.scale[1]*2, 8]} />}
+          {customCollider.shape === 'cone' && <coneGeometry args={[customCollider.scale[0], customCollider.scale[1]*2, 8]} />}
+          <meshBasicMaterial wireframe color="#00ff00" transparent opacity={0.3} depthTest={false} />
+        </mesh>
+      )}
+
       {children}
     </group>
   );
@@ -866,7 +914,63 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
     );
   };
 
-  const collidersProp = hasSkinnedMesh ? false : mapColliderType(rigidBody?.collider);
+  const renderCustomColliderPhysics = (entityScale: [number, number, number]) => {
+    if (!customCollider) return null;
+    const args: any = [];
+    if (customCollider.shape === 'cuboid') {
+      args.push(
+        customCollider.scale[0] * entityScale[0],
+        customCollider.scale[1] * entityScale[1],
+        customCollider.scale[2] * entityScale[2]
+      );
+    }
+    if (customCollider.shape === 'ball') {
+      const maxScale = Math.max(entityScale[0], entityScale[1], entityScale[2]);
+      args.push(customCollider.scale[0] * maxScale);
+    }
+    if (customCollider.shape === 'capsule') {
+      const radiusScale = Math.max(entityScale[0], entityScale[2]);
+      args.push(
+        customCollider.scale[1] * entityScale[1], // halfHeight
+        customCollider.scale[0] * radiusScale // radius
+      );
+    }
+    if (customCollider.shape === 'cylinder') {
+      const radiusScale = Math.max(entityScale[0], entityScale[2]);
+      args.push(
+        customCollider.scale[1] * entityScale[1], // halfHeight
+        customCollider.scale[0] * radiusScale // radius
+      );
+    }
+    if (customCollider.shape === 'cone') {
+      const radiusScale = Math.max(entityScale[0], entityScale[2]);
+      args.push(
+        customCollider.scale[1] * entityScale[1], // halfHeight
+        customCollider.scale[0] * radiusScale // radius
+      );
+    }
+
+    const scaledOffset: [number, number, number] = [
+      customCollider.offset[0] * entityScale[0],
+      customCollider.offset[1] * entityScale[1],
+      customCollider.offset[2] * entityScale[2]
+    ];
+
+    const props = {
+      args,
+      position: scaledOffset,
+      sensor: customCollider.isTrigger
+    };
+
+    if (customCollider.shape === 'cuboid') return <CuboidCollider {...props} />;
+    if (customCollider.shape === 'ball') return <BallCollider {...props} />;
+    if (customCollider.shape === 'capsule') return <CapsuleCollider {...props} />;
+    if (customCollider.shape === 'cylinder') return <CylinderCollider {...props} />;
+    if (customCollider.shape === 'cone') return <ConeCollider {...props} />;
+    return null;
+  };
+
+  const collidersProp = hasSkinnedMesh ? false : (customCollider ? false : mapColliderType(rigidBody?.collider));
 
   return (
     <>
@@ -874,9 +978,22 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
         <RigidBody
           position={pos}
           rotation={rot}
-          type={rigidBody.isStatic ? 'fixed' : 'dynamic'}
+          type={rigidBody.isStatic ? 'fixed' : (rigidBody.isKinematic ? 'kinematicPosition' : 'dynamic')}
           mass={rigidBody.mass}
           gravityScale={rigidBody.useGravity ? 1 : 0}
+          linearDamping={rigidBody.drag ?? 0}
+          angularDamping={rigidBody.angularDrag ?? 0.05}
+          ccd={rigidBody.collisionDetection === 'continuous'}
+          enabledTranslations={[
+            !(rigidBody.freezePositionX ?? false),
+            !(rigidBody.freezePositionY ?? false),
+            !(rigidBody.freezePositionZ ?? false)
+          ]}
+          enabledRotations={[
+            !(rigidBody.freezeRotationX ?? false),
+            !(rigidBody.freezeRotationY ?? false),
+            !(rigidBody.freezeRotationZ ?? false)
+          ]}
           colliders={collidersProp}
         >
           {hasSkinnedMesh && renderSkinnedCollider()}
@@ -894,6 +1011,15 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
               {children}
             </group>
           )}
+          {customCollider && renderCustomColliderPhysics(scale)}
+        </RigidBody>
+      ) : (customCollider && isPlaying && !rigidBody) ? (
+        <RigidBody type="fixed" colliders={false} position={pos} rotation={rot}>
+          <group ref={groupRef} scale={scale} userData={{ entityId: entity.id }}>
+            <primitive object={loadedData.scene} />
+            {children}
+          </group>
+          {renderCustomColliderPhysics(scale)}
         </RigidBody>
       ) : group}
 

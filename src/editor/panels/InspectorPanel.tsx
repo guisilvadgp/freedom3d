@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useEditorStore } from '../store/editorStore';
-import type { TransformComponent, MeshRendererComponent, LightComponent, GLTFModelComponent, RigidBodyComponent, AudioComponent, ParticleSystemComponent, ScriptComponent, CameraComponent } from '../../engine/ecs/types';
+import type { TransformComponent, MeshRendererComponent, LightComponent, GLTFModelComponent, RigidBodyComponent, AudioComponent, ParticleSystemComponent, ScriptComponent, CameraComponent, TextureComponent, VideoMeshComponent } from '../../engine/ecs/types';
 import { 
   Move, 
   Box, 
@@ -16,7 +16,8 @@ import {
   Plus, 
   Package,
   Settings,
-  Trash2
+  Trash2,
+  Edit
 } from 'lucide-react';
 
 const parseFloat = (value: any): number => {
@@ -30,9 +31,10 @@ function Vec3Field({
   label, value, onChange,
 }: {
   label: string;
-  value: [number, number, number];
+  value: [number, number, number] | undefined;
   onChange: (v: [number, number, number]) => void;
 }) {
+  const safeValue = Array.isArray(value) ? value : [0, 0, 0];
   return (
     <div className="vec3-field">
       <span className="vec3-label">{label}</span>
@@ -43,10 +45,10 @@ function Vec3Field({
             <input
               type="number"
               className="vec3-input"
-              value={value[i]}
+              value={safeValue[i] ?? 0}
               step={0.1}
               onChange={(e) => {
-                const copy: [number, number, number] = [...value];
+                const copy: [number, number, number] = [safeValue[0], safeValue[1], safeValue[2]];
                 copy[i] = parseFloat(e.target.value) || 0;
                 onChange(copy);
               }}
@@ -223,6 +225,390 @@ function MeshRendererInspector({ entityId }: { entityId: string }) {
   );
 }
 
+function HUDPlaneInspector({ entityId }: { entityId: string }) {
+  const { selectedEntity, updateComponent } = useEditorStore();
+  const entity = selectedEntity();
+  if (!entity) return null;
+  const h = entity.components.HUDPlane;
+  if (!h) return null;
+
+  return (
+    <div className="component-block">
+      <div className="component-header">
+        <span className="component-icon"><Settings size={14} /></span>
+        <span className="component-title">HUD Visor</span>
+        <button className="component-remove-btn" onClick={() => useEditorStore.getState().removeComponent(entityId, 'HUDPlane')} title="Remover Componente">
+          <Trash2 size={12} />
+        </button>
+      </div>
+      <div className="field-row">
+        <label className="field-label">Opacidade</label>
+        <input
+          type="number"
+          className="field-input"
+          value={h.opacity ?? 0.8}
+          step={0.1}
+          min={0}
+          max={1}
+          onChange={(e) => updateComponent(entityId, 'HUDPlane', { opacity: parseFloat(e.target.value) || 0 })}
+        />
+      </div>
+      <div className="field-row">
+        <label className="field-label">Cor no Editor</label>
+        <input
+          type="color"
+          className="field-color"
+          value={h.color || '#00ffff'}
+          onChange={(e) => updateComponent(entityId, 'HUDPlane', { color: e.target.value })}
+        />
+      </div>
+      <div className="field-row">
+        <label className="field-label">Largura (3D)</label>
+        <input
+          type="number"
+          className="field-input"
+          value={h.width ?? 2.0}
+          step={0.1}
+          onChange={(e) => updateComponent(entityId, 'HUDPlane', { width: parseFloat(e.target.value) || 2.0 })}
+        />
+      </div>
+      <div className="field-row">
+        <label className="field-label">Altura (3D)</label>
+        <input
+          type="number"
+          className="field-input"
+          value={h.height ?? 1.0}
+          step={0.1}
+          onChange={(e) => updateComponent(entityId, 'HUDPlane', { height: parseFloat(e.target.value) || 1.0 })}
+        />
+      </div>
+      <div className="field-row">
+        <label className="field-label">Distância Olho</label>
+        <input
+          type="number"
+          className="field-input"
+          value={h.distance ?? 0.5}
+          step={0.05}
+          min={0.1}
+          onChange={(e) => updateComponent(entityId, 'HUDPlane', { distance: parseFloat(e.target.value) || 0.5 })}
+        />
+      </div>
+    </div>
+  );
+}
+
+function VideoMeshInspector({ entityId }: { entityId: string }) {
+  const { selectedEntity, updateComponent } = useEditorStore();
+  const entity = selectedEntity();
+  if (!entity) return null;
+  const video = entity.components.VideoMesh as VideoMeshComponent;
+  if (!video) return null;
+
+  const currentProjectName = useEditorStore(s => s.currentProjectName);
+  const sceneName = currentProjectName || 'default';
+
+  const [videoFiles, setVideoFiles] = useState<string[]>([]);
+
+  // Carrega lista de vídeos do projeto ativo
+  useEffect(() => {
+    let active = true;
+    const fetchVideo = async () => {
+      try {
+        const res = await fetch(`/api/explorer-video/list?project=${encodeURIComponent(sceneName)}`);
+        if (res.ok && active) {
+          const files = await res.json();
+          setVideoFiles(files);
+        }
+      } catch (err) {
+        console.error('Error fetching video files:', err);
+      }
+    };
+    fetchVideo();
+    return () => { active = false; };
+  }, [sceneName]);
+
+  return (
+    <div className="component-block">
+      <div className="component-header">
+        <span className="component-icon"><Film size={14} /></span>
+        <span className="component-title">Video Mesh</span>
+        <button className="component-remove-btn" onClick={() => useEditorStore.getState().removeComponent(entityId, 'VideoMesh')} title="Remover Componente">
+          <Trash2 size={12} />
+        </button>
+      </div>
+      
+      <div className="field-row">
+        <label className="field-label">Escolher Vídeo</label>
+        <select
+          className="field-input select-dark"
+          value={video.fileName || ''}
+          onChange={(e) => {
+            const relPath = e.target.value;
+            if (relPath) {
+              const videoUrl = `/api/explorer/load-file?project=${encodeURIComponent(sceneName)}&subpath=${encodeURIComponent(relPath)}`;
+              updateComponent(entityId, 'VideoMesh', { videoUrl, fileName: relPath });
+            } else {
+              updateComponent(entityId, 'VideoMesh', { videoUrl: '', fileName: '' });
+            }
+          }}
+          style={{ width: '100%', padding: '4px', fontSize: '11px', background: '#111122', border: '1px solid var(--border)', color: '#fff', borderRadius: '4px' }}
+        >
+          <option value="">(Nenhum / URL manual)</option>
+          {videoFiles.map((file) => (
+            <option key={file} value={file}>
+              {file}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="field-row">
+        <label className="field-label">URL do Vídeo</label>
+        <input
+          type="text"
+          className="field-input"
+          value={video.videoUrl || ''}
+          placeholder="e.g. video.mp4 ou URL externa"
+          onChange={(e) => {
+            const videoUrl = e.target.value;
+            const isExternal = videoUrl.startsWith('http') || videoUrl.startsWith('/');
+            const fileName = isExternal ? '' : videoUrl.split('/').pop() || videoUrl;
+            updateComponent(entityId, 'VideoMesh', { videoUrl, fileName });
+          }}
+        />
+      </div>
+
+      <div className="field-row">
+        <label className="field-label">Auto Play</label>
+        <input
+          type="checkbox"
+          checked={video.autoPlay}
+          onChange={(e) => updateComponent(entityId, 'VideoMesh', { autoPlay: e.target.checked })}
+        />
+      </div>
+
+      <div className="field-row">
+        <label className="field-label">Loop</label>
+        <input
+          type="checkbox"
+          checked={video.loop}
+          onChange={(e) => updateComponent(entityId, 'VideoMesh', { loop: e.target.checked })}
+        />
+      </div>
+
+      <div className="field-row">
+        <label className="field-label">Volume</label>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            value={video.volume ?? 1}
+            onChange={(e) => updateComponent(entityId, 'VideoMesh', { volume: parseFloat(e.target.value) })}
+            style={{ flex: 1 }}
+          />
+          <span style={{ fontSize: '11px', width: '28px', textAlign: 'right' }}>
+            {Math.round((video.volume ?? 1) * 100)}%
+          </span>
+        </div>
+      </div>
+
+      <div className="field-row">
+        <label className="field-label">Mudo (Muted)</label>
+        <input
+          type="checkbox"
+          checked={video.muted}
+          onChange={(e) => updateComponent(entityId, 'VideoMesh', { muted: e.target.checked })}
+        />
+      </div>
+
+      <div className="field-row">
+        <label className="field-label">Reproduzir (Play)</label>
+        <input
+          type="checkbox"
+          checked={video.play}
+          onChange={(e) => updateComponent(entityId, 'VideoMesh', { play: e.target.checked })}
+        />
+      </div>
+
+      {/* Mapeamento e Estereoscopia 3D */}
+      <div style={{ padding: '8px 14px 4px', borderTop: '1px solid var(--border)', marginTop: 4 }}>
+        <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+          Projeção e 3D / VR
+        </span>
+      </div>
+
+      <div className="field-row">
+        <label className="field-label">Projeção (Shape)</label>
+        <select
+          className="field-select"
+          value={video.projection ?? 'plane'}
+          onChange={(e) => updateComponent(entityId, 'VideoMesh', { projection: e.target.value as any })}
+        >
+          <option value="plane">Plano (Curvável)</option>
+          <option value="sphere360">Esfera 360° (Imersivo)</option>
+          <option value="sphere180">Domo 180° (Fronte)</option>
+        </select>
+      </div>
+
+      <div className="field-row">
+        <label className="field-label">Modo Estéreo</label>
+        <select
+          className="field-select"
+          value={video.stereoMode ?? 'none'}
+          onChange={(e) => updateComponent(entityId, 'VideoMesh', { stereoMode: e.target.value as any })}
+        >
+          <option value="none">2D Convencional (Mono)</option>
+          <option value="sbs">3D Lado-a-Lado (SBS)</option>
+          <option value="tb">3D Cima-Abaixo (Top-Bottom)</option>
+        </select>
+      </div>
+
+      {/* Dimensões do Plano */}
+      <div style={{ padding: '8px 14px 4px', borderTop: '1px solid var(--border)', marginTop: 4 }}>
+        <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+          Plano e Subdivisões
+        </span>
+      </div>
+
+      <div className="field-row">
+        <label className="field-label">Largura (Width)</label>
+        <input
+          type="number"
+          className="field-input"
+          value={video.width ?? 2.0}
+          step={0.1}
+          onChange={(e) => updateComponent(entityId, 'VideoMesh', { width: parseFloat(e.target.value) || 2.0 })}
+        />
+      </div>
+
+      <div className="field-row">
+        <label className="field-label">Altura (Height)</label>
+        <input
+          type="number"
+          className="field-input"
+          value={video.height ?? 1.125}
+          step={0.1}
+          onChange={(e) => updateComponent(entityId, 'VideoMesh', { height: parseFloat(e.target.value) || 1.125 })}
+        />
+      </div>
+
+      <div className="field-row">
+        <label className="field-label">Segs. X (H)</label>
+        <input
+          type="number"
+          className="field-input"
+          value={video.segmentsX ?? 32}
+          step={1}
+          min={1}
+          max={256}
+          onChange={(e) => updateComponent(entityId, 'VideoMesh', { segmentsX: parseInt(e.target.value) || 32 })}
+        />
+      </div>
+
+      <div className="field-row">
+        <label className="field-label">Segs. Y (V)</label>
+        <input
+          type="number"
+          className="field-input"
+          value={video.segmentsY ?? 32}
+          step={1}
+          min={1}
+          max={256}
+          onChange={(e) => updateComponent(entityId, 'VideoMesh', { segmentsY: parseInt(e.target.value) || 32 })}
+        />
+      </div>
+
+      {/* Parâmetros de Curvatura */}
+      <div style={{ padding: '8px 14px 4px', borderTop: '1px solid var(--border)', marginTop: 4 }}>
+        <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+          Deformação de Curvatura
+        </span>
+      </div>
+
+      <div className="field-row">
+        <label className="field-label">Intensidade (Curve)</label>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+          <input
+            type="range"
+            min="-5"
+            max="5"
+            step="0.05"
+            value={video.curveAmount ?? 0}
+            onChange={(e) => updateComponent(entityId, 'VideoMesh', { curveAmount: parseFloat(e.target.value) })}
+            style={{ flex: 1 }}
+          />
+          <span style={{ fontSize: '11px', width: '32px', textAlign: 'right' }}>
+            {(video.curveAmount ?? 0).toFixed(2)}
+          </span>
+        </div>
+      </div>
+
+      <div className="field-row">
+        <label className="field-label">Direção da Curva</label>
+        <select
+          className="field-select"
+          value={video.curveDirection ?? 'horizontal'}
+          onChange={(e) => updateComponent(entityId, 'VideoMesh', { curveDirection: e.target.value as any })}
+        >
+          <option value="horizontal">Horizontal (Esquerda-Direita)</option>
+          <option value="vertical">Vertical (Cima-Baixo)</option>
+        </select>
+      </div>
+
+      {/* Iluminação Dinâmica no Ambiente */}
+      <div style={{ padding: '8px 14px 4px', borderTop: '1px solid var(--border)', marginTop: 8 }}>
+        <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+          Luz Emissiva Dinâmica
+        </span>
+      </div>
+
+      <div className="field-row">
+        <label className="field-label">Ativar Luz Física</label>
+        <input
+          type="checkbox"
+          checked={video.lightInfluence ?? false}
+          onChange={(e) => updateComponent(entityId, 'VideoMesh', { lightInfluence: e.target.checked })}
+        />
+      </div>
+
+      {video.lightInfluence && (
+        <>
+          <div className="field-row">
+            <label className="field-label">Intensidade</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+              <input
+                type="range"
+                min="0"
+                max="10"
+                step="0.1"
+                value={video.lightIntensity ?? 2.0}
+                onChange={(e) => updateComponent(entityId, 'VideoMesh', { lightIntensity: parseFloat(e.target.value) })}
+                style={{ flex: 1 }}
+              />
+              <span style={{ fontSize: '11px', width: '28px', textAlign: 'right' }}>
+                {(video.lightIntensity ?? 2.0).toFixed(1)}
+              </span>
+            </div>
+          </div>
+
+          <div className="field-row">
+            <label className="field-label">Alcance (Dist.)</label>
+            <input
+              type="number"
+              className="field-input"
+              value={video.lightDistance ?? 15.0}
+              step={0.5}
+              onChange={(e) => updateComponent(entityId, 'VideoMesh', { lightDistance: parseFloat(e.target.value) || 15.0 })}
+            />
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function LightInspector({ entityId }: { entityId: string }) {
   const { selectedEntity, updateComponent } = useEditorStore();
   const entity = selectedEntity();
@@ -302,9 +688,8 @@ function GLTFModelInspector({ entityId }: { entityId: string }) {
   if (!entity) return null;
   const m = entity.components.GLTFModel as GLTFModelComponent;
 
-  const activeSceneId = useEditorStore(s => s.activeSceneId);
-  const activeScene = useEditorStore(s => s.scenes[activeSceneId]);
-  const sceneName = activeScene?.name || 'default';
+  const currentProjectName = useEditorStore(s => s.currentProjectName);
+  const sceneName = currentProjectName || 'default';
 
   const [imageFiles, setImageFiles] = useState<string[]>([]);
 
@@ -487,6 +872,57 @@ function GLTFModelInspector({ entityId }: { entityId: string }) {
   );
 }
 
+function ColliderInspector({ entityId }: { entityId: string }) {
+  const { selectedEntity, updateComponent } = useEditorStore();
+  const entity = selectedEntity();
+  if (!entity) return null;
+  const coll = entity.components.Collider as any;
+
+  return (
+    <div className="component-block">
+      <div className="component-header">
+        <span className="component-icon"><Box size={14} /></span>
+        <span className="component-title">Collider</span>
+        <button className="component-remove-btn" onClick={() => useEditorStore.getState().removeComponent(entityId, 'Collider')} title="Remover Componente">
+          <Trash2 size={12} />
+        </button>
+      </div>
+      <div className="field-row">
+        <label className="field-label">Shape</label>
+        <select
+          className="field-input"
+          value={coll.shape}
+          onChange={(e) => updateComponent(entityId, 'Collider', { shape: e.target.value as any })}
+        >
+          <option value="cuboid">Cuboid</option>
+          <option value="ball">Ball</option>
+          <option value="capsule">Capsule</option>
+          <option value="cylinder">Cylinder</option>
+          <option value="cone">Cone</option>
+        </select>
+      </div>
+      <Vec3Field
+        label="Scale"
+        value={coll.scale}
+        onChange={(v) => updateComponent(entityId, 'Collider', { scale: v })}
+      />
+      <Vec3Field
+        label="Offset"
+        value={coll.offset}
+        onChange={(v) => updateComponent(entityId, 'Collider', { offset: v })}
+      />
+      <div className="field-row">
+        <label className="field-label">Is Trigger</label>
+        <input
+          type="checkbox"
+          checked={coll.isTrigger}
+          onChange={(e) => updateComponent(entityId, 'Collider', { isTrigger: e.target.checked })}
+        />
+      </div>
+    </div>
+  );
+}
+
 function RigidBodyInspector({ entityId }: { entityId: string }) {
   const { selectedEntity, updateComponent } = useEditorStore();
   const entity = selectedEntity();
@@ -502,45 +938,110 @@ function RigidBodyInspector({ entityId }: { entityId: string }) {
           <Trash2 size={12} />
         </button>
       </div>
+
+      {/* ── Física básica ── */}
       <div className="field-row">
         <label className="field-label">Mass</label>
-        <input
-          type="number"
-          className="field-input"
-          value={rb.mass}
-          step={0.1}
-          onChange={(e) => updateComponent(entityId, 'RigidBody', { mass: parseFloat(e.target.value) || 1 })}
-        />
+        <input type="number" className="field-input" value={rb.mass} step={0.1} min={0}
+          onChange={(e) => updateComponent(entityId, 'RigidBody', { mass: parseFloat(e.target.value) || 1 })} />
+      </div>
+      <div className="field-row">
+        <label className="field-label">Drag</label>
+        <input type="number" className="field-input" value={rb.drag ?? 0} step={0.01} min={0}
+          onChange={(e) => updateComponent(entityId, 'RigidBody', { drag: parseFloat(e.target.value) || 0 })} />
+      </div>
+      <div className="field-row">
+        <label className="field-label">Angular Drag</label>
+        <input type="number" className="field-input" value={rb.angularDrag ?? 0.05} step={0.01} min={0}
+          onChange={(e) => updateComponent(entityId, 'RigidBody', { angularDrag: parseFloat(e.target.value) || 0 })} />
+      </div>
+
+      {/* ── Flags ── */}
+      <div className="field-row">
+        <label className="field-label">Use Gravity</label>
+        <input type="checkbox" checked={rb.useGravity}
+          onChange={(e) => updateComponent(entityId, 'RigidBody', { useGravity: e.target.checked })} />
+      </div>
+      <div className="field-row">
+        <label className="field-label">Is Kinematic</label>
+        <input type="checkbox" checked={rb.isKinematic ?? false}
+          onChange={(e) => updateComponent(entityId, 'RigidBody', { isKinematic: e.target.checked })} />
       </div>
       <div className="field-row">
         <label className="field-label">Is Static</label>
-        <input
-          type="checkbox"
-          checked={rb.isStatic}
-          onChange={(e) => updateComponent(entityId, 'RigidBody', { isStatic: e.target.checked })}
-        />
+        <input type="checkbox" checked={rb.isStatic}
+          onChange={(e) => updateComponent(entityId, 'RigidBody', { isStatic: e.target.checked })} />
+      </div>
+
+      {/* ── Interpolação e detecção ── */}
+      <div className="field-row">
+        <label className="field-label">Interpolate</label>
+        <select className="field-select" value={rb.interpolate ?? 'none'}
+          onChange={(e) => updateComponent(entityId, 'RigidBody', { interpolate: e.target.value as any })}>
+          <option value="none">None</option>
+          <option value="interpolate">Interpolate</option>
+          <option value="extrapolate">Extrapolate</option>
+        </select>
       </div>
       <div className="field-row">
-        <label className="field-label">Use Gravity</label>
-        <input
-          type="checkbox"
-          checked={rb.useGravity}
-          onChange={(e) => updateComponent(entityId, 'RigidBody', { useGravity: e.target.checked })}
-        />
+        <label className="field-label">Collision Detection</label>
+        <select className="field-select" value={rb.collisionDetection ?? 'discrete'}
+          onChange={(e) => updateComponent(entityId, 'RigidBody', { collisionDetection: e.target.value as any })}>
+          <option value="discrete">Discrete</option>
+          <option value="continuous">Continuous</option>
+        </select>
       </div>
+
+      {/* ── Collider embutido ── */}
       <div className="field-row">
         <label className="field-label">Collider</label>
-        <select
-          className="field-input"
-          value={rb.collider || 'cuboid'}
-          onChange={(e) => updateComponent(entityId, 'RigidBody', { collider: e.target.value as any })}
-        >
+        <select className="field-select" value={rb.collider || 'none'}
+          onChange={(e) => updateComponent(entityId, 'RigidBody', { collider: e.target.value as any })}>
           <option value="cuboid">Cuboid (Box)</option>
           <option value="ball">Ball (Sphere)</option>
           <option value="hull">Convex Hull</option>
-          <option value="trimesh">Mesh Collider (Trimesh)</option>
+          <option value="trimesh">Mesh Collider</option>
           <option value="none">None</option>
         </select>
+      </div>
+
+      {/* ── Constraints ── */}
+      <div style={{ padding: '8px 14px 4px', borderTop: '1px solid var(--border)', marginTop: 4 }}>
+        <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+          ▾ Constraints
+        </span>
+      </div>
+
+      <div className="field-row">
+        <label className="field-label">Freeze Position</label>
+        <div style={{ display: 'flex', gap: 10 }}>
+          {(['X', 'Y', 'Z'] as const).map((axis) => {
+            const key = `freezePosition${axis}` as keyof RigidBodyComponent;
+            return (
+              <label key={axis} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                <input type="checkbox" checked={(rb[key] as boolean) ?? false}
+                  onChange={(e) => updateComponent(entityId, 'RigidBody', { [key]: e.target.checked })} />
+                {axis}
+              </label>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="field-row">
+        <label className="field-label">Freeze Rotation</label>
+        <div style={{ display: 'flex', gap: 10 }}>
+          {(['X', 'Y', 'Z'] as const).map((axis) => {
+            const key = `freezeRotation${axis}` as keyof RigidBodyComponent;
+            return (
+              <label key={axis} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                <input type="checkbox" checked={(rb[key] as boolean) ?? false}
+                  onChange={(e) => updateComponent(entityId, 'RigidBody', { [key]: e.target.checked })} />
+                {axis}
+              </label>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -552,9 +1053,8 @@ function AudioInspector({ entityId }: { entityId: string }) {
   if (!entity) return null;
   const audio = entity.components.Audio as AudioComponent;
 
-  const activeSceneId = useEditorStore(s => s.activeSceneId);
-  const activeScene = useEditorStore(s => s.scenes[activeSceneId]);
-  const sceneName = activeScene?.name || 'default';
+  const currentProjectName = useEditorStore(s => s.currentProjectName);
+  const sceneName = currentProjectName || 'default';
 
   const [audioFiles, setAudioFiles] = useState<string[]>([]);
   const [playing, setPlaying] = useState(false);
@@ -1168,6 +1668,22 @@ function CameraInspector({ entityId }: { entityId: string }) {
         />
       </div>
       <div className="field-row">
+        <label className="field-label">Show Crosshair</label>
+        <input
+          type="checkbox"
+          checked={c.showCrosshair ?? false}
+          onChange={(e) => updateComponent(entityId, 'Camera', { showCrosshair: e.target.checked })}
+        />
+      </div>
+      <div className="field-row">
+        <label className="field-label">Antialiasing</label>
+        <input
+          type="checkbox"
+          checked={c.antialias ?? true}
+          onChange={(e) => updateComponent(entityId, 'Camera', { antialias: e.target.checked })}
+        />
+      </div>
+      <div className="field-row">
         <label className="field-label">FOV</label>
         <input
           type="number"
@@ -1220,9 +1736,8 @@ function ScriptInspector({ entityId }: { entityId: string }) {
   const scene = useEditorStore.getState().activeScene();
   const allEntities = scene ? Object.values(scene.entities) : [];
 
-  const activeSceneId = useEditorStore(s => s.activeSceneId);
-  const activeScene = useEditorStore(s => s.scenes[activeSceneId]);
-  const sceneName = activeScene?.name || 'default';
+  const currentProjectName = useEditorStore(s => s.currentProjectName);
+  const sceneName = currentProjectName || 'default';
 
   const [audioFiles, setAudioFiles] = useState<string[]>([]);
 
@@ -1248,7 +1763,7 @@ function ScriptInspector({ entityId }: { entityId: string }) {
     onUpdateCode: (newCode: string) => void
   ) => {
     const vars: Record<string, { type: 'number' | 'string' | 'boolean', value: any }> = {};
-    const regex = /^(?:export\s+)?let\s+([a-zA-Z0-9_]+)\s*=\s*(.+?);?$/gm;
+    const regex = /^export\s+let\s+([a-zA-Z0-9_]+)\s*=\s*(.+?);?$/gm;
     let match;
     const cleanCode = code || '';
     while ((match = regex.exec(cleanCode)) !== null) {
@@ -1268,7 +1783,7 @@ function ScriptInspector({ entityId }: { entityId: string }) {
     const updateVariable = (key: string, newVal: any, type: string) => {
       let valStr = newVal;
       if (type === 'string') valStr = `"${newVal}"`;
-      const replaceRegex = new RegExp(`^((?:export\\s+)?let\\s+${key}\\s*=\\s*).+?(;?)$`, 'm');
+      const replaceRegex = new RegExp(`^(export\\s+let\\s+${key}\\s*=\\s*).+?(;?)$`, 'm');
       const newCode = cleanCode.replace(replaceRegex, `$1${valStr}$2`);
       onUpdateCode(newCode);
     };
@@ -1281,21 +1796,47 @@ function ScriptInspector({ entityId }: { entityId: string }) {
           const isButtonField = key.toLowerCase().endsWith('button');
           const isAxisField = key.toLowerCase().endsWith('axis');
           const isAudioField = key.toLowerCase().endsWith('sound') || key.toLowerCase().endsWith('audio') || key.toLowerCase().endsWith('clip');
+          const isTeamField = key.toLowerCase() === 'team' || key.toLowerCase().endsWith('team');
+          const isRoleField = key.toLowerCase() === 'role' || key.toLowerCase().endsWith('role');
           
           return (
             <div key={key} className="field-row" style={{ marginBottom: '4px' }}>
               <label className="field-label" style={{ width: '80px', overflow: 'hidden', textOverflow: 'ellipsis' }} title={key}>{key}</label>
-              {isButtonField ? (
+              {isTeamField ? (
+                <select
+                  className="field-input"
+                  value={value}
+                  onChange={e => updateVariable(key, e.target.value, 'string')}
+                  style={{ flex: 1, padding: '2px 4px', fontSize: '11px', borderRadius: '3px' }}
+                >
+                  <option value="red">🔴 Vermelho (Red)</option>
+                  <option value="blue">🔵 Azul (Blue)</option>
+                </select>
+              ) : isRoleField ? (
+                <select
+                  className="field-input"
+                  value={value}
+                  onChange={e => updateVariable(key, e.target.value, 'string')}
+                  style={{ flex: 1, padding: '2px 4px', fontSize: '11px', borderRadius: '3px' }}
+                >
+                  <option value="attacker">⚡ Atacante</option>
+                  <option value="winger-left">↙️ Lateral Esquerda</option>
+                  <option value="winger-right">↘️ Lateral Direita</option>
+                  <option value="midfielder">🔄 Meio-campo</option>
+                  <option value="defender">🛡️ Defensor</option>
+                  <option value="goalkeeper">🥅 Goleiro</option>
+                </select>
+              ) : isButtonField ? (
                 <select 
                   className="field-input"
                   value={value} 
                   onChange={e => updateVariable(key, e.target.value, 'string')}
                   style={{ flex: 1, padding: '2px 4px', fontSize: '11px', borderRadius: '3px' }}
                 >
-                  <option value="A">Cruz / A (❌)</option>
-                  <option value="B">Círculo / B (🔴)</option>
-                  <option value="C">Quadrado / C (⬜)</option>
-                  <option value="D">Triângulo / D (🔺)</option>
+                  <option value="A">Cruz / A</option>
+                  <option value="B">Círculo / B</option>
+                  <option value="C">Quadrado / C</option>
+                  <option value="D">Triângulo / D</option>
                   <option value="L1">L1 (Ombro Esq.)</option>
                   <option value="R1">R1 (Ombro Dir.)</option>
                   <option value="L2">L2 (Gatilho Esq.)</option>
@@ -1633,10 +2174,10 @@ function ScriptInspector({ entityId }: { entityId: string }) {
                       borderRadius: '2px'
                     }}
                   >
-                    <option value="A">Cruz / A (❌)</option>
-                    <option value="B">Círculo / B (🔴)</option>
-                    <option value="C">Quadrado / C (⬜)</option>
-                    <option value="D">Triângulo / D (🔺)</option>
+                    <option value="A">Cruz / A</option>
+                    <option value="B">Círculo / B</option>
+                    <option value="C">Quadrado / C</option>
+                    <option value="D">Triângulo / D</option>
                     <option value="L1">L1 (Ombro Esq.)</option>
                     <option value="R1">R1 (Ombro Dir.)</option>
                     <option value="L2">L2 (Gatilho Esq.)</option>
@@ -1690,56 +2231,64 @@ function ScriptInspector({ entityId }: { entityId: string }) {
   };
 
   return (
-    <div className="component-block">
-      <div className="component-header">
-        <span className="component-icon"><Code size={14} /></span>
-        <span className="component-title">Script Principal</span>
-        <button className="component-remove-btn" onClick={() => useEditorStore.getState().removeComponent(entityId, 'Script')} title="Remover Componente">
-          <Trash2 size={12} />
-        </button>
-      </div>
-      <div className="field-row">
-        <label className="field-label">Nome</label>
-        <input
-          type="text"
-          className="field-input"
-          value={s.scriptName}
-          onChange={(e) => updateComponent(entityId, 'Script', { scriptName: e.target.value })}
-        />
-      </div>
-      <div className="field-row" style={{ display: 'block', marginTop: '8px' }}>
-        <label className="field-label" style={{ marginBottom: '4px', display: 'block' }}>Código</label>
-        <textarea
-          className="field-input"
-          style={{ width: '100%', height: '120px', fontFamily: 'monospace', fontSize: '11px', resize: 'vertical' }}
-          value={s.code}
-          onChange={(e) => updateComponent(entityId, 'Script', { code: e.target.value })}
-        />
+    <>
+      {/* CARD DO SCRIPT PRINCIPAL */}
+      <div className="component-block">
+        <div className="component-header">
+          <span className="component-icon"><Code size={14} /></span>
+          <span className="component-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '140px' }}>
+            {s.scriptName || 'Script Principal'}
+          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <button className="component-remove-btn" onClick={() => {
+              window.open(`/code-editor?entityId=${entityId}&scriptId=main`, 'Freedom3DCodeEditor', 'width=1100,height=750');
+            }} title="Editar Código">
+              <Edit size={12} />
+            </button>
+            <button className="component-remove-btn" onClick={() => useEditorStore.getState().removeComponent(entityId, 'Script')} title="Remover Componente">
+              <Trash2 size={12} />
+            </button>
+          </div>
+        </div>
+
+        {/* Variáveis Legadas Extraídas por Regex */}
+        {renderCodeVariablesSection(s.code, (newCode) => updateComponent(entityId, 'Script', { code: newCode }))}
+
+
       </div>
 
-      {/* Variáveis Legadas Extraídas por Regex */}
-      {renderCodeVariablesSection(s.code, (newCode) => updateComponent(entityId, 'Script', { code: newCode }))}
-
-      {/* Variáveis e Referências do Script Principal */}
-      {renderVariablesSection(s.variables || [], (newVars) => {
-        updateComponent(entityId, 'Script', { variables: newVars });
-      })}
-
-      {/* Seção de Múltiplos Scripts Adicionais */}
+      {/* SEÇÃO DE SCRIPTS ADICIONAIS (Cards individuais) */}
       <div style={{ borderTop: '1px solid var(--border)', marginTop: '16px', paddingTop: '12px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
           <span style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--text-secondary)' }}>Múltiplos Scripts (Unity Mode)</span>
           <button
             type="button"
             onClick={() => {
+              const rawName = prompt("Digite o nome do novo script adicional:", "ScriptAdicional");
+              if (rawName === null) return; // Cancelado
+              const cleanName = rawName.replace(/[^a-zA-Z0-9_\-]/g, '').trim();
+              if (!cleanName) {
+                alert("Nome de script inválido!");
+                return;
+              }
+
               const currentScripts = s.scripts || [];
+              const exists = (s.scriptName === cleanName) || currentScripts.some(scr => scr.scriptName === cleanName);
+              if (exists) {
+                alert("Já existe um script com esse nome nesta entidade!");
+                return;
+              }
+
               const newScript = {
                 id: Math.random().toString(36).substring(2, 9),
-                scriptName: `ScriptAdicional${currentScripts.length + 1}`,
+                scriptName: cleanName,
                 code: `// Comportamento adicional\nexport function onAwake() {\n  // Chamado na inicialização\n}\n\nexport function onUpdate(delta) {\n  // Chamado a cada frame\n}`,
                 variables: []
               };
               updateComponent(entityId, 'Script', { scripts: [...currentScripts, newScript] });
+              setTimeout(() => {
+                useEditorStore.getState().saveCurrentScene();
+              }, 100);
             }}
             style={{
               fontSize: '10px',
@@ -1757,68 +2306,27 @@ function ScriptInspector({ entityId }: { entityId: string }) {
         </div>
 
         {(s.scripts || []).map((scr, sIdx) => (
-          <div key={scr.id} style={{ background: 'var(--bg-panel-alt)', border: '1px solid var(--border)', borderRadius: '4px', padding: '8px', marginBottom: '10px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-              <input 
-                type="text"
-                value={scr.scriptName}
-                onChange={(e) => {
-                  const copy = [...(s.scripts || [])];
-                  copy[sIdx] = { ...scr, scriptName: e.target.value };
-                  updateComponent(entityId, 'Script', { scripts: copy });
-                }}
-                style={{
-                  background: 'var(--bg-panel)',
-                  border: '1px solid var(--border)',
-                  color: 'white',
-                  padding: '3px 6px',
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  borderRadius: '3px',
-                  width: '65%'
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => {
+          <div key={scr.id} className="component-block" style={{ marginTop: '10px' }}>
+            <div className="component-header">
+              <span className="component-icon"><Code size={14} style={{ color: '#10b981' }} /></span>
+              <span className="component-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '140px' }}>
+                {scr.scriptName}
+              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <button className="component-remove-btn" onClick={() => {
+                  window.open(`/code-editor?entityId=${entityId}&scriptId=${scr.id}`, 'Freedom3DCodeEditor', 'width=1100,height=750');
+                }} title="Editar Código">
+                  <Edit size={12} />
+                </button>
+                <button className="component-remove-btn" onClick={() => {
                   const copy = [...(s.scripts || [])];
                   copy.splice(sIdx, 1);
                   updateComponent(entityId, 'Script', { scripts: copy });
-                }}
-                style={{
-                  background: '#ef4444',
-                  border: 'none',
-                  color: 'white',
-                  padding: '3px 8px',
-                  borderRadius: '3px',
-                  cursor: 'pointer',
-                  fontSize: '10px'
-                }}
-              >
-                Remover
-              </button>
+                }} title="Remover Script">
+                  <Trash2 size={12} />
+                </button>
+              </div>
             </div>
-            
-            <textarea
-              style={{
-                width: '100%',
-                height: '80px',
-                fontFamily: 'monospace',
-                fontSize: '11px',
-                background: 'var(--bg-panel)',
-                border: '1px solid var(--border)',
-                color: 'white',
-                padding: '4px',
-                borderRadius: '3px',
-                resize: 'vertical'
-              }}
-              value={scr.code}
-              onChange={(e) => {
-                const copy = [...(s.scripts || [])];
-                copy[sIdx] = { ...scr, code: e.target.value };
-                updateComponent(entityId, 'Script', { scripts: copy });
-              }}
-            />
 
             {renderCodeVariablesSection(scr.code, (newCode) => {
               const copy = [...(s.scripts || [])];
@@ -1826,13 +2334,370 @@ function ScriptInspector({ entityId }: { entityId: string }) {
               updateComponent(entityId, 'Script', { scripts: copy });
             })}
 
-            {renderVariablesSection(scr.variables || [], (newVars) => {
-              const copy = [...(s.scripts || [])];
-              copy[sIdx] = { ...scr, variables: newVars };
-              updateComponent(entityId, 'Script', { scripts: copy });
-            })}
+
           </div>
         ))}
+      </div>
+    </>
+  );
+}
+
+function TextureInspector({ entityId }: { entityId: string }) {
+  const { selectedEntity, updateComponent, currentProjectName } = useEditorStore();
+  const entity = selectedEntity();
+  const [imageFiles, setImageFiles] = useState<string[]>([]);
+  const sceneName = currentProjectName || 'default';
+
+  useEffect(() => {
+    let active = true;
+    const fetchImages = async () => {
+      try {
+        const res = await fetch(`/api/explorer-image/list?project=${encodeURIComponent(sceneName)}`);
+        if (res.ok && active) {
+          const files = await res.json();
+          setImageFiles(files);
+        }
+      } catch (err) {
+        console.error('Error fetching image files in TextureInspector:', err);
+      }
+    };
+    fetchImages();
+    return () => { active = false; };
+  }, [sceneName]);
+
+  if (!entity) return null;
+  const t = entity.components.Texture as TextureComponent;
+  if (!t) return null;
+
+  return (
+    <div className="component-block">
+      <div className="component-header">
+        <span className="component-icon"><Layers size={14} /></span>
+        <span className="component-title">Texture (Textura)</span>
+        <button className="component-remove-btn" onClick={() => useEditorStore.getState().removeComponent(entityId, 'Texture')} title="Remover Componente">
+          <Trash2 size={12} />
+        </button>
+      </div>
+      
+      {/* ALBEDO TEXTURE */}
+      <div className="field-row">
+        <label className="field-label">Texture File</label>
+        <select
+          className="field-select"
+          value={t.fileName || ''}
+          onChange={(e) => {
+            const file = e.target.value;
+            if (file) {
+              const url = `/api/project/get-asset?project=${encodeURIComponent(sceneName)}&file=${encodeURIComponent(file)}`;
+              updateComponent(entityId, 'Texture', { textureUrl: url, fileName: file });
+            } else {
+              updateComponent(entityId, 'Texture', { textureUrl: '', fileName: '' });
+            }
+          }}
+        >
+          <option value="">Nenhuma textura</option>
+          {imageFiles.map(img => (
+            <option key={img} value={img}>{img}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="field-row">
+        <label className="field-label">Custom URL</label>
+        <input
+          type="text"
+          className="field-input"
+          value={t.textureUrl || ''}
+          onChange={(e) => updateComponent(entityId, 'Texture', { textureUrl: e.target.value })}
+          placeholder="Ou insira uma URL externa..."
+        />
+      </div>
+
+      {/* TILING */}
+      <div className="field-row">
+        <label className="field-label">Tiling</label>
+        <div style={{ display: 'flex', gap: '8px', flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1 }}>
+            <span style={{ fontSize: '10px', color: '#888' }}>X</span>
+            <input
+              type="number"
+              className="field-input"
+              value={t.tilingX ?? 1}
+              step={0.1}
+              onChange={(e) => updateComponent(entityId, 'Texture', { tilingX: parseFloat(e.target.value) || 1 })}
+              style={{ width: '100%' }}
+            />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1 }}>
+            <span style={{ fontSize: '10px', color: '#888' }}>Y</span>
+            <input
+              type="number"
+              className="field-input"
+              value={t.tilingY ?? 1}
+              step={0.1}
+              onChange={(e) => updateComponent(entityId, 'Texture', { tilingY: parseFloat(e.target.value) || 1 })}
+              style={{ width: '100%' }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* OFFSET */}
+      <div className="field-row">
+        <label className="field-label">Offset</label>
+        <div style={{ display: 'flex', gap: '8px', flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1 }}>
+            <span style={{ fontSize: '10px', color: '#888' }}>X</span>
+            <input
+              type="number"
+              className="field-input"
+              value={t.offsetX ?? 0}
+              step={0.05}
+              onChange={(e) => updateComponent(entityId, 'Texture', { offsetX: parseFloat(e.target.value) || 0 })}
+              style={{ width: '100%' }}
+            />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1 }}>
+            <span style={{ fontSize: '10px', color: '#888' }}>Y</span>
+            <input
+              type="number"
+              className="field-input"
+              value={t.offsetY ?? 0}
+              step={0.05}
+              onChange={(e) => updateComponent(entityId, 'Texture', { offsetY: parseFloat(e.target.value) || 0 })}
+              style={{ width: '100%' }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* NORMAL MAP */}
+      <div className="field-row" style={{ marginTop: '12px', borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
+        <label className="field-label">Normal Map</label>
+        <select
+          className="field-select"
+          value={t.normalFileName || ''}
+          onChange={(e) => {
+            const file = e.target.value;
+            if (file) {
+              const url = `/api/project/get-asset?project=${encodeURIComponent(sceneName)}&file=${encodeURIComponent(file)}`;
+              updateComponent(entityId, 'Texture', { normalMapUrl: url, normalFileName: file });
+            } else {
+              updateComponent(entityId, 'Texture', { normalMapUrl: '', normalFileName: '' });
+            }
+          }}
+        >
+          <option value="">Nenhum Normal Map</option>
+          {imageFiles.map(img => (
+            <option key={img} value={img}>{img}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="field-row">
+        <label className="field-label">Normal URL</label>
+        <input
+          type="text"
+          className="field-input"
+          value={t.normalMapUrl || ''}
+          onChange={(e) => updateComponent(entityId, 'Texture', { normalMapUrl: e.target.value })}
+          placeholder="Ou insira normal URL externa..."
+        />
+      </div>
+
+      <div className="field-row">
+        <label className="field-label">Normal Scale</label>
+        <div className="field-slider-container" style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+          <input
+            type="range"
+            min="0"
+            max="5"
+            step="0.1"
+            className="field-slider"
+            style={{ flex: 1 }}
+            value={t.normalScale ?? 1.0}
+            onChange={(e) => updateComponent(entityId, 'Texture', { normalScale: parseFloat(e.target.value) })}
+          />
+          <span className="field-slider-value" style={{ minWidth: '24px', fontSize: '10px' }}>{(t.normalScale ?? 1.0).toFixed(1)}</span>
+        </div>
+      </div>
+
+      {/* PREVIEWS LADO A LADO */}
+      <div style={{ display: 'flex', gap: '8px', marginTop: '12px', justifyContent: 'center' }}>
+        {t.textureUrl && (
+          <div style={{ flex: 1, textAlign: 'center' }}>
+            <div style={{ fontSize: '9px', color: '#888', marginBottom: '2px' }}>Albedo</div>
+            <img 
+              src={t.textureUrl} 
+              alt="Albedo Preview" 
+              style={{ 
+                width: '100%', 
+                height: '60px', 
+                borderRadius: '4px', 
+                border: '1px solid var(--border)',
+                objectFit: 'contain'
+              }} 
+            />
+          </div>
+        )}
+        {t.normalMapUrl && (
+          <div style={{ flex: 1, textAlign: 'center' }}>
+            <div style={{ fontSize: '9px', color: '#888', marginBottom: '2px' }}>Normal</div>
+            <img 
+              src={t.normalMapUrl} 
+              alt="Normal Preview" 
+              style={{ 
+                width: '100%', 
+                height: '60px', 
+                borderRadius: '4px', 
+                border: '1px solid var(--border)',
+                objectFit: 'contain'
+              }} 
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Tags sugeridas para o projeto de futebol (e genéricas do engine)
+const SUGGESTED_TAGS = [
+  'player', 'ai-player', 'red-team', 'blue-team',
+  'enemy', 'ally', 'ball', 'goalkeeper',
+  'gltf', 'teleport', 'interactable', 'trigger',
+];
+
+// Cores por tag para facilitar identificação visual
+function tagColor(tag: string): { bg: string; text: string; border: string } {
+  if (tag === 'red-team')    return { bg: '#3a0a0a', text: '#ff6b6b', border: '#ff3333' };
+  if (tag === 'blue-team')   return { bg: '#0a1a3a', text: '#6bb3ff', border: '#3366ff' };
+  if (tag === 'enemy')       return { bg: '#2a0a0a', text: '#ff8888', border: '#cc3333' };
+  if (tag === 'ally')        return { bg: '#0a2a0a', text: '#88ff88', border: '#33cc33' };
+  if (tag === 'player')      return { bg: '#1a1a3a', text: '#aaaaff', border: '#5555cc' };
+  if (tag === 'ai-player')   return { bg: '#1a1a2a', text: '#cc99ff', border: '#8855cc' };
+  if (tag === 'ball')        return { bg: '#2a2a0a', text: '#ffee88', border: '#ccaa00' };
+  if (tag === 'goalkeeper')  return { bg: '#0a2a2a', text: '#88eeff', border: '#00aacc' };
+  return { bg: '#1a1a22', text: '#cccccc', border: '#444455' };
+}
+
+function TagsEditor({ entityId, tags }: { entityId: string; tags: string[] }) {
+  const [inputVal, setInputVal] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  const addTag = (tag: string) => {
+    const clean = tag.trim().toLowerCase().replace(/\s+/g, '-');
+    if (!clean || tags.includes(clean)) return;
+    useEditorStore.getState().updateEntityTags(entityId, [...tags, clean]);
+    setInputVal('');
+    setShowSuggestions(false);
+  };
+
+  const removeTag = (tag: string) => {
+    useEditorStore.getState().updateEntityTags(entityId, tags.filter(t => t !== tag));
+  };
+
+  const filteredSuggestions = SUGGESTED_TAGS.filter(
+    s => !tags.includes(s) && (inputVal === '' || s.includes(inputVal.toLowerCase()))
+  );
+
+  return (
+    <div style={{ padding: '8px 0 4px', borderTop: '1px solid #222', marginTop: '4px' }}>
+      <label className="field-label" style={{ fontSize: '10px', color: '#888', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', display: 'block', marginBottom: '6px' }}>
+        Tags
+      </label>
+
+      {/* Chips das tags atuais */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: tags.length > 0 ? '6px' : '0' }}>
+        {tags.map(tag => {
+          const col = tagColor(tag);
+          return (
+            <span
+              key={tag}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: '4px',
+                background: col.bg, color: col.text,
+                border: `1px solid ${col.border}`,
+                borderRadius: '4px', padding: '2px 6px',
+                fontSize: '11px', fontWeight: 500,
+              }}
+            >
+              {tag}
+              <button
+                onClick={() => removeTag(tag)}
+                style={{
+                  background: 'none', border: 'none', color: col.text,
+                  cursor: 'pointer', padding: '0', lineHeight: 1,
+                  fontSize: '13px', opacity: 0.7,
+                }}
+                title={`Remover tag "${tag}"`}
+              >
+                ×
+              </button>
+            </span>
+          );
+        })}
+      </div>
+
+      {/* Input para nova tag */}
+      <div style={{ position: 'relative' }}>
+        <div style={{ display: 'flex', gap: '4px' }}>
+          <input
+            type="text"
+            className="field-input"
+            value={inputVal}
+            placeholder="+ nova tag..."
+            style={{ flex: 1, fontSize: '11px', padding: '3px 6px' }}
+            onChange={e => { setInputVal(e.target.value); setShowSuggestions(true); }}
+            onFocus={() => setShowSuggestions(true)}
+            onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') { addTag(inputVal); e.preventDefault(); }
+              if (e.key === 'Escape') { setInputVal(''); setShowSuggestions(false); }
+            }}
+          />
+          <button
+            onClick={() => addTag(inputVal)}
+            style={{
+              background: '#1e2a1e', border: '1px solid #33aa33', color: '#66dd66',
+              borderRadius: '4px', padding: '2px 8px', fontSize: '11px', cursor: 'pointer',
+            }}
+            title="Adicionar tag"
+          >
+            +
+          </button>
+        </div>
+
+        {/* Dropdown de sugestões */}
+        {showSuggestions && filteredSuggestions.length > 0 && (
+          <div style={{
+            position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
+            background: '#111118', border: '1px solid #333',
+            borderRadius: '4px', marginTop: '2px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.6)',
+            overflow: 'hidden',
+          }}>
+            {filteredSuggestions.map(s => {
+              const col = tagColor(s);
+              return (
+                <div
+                  key={s}
+                  onMouseDown={() => addTag(s)}
+                  style={{
+                    padding: '5px 10px', cursor: 'pointer', fontSize: '11px',
+                    color: col.text, borderLeft: `3px solid ${col.border}`,
+                    background: 'transparent',
+                    transition: 'background 0.1s',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#1a1a28')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                >
+                  {s}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1844,6 +2709,7 @@ export function InspectorPanel({ style }: { style?: React.CSSProperties }) {
   const scene = activeScene();
 
   const [imageFiles, setImageFiles] = useState<string[]>([]);
+  const [showAddMenu, setShowAddMenu] = useState(false);
   const sceneName = scene?.name || 'default';
 
   useEffect(() => {
@@ -1863,6 +2729,17 @@ export function InspectorPanel({ style }: { style?: React.CSSProperties }) {
     return () => { active = false; };
   }, [sceneName]);
 
+  // Fecha o menu de componentes ao clicar fora
+  useEffect(() => {
+    const handleGlobalClick = () => {
+      setShowAddMenu(false);
+    };
+    if (showAddMenu) {
+      window.addEventListener('click', handleGlobalClick);
+    }
+    return () => window.removeEventListener('click', handleGlobalClick);
+  }, [showAddMenu]);
+
   if (!selectedEntityId || !entity) {
     return (
       <div className="panel inspector-panel" style={style}>
@@ -1873,11 +2750,98 @@ export function InspectorPanel({ style }: { style?: React.CSSProperties }) {
           <div className="scene-settings-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Settings size={14} /> Scene Settings
           </div>
+          {/* ── Room Settings (Sistema de Salas) ── */}
+          <div style={{ padding: '12px 14px', background: 'rgba(124,58,237,0.07)', borderRadius: '8px', border: '1px solid rgba(124,58,237,0.2)', marginBottom: '12px' }}>
+            <div style={{ fontSize: '10px', fontWeight: 700, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              ◈ Room Settings
+            </div>
+
+            {/* Room ID */}
+            <div className="field-row" style={{ alignItems: 'center' }}>
+              <label className="field-label">Room ID</label>
+              <div style={{ display: 'flex', gap: '4px', flex: 1 }}>
+                <input
+                  type="text"
+                  className="field-input"
+                  readOnly
+                  value={scene.roomId || '(não gerado)'}
+                  style={{ flex: 1, fontSize: '10px', fontFamily: 'monospace', color: 'rgba(255,255,255,0.5)', cursor: 'default' }}
+                  title="ID único da sala (gerado automaticamente)"
+                />
+                <button
+                  style={{ background: 'rgba(124,58,237,0.3)', border: '1px solid rgba(124,58,237,0.4)', color: '#a78bfa', borderRadius: '4px', padding: '0 8px', cursor: 'pointer', fontSize: '11px' }}
+                  onClick={() => {
+                    if (scene.roomId) navigator.clipboard?.writeText(scene.roomId);
+                  }}
+                  title="Copiar Room ID"
+                >
+                  ⎘
+                </button>
+                <button
+                  style={{ background: 'rgba(124,58,237,0.3)', border: '1px solid rgba(124,58,237,0.4)', color: '#a78bfa', borderRadius: '4px', padding: '0 8px', cursor: 'pointer', fontSize: '11px' }}
+                  onClick={() => {
+                    if (scene.roomId) {
+                      const url = `${window.location.origin}/room/${scene.roomId}`;
+                      navigator.clipboard?.writeText(url);
+                    }
+                  }}
+                  title="Copiar Link da Sala"
+                >
+                  🔗
+                </button>
+              </div>
+            </div>
+
+            {/* Cover Image */}
+            <div style={{ marginTop: '8px' }}>
+              <label className="field-label" style={{ marginBottom: '6px', display: 'block' }}>Capa da Sala (Cover Image)</label>
+              {/* Preview */}
+              {scene.coverImage && (
+                <div style={{ marginBottom: '8px', borderRadius: '6px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', aspectRatio: '16/9', background: '#0a0a0f', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <img src={scene.coverImage} alt="Capa" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                </div>
+              )}
+              {/* Seletor de imagem do projeto */}
+              <select
+                className="field-input select-dark"
+                value={''}
+                onChange={(e) => {
+                  const relPath = e.target.value;
+                  if (relPath) {
+                    const coverUrl = `/api/project/get-asset?project=${encodeURIComponent(sceneName)}&file=${encodeURIComponent(relPath)}`;
+                    updateSceneSettings({ coverImage: coverUrl });
+                  }
+                }}
+                style={{ width: '100%', marginBottom: '4px', padding: '4px', fontSize: '11px', background: '#111122', border: '1px solid var(--border)', color: '#fff', borderRadius: '4px' }}
+              >
+                <option value="">Selecionar imagem do projeto…</option>
+                {imageFiles.filter(f => /\.(png|jpg|jpeg|webp|gif)$/i.test(f)).map((file) => (
+                  <option key={file} value={file}>{file}</option>
+                ))}
+              </select>
+              {/* URL Manual */}
+              <input
+                type="text"
+                className="field-input"
+                value={scene.coverImage || ''}
+                placeholder="ou cole uma URL de imagem…"
+                onChange={(e) => updateSceneSettings({ coverImage: e.target.value })}
+                style={{ width: '100%', fontSize: '11px' }}
+              />
+            </div>
+
+            {/* Link da Sala */}
+            <div style={{ marginTop: '10px', padding: '6px 8px', background: 'rgba(0,0,0,0.3)', borderRadius: '4px', fontSize: '10px', color: 'rgba(255,255,255,0.4)', fontFamily: 'monospace', wordBreak: 'break-all' }}>
+              {window.location.origin}/room/{scene.roomId || '…'}
+            </div>
+          </div>
+
           <div className="field-row">
             <label className="field-label">BG Color</label>
             <input type="color" className="field-color" value={scene.backgroundColor}
               onChange={(e) => updateSceneSettings({ backgroundColor: e.target.value })} />
           </div>
+
           <div className="field-row">
             <label className="field-label">Skybox (2:1)</label>
             <select
@@ -1932,6 +2896,131 @@ export function InspectorPanel({ style }: { style?: React.CSSProperties }) {
               </div>
             </>
           )}
+
+          {/* Configurações do HUD da Cena */}
+          <div className="scene-settings-title" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '16px', borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
+            <Layers size={14} /> HUD Settings
+          </div>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px' }}>
+              <input 
+                type="checkbox" 
+                checked={scene.hudEnabled ?? false}
+                onChange={(e) => updateScene('hudEnabled', e.target.checked)}
+              />
+              Habilitar HUD (Overlay 2D/3D)
+            </label>
+          </div>
+
+          {!!(scene.hudEnabled) && (
+            <div style={{ marginLeft: '12px', borderLeft: '2px solid rgba(255,255,255,0.05)', paddingLeft: '12px', display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
+              
+              <div className="field-row">
+                <label className="field-label" style={{ fontSize: '11px', color: '#aaa' }}>Show Lobby</label>
+                <input 
+                  type="checkbox" 
+                  checked={scene.hudConfig?.showLobby ?? false}
+                  onChange={(e) => {
+                    const currentConfig = scene.hudConfig || {};
+                    updateSceneSettings({
+                      hudConfig: { ...currentConfig, showLobby: e.target.checked }
+                    });
+                  }} 
+                />
+              </div>
+
+              <div className="field-row">
+                <label className="field-label" style={{ fontSize: '11px', color: '#aaa' }}>Show Scoreboard</label>
+                <input 
+                  type="checkbox" 
+                  checked={scene.hudConfig?.showScoreboard ?? false}
+                  onChange={(e) => {
+                    const currentConfig = scene.hudConfig || {};
+                    updateSceneSettings({
+                      hudConfig: { ...currentConfig, showScoreboard: e.target.checked }
+                    });
+                  }} 
+                />
+              </div>
+
+              <div className="field-row">
+                <label className="field-label" style={{ fontSize: '11px', color: '#aaa' }}>Show Timer</label>
+                <input 
+                  type="checkbox" 
+                  checked={scene.hudConfig?.showTimer ?? false}
+                  onChange={(e) => {
+                    const currentConfig = scene.hudConfig || {};
+                    updateSceneSettings({
+                      hudConfig: { ...currentConfig, showTimer: e.target.checked }
+                    });
+                  }} 
+                />
+              </div>
+
+              <div className="field-row">
+                <label className="field-label" style={{ fontSize: '11px', color: '#aaa' }}>Match Overlay</label>
+                <input 
+                  type="checkbox" 
+                  checked={scene.hudConfig?.showMatchOverlay ?? false}
+                  onChange={(e) => {
+                    const currentConfig = scene.hudConfig || {};
+                    updateSceneSettings({
+                      hudConfig: { ...currentConfig, showMatchOverlay: e.target.checked }
+                    });
+                  }} 
+                />
+              </div>
+
+              <div className="field-row">
+                <label className="field-label" style={{ fontSize: '11px', color: '#aaa' }}>Label Home</label>
+                <input 
+                  type="text" 
+                  className="field-input" 
+                  value={scene.hudConfig?.labelHome || "P1"}
+                  onChange={(e) => {
+                    const currentConfig = scene.hudConfig || {};
+                    updateSceneSettings({
+                      hudConfig: { ...currentConfig, labelHome: e.target.value }
+                    });
+                  }} 
+                  style={{ flex: 1, padding: '2px 6px', fontSize: '11px', background: '#111122', border: '1px solid var(--border)', color: '#fff', borderRadius: '4px' }}
+                />
+              </div>
+
+              <div className="field-row">
+                <label className="field-label" style={{ fontSize: '11px', color: '#aaa' }}>Label Away</label>
+                <input 
+                  type="text" 
+                  className="field-input" 
+                  value={scene.hudConfig?.labelAway || "P2"}
+                  onChange={(e) => {
+                    const currentConfig = scene.hudConfig || {};
+                    updateSceneSettings({
+                      hudConfig: { ...currentConfig, labelAway: e.target.value }
+                    });
+                  }} 
+                  style={{ flex: 1, padding: '2px 6px', fontSize: '11px', background: '#111122', border: '1px solid var(--border)', color: '#fff', borderRadius: '4px' }}
+                />
+              </div>
+
+              <div className="field-row">
+                <label className="field-label" style={{ fontSize: '11px', color: '#aaa' }}>Theme Color</label>
+                <input 
+                  type="color" 
+                  className="field-color" 
+                  value={scene.hudConfig?.themeColor || "#00f3ff"}
+                  onChange={(e) => {
+                    const currentConfig = scene.hudConfig || {};
+                    updateSceneSettings({
+                      hudConfig: { ...currentConfig, themeColor: e.target.value }
+                    });
+                  }} 
+                />
+              </div>
+            </div>
+          )}
+
           <p className="inspector-hint">Selecione uma entidade para inspecioná-la.</p>
         </div>
       </div>
@@ -1995,6 +3084,9 @@ export function InspectorPanel({ style }: { style?: React.CSSProperties }) {
             </button>
           </div>
         </div>
+
+        {/* Tags */}
+        <TagsEditor entityId={selectedEntityId} tags={entity.tags ?? []} />
       </div>
 
       {/* Components */}
@@ -2014,6 +3106,9 @@ export function InspectorPanel({ style }: { style?: React.CSSProperties }) {
         {entity.components.RigidBody && (
           <RigidBodyInspector entityId={selectedEntityId} />
         )}
+        {entity.components.Collider && (
+          <ColliderInspector entityId={selectedEntityId} />
+        )}
         {entity.components.Audio && (
           <AudioInspector entityId={selectedEntityId} />
         )}
@@ -2032,63 +3127,100 @@ export function InspectorPanel({ style }: { style?: React.CSSProperties }) {
         {entity.components.Camera && (
           <CameraInspector entityId={selectedEntityId} />
         )}
+        {entity.components.Texture && (
+          <TextureInspector entityId={selectedEntityId} />
+        )}
+        {entity.components.HUDPlane && (
+          <HUDPlaneInspector entityId={selectedEntityId} />
+        )}
+        {entity.components.VideoMesh && (
+          <VideoMeshInspector entityId={selectedEntityId} />
+        )}
 
-        <div className="add-component-wrapper" style={{ marginTop: '16px', display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
-          {!entity.components.RigidBody && (
-            <button 
-              className="panel-btn" 
-              onClick={() => useEditorStore.getState().addComponent(selectedEntityId, { type: 'RigidBody', mass: 1, isStatic: false, useGravity: true, collider: 'cuboid' })}
-            >
-              <Plus size={12} /> Add RigidBody
-            </button>
-          )}
-          {!entity.components.Script && (
-            <button 
-              className="panel-btn" 
-              onClick={() => useEditorStore.getState().addComponent(selectedEntityId, { type: 'Script', scriptName: 'NewScript', code: '' })}
-            >
-              <Plus size={12} /> Add Script
-            </button>
-          )}
-          {!entity.components.Audio && (
-            <button 
-              className="panel-btn" 
-              onClick={() => useEditorStore.getState().addComponent(selectedEntityId, { type: 'Audio', src: '', loop: true, playOnStart: true, volume: 1, is3D: true, delay: 0, refDistance: 5, rolloffFactor: 1, maxDistance: 100, distanceModel: 'linear' })}
-            >
-              <Plus size={12} /> Add Audio
-            </button>
-          )}
-          {!entity.components.ParticleSystem && (
-            <button 
-              className="panel-btn" 
-              onClick={() => useEditorStore.getState().addComponent(selectedEntityId, { type: 'ParticleSystem', count: 100, color: '#ffffff', size: 10, speed: 1 })}
-            >
-              <Plus size={12} /> Add Particles
-            </button>
-          )}
-          {!entity.components.Animator && (
-            <button 
-              className="panel-btn" 
-              onClick={() => useEditorStore.getState().addComponent(selectedEntityId, { type: 'Animator', currentAnimation: '', loop: true, timeScale: 1 })}
-            >
-              <Plus size={12} /> Add Animator
-            </button>
-          )}
-          {!entity.components.Camera && (
-            <button 
-              className="panel-btn" 
-              onClick={() => useEditorStore.getState().addComponent(selectedEntityId, { type: 'Camera', fov: 75, near: 0.1, far: 1000, isMain: true, offset: [0, 0.4, 0], rotation: [0, 0, 0] })}
-            >
-              <Plus size={12} /> Add Camera
-            </button>
-          )}
-          {!entity.components.Network && (
-            <button 
-              className="panel-btn" 
-              onClick={() => useEditorStore.getState().addComponent(selectedEntityId, { type: 'Network', isLocal: true, syncPosition: true, syncRotation: true, syncAnimation: false, sendRate: 20 })}
-            >
-              <Plus size={12} /> Add Network
-            </button>
+        <div className="add-component-wrapper" style={{ marginTop: '16px', position: 'relative', display: 'flex', justifyContent: 'center' }}>
+          <button 
+            className="panel-btn" 
+            onClick={(e) => { e.stopPropagation(); setShowAddMenu(!showAddMenu); }}
+            title="Adicionar Componente"
+            style={{ width: '100%', justifyContent: 'center', gap: '8px', padding: '8px' }}
+          >
+            <Plus size={14} /> Componente
+          </button>
+
+          {showAddMenu && (
+            <div className="create-menu" style={{ bottom: '40px', top: 'auto', left: '0', right: '0' }}>
+              <div className="create-menu-section">Física</div>
+              {!entity.components.RigidBody && (
+                <button className="create-menu-item" onClick={() => { useEditorStore.getState().addComponent(selectedEntityId, { type: 'RigidBody', mass: 1, isStatic: false, useGravity: true, collider: 'none' }); setShowAddMenu(false); }}>
+                  RigidBody
+                </button>
+              )}
+              {!entity.components.Collider && (
+                <button className="create-menu-item" onClick={() => { useEditorStore.getState().addComponent(selectedEntityId, { type: 'Collider', shape: 'cuboid', scale: [1, 1, 1], offset: [0, 0, 0], isTrigger: false }); setShowAddMenu(false); }}>
+                  Collider
+                </button>
+              )}
+              
+              <div className="create-menu-section">Mídia & Lógica</div>
+              {!entity.components.Script && (
+                <button className="create-menu-item" onClick={() => {
+                  const rawName = prompt("Digite o nome do novo script:", "NovoScript");
+                  if (rawName === null) return;
+                  const cleanName = rawName.replace(/[^a-zA-Z0-9_\-]/g, '').trim();
+                  if (!cleanName) { alert("Nome de script inválido!"); return; }
+                  const defaultCode = `// O objeto 'entity' contem a referencia para esta entidade.\n// O objeto 'engine' contem referencias para cena e controle.\n\nexport function onAwake() {\n  // Chamado na inicialização\n}\n\nexport function onUpdate(delta) {\n  // Chamado a cada frame\n}\n`;
+                  useEditorStore.getState().addComponent(selectedEntityId, { type: 'Script', scriptName: cleanName, code: defaultCode });
+                  setShowAddMenu(false);
+                  setTimeout(() => { useEditorStore.getState().saveCurrentScene(); }, 100);
+                }}>
+                  Script
+                </button>
+              )}
+              {!entity.components.Audio && (
+                <button className="create-menu-item" onClick={() => { useEditorStore.getState().addComponent(selectedEntityId, { type: 'Audio', src: '', loop: true, playOnStart: true, volume: 1, is3D: true, delay: 0, refDistance: 5, rolloffFactor: 1, maxDistance: 100, distanceModel: 'linear' }); setShowAddMenu(false); }}>
+                  Audio Source
+                </button>
+              )}
+              {!entity.components.VideoMesh && (
+                <button className="create-menu-item" onClick={() => { useEditorStore.getState().addComponent(selectedEntityId, { type: 'VideoMesh', videoUrl: '', fileName: '', autoPlay: true, loop: true, volume: 1.0, muted: false, play: true, curveAmount: 0.0, curveDirection: 'horizontal', width: 2.0, height: 1.125, segmentsX: 32, segmentsY: 32, projection: 'plane', stereoMode: 'none' }); setShowAddMenu(false); }}>
+                  Video Mesh
+                </button>
+              )}
+
+              <div className="create-menu-section">Efeitos & Visual</div>
+              {!entity.components.ParticleSystem && (
+                <button className="create-menu-item" onClick={() => { useEditorStore.getState().addComponent(selectedEntityId, { type: 'ParticleSystem', count: 100, color: '#ffffff', size: 10, speed: 1 }); setShowAddMenu(false); }}>
+                  Particle System
+                </button>
+              )}
+              {!entity.components.Animator && (
+                <button className="create-menu-item" onClick={() => { useEditorStore.getState().addComponent(selectedEntityId, { type: 'Animator', currentAnimation: '', loop: true, timeScale: 1 }); setShowAddMenu(false); }}>
+                  Animator
+                </button>
+              )}
+              {!entity.components.Texture && (
+                <button className="create-menu-item" onClick={() => { useEditorStore.getState().addComponent(selectedEntityId, { type: 'Texture', textureUrl: '', fileName: '' }); setShowAddMenu(false); }}>
+                  Texture Material
+                </button>
+              )}
+
+              <div className="create-menu-section">Sistema</div>
+              {!entity.components.Camera && (
+                <button className="create-menu-item" onClick={() => { useEditorStore.getState().addComponent(selectedEntityId, { type: 'Camera', fov: 75, near: 0.1, far: 1000, isMain: true, offset: [0, 0.4, 0], rotation: [0, 0, 0] }); setShowAddMenu(false); }}>
+                  Camera
+                </button>
+              )}
+              {!entity.components.Network && (
+                <button className="create-menu-item" onClick={() => { useEditorStore.getState().addComponent(selectedEntityId, { type: 'Network', isLocal: true, syncPosition: true, syncRotation: true, syncAnimation: false, sendRate: 20 }); setShowAddMenu(false); }}>
+                  Network Identity
+                </button>
+              )}
+              {!entity.components.HUDPlane && (
+                <button className="create-menu-item" onClick={() => { useEditorStore.getState().addComponent(selectedEntityId, { type: 'HUDPlane', opacity: 0.8, color: '#00ffff', width: 2.0, height: 1.0, distance: 0.5 }); setShowAddMenu(false); }}>
+                  HUD Visor
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>

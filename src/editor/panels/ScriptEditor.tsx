@@ -95,11 +95,21 @@ export function ScriptEditor() {
         <button 
           className="panel-btn primary"
           onClick={() => {
+            const rawName = prompt("Digite o nome do novo script:", "NovoScript");
+            if (rawName === null) return; // Cancelado
+            const cleanName = rawName.replace(/[^a-zA-Z0-9_\-]/g, '').trim();
+            if (!cleanName) {
+              alert("Nome de script inválido!");
+              return;
+            }
             useEditorStore.getState().addComponent(entity.id, {
               type: 'Script',
-              scriptName: 'NewScript',
+              scriptName: cleanName,
               code: defaultCode
             });
+            setTimeout(() => {
+              useEditorStore.getState().saveCurrentScene();
+            }, 100);
           }}
           style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '10px' }}
         >
@@ -167,16 +177,33 @@ export function ScriptEditor() {
         {/* Botão para criar novo script adicional */}
         <button
           onClick={() => {
+            const rawName = prompt("Digite o nome do novo script adicional:", "ScriptAdicional");
+            if (rawName === null) return; // Cancelado
+            const cleanName = rawName.replace(/[^a-zA-Z0-9_\-]/g, '').trim();
+            if (!cleanName) {
+              alert("Nome de script inválido!");
+              return;
+            }
+
             const currentScripts = scriptComponent.scripts || [];
+            const exists = (scriptComponent.scriptName === cleanName) || currentScripts.some(s => s.scriptName === cleanName);
+            if (exists) {
+              alert("Já existe um script com esse nome nesta entidade!");
+              return;
+            }
+
             const newId = Math.random().toString(36).substring(2, 9);
             const newScript = {
               id: newId,
-              scriptName: `ScriptAdicional${currentScripts.length + 1}`,
+              scriptName: cleanName,
               code: `// Comportamento adicional\nexport function onAwake() {\n  // Chamado na inicialização\n}\n\nexport function onUpdate(delta) {\n  // Chamado a cada frame\n}`,
               variables: []
             };
             updateComponent(entity.id, 'Script', { scripts: [...currentScripts, newScript] });
             setActiveScriptId(newId);
+            setTimeout(() => {
+              useEditorStore.getState().saveCurrentScene();
+            }, 100);
           }}
           style={{
             padding: '4px 8px',

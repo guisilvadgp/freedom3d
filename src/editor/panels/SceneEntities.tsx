@@ -2,15 +2,700 @@ import { XROrigin } from '@react-three/xr';
 import { useRef, useState, useEffect, Suspense } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { TransformControls, Edges, Sparkles, PerspectiveCamera } from '@react-three/drei';
-import { RigidBody, MeshCollider } from '@react-three/rapier';
+import { RigidBody, MeshCollider, CuboidCollider, BallCollider, CapsuleCollider, CylinderCollider, ConeCollider } from '@react-three/rapier';
 import * as THREE from 'three';
 import { useEditorStore } from '../store/editorStore';
 import { useShallow } from 'zustand/react/shallow';
 import type { Entity } from '../../engine/ecs/types';
+import { getOrCreateHUDCanvas, setHUDUpdateCallback } from '../../engine/ecs/types';
 import { attemptTeleport } from './SceneView';
 import { Input } from '../../engine/systems/InputManager';
 import { GLTFMesh } from './GLTFViewer';
+import { HUD3D } from '../../engine/systems/HUD';
 
+
+const HUDPlaneRenderer = ({ entity, isGameView }: { entity: Entity; isGameView: boolean }) => {
+  const hudComp = entity.components.HUDPlane;
+  if (!hudComp) return null;
+
+  const isPlaying = useEditorStore(s => s.isPlaying);
+  const { size } = useThree();
+  const aspect = size.width / size.height;
+
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const textureRef = useRef<THREE.CanvasTexture | null>(null);
+  const meshRef = useRef<THREE.Mesh>(null);
+
+  if (!canvasRef.current) {
+    canvasRef.current = getOrCreateHUDCanvas(entity);
+  }
+
+  // Ajusta o buffer do Canvas para sincronizar com a proporção da tela (aspect ratio)
+  const canvas = canvasRef.current;
+  if (canvas) {
+    const targetHeight = Math.round(1024 / aspect);
+    if (canvas.height !== targetHeight) {
+      canvas.height = targetHeight;
+      if (textureRef.current) {
+        textureRef.current.needsUpdate = true;
+      }
+    }
+  }
+
+  // Registra o callback para quando o script chamar updateHUDTexture
+  setHUDUpdateCallback(entity.id, () => {
+    if (textureRef.current) {
+      textureRef.current.needsUpdate = true;
+    }
+  });
+
+  const targetMatrix = useRef(new THREE.Matrix4());
+  const parentInverse = useRef(new THREE.Matrix4());
+  const transMatrix = useRef(new THREE.Matrix4());
+
+  // Compila e executa o script do HUD em tempo real (sincronamente no render)
+  const lastScriptCode = useRef<string | null>(null);
+  const editorScriptInstance = useRef<any>(null);
+
+  const scriptComp = entity.components.Script as any;
+  const hudScript = scriptComp?.scripts?.[0] || scriptComp;
+  const currentCode = hudScript?.code || null;
+
+  // Reinicia o previewer se o modo Play mudar
+  const wasPlaying = useRef(isPlaying);
+  if (isPlaying !== wasPlaying.current) {
+    wasPlaying.current = isPlaying;
+    editorScriptInstance.current = null;
+    lastScriptCode.current = null;
+  }
+
+  if (!isPlaying && currentCode && currentCode !== lastScriptCode.current) {
+    lastScriptCode.current = currentCode;
+    try {
+      const cleanCode = currentCode
+        .replace(/export\s+function\s+/g, 'function ')
+        .replace(/export\s+const\s+/g, 'const ')
+        .replace(/export\s+let\s+/g, 'let ')
+        .replace(/export\s+var\s+/g, 'var ')
+        .replace(/export\s+class\s+/g, 'class ');
+
+      const scriptCreator = new Function('THREE', `
+        let entity;
+        let delta;
+        let updateComponent;
+        let Input;
+        let rigidBody;
+        let camera;
+        let getEntityPosition;
+        let threeCamera;
+        let engine;
+
+        function updateFrameData(_entity, _delta, _updateComponent, _Input, _rigidBody, _camera, _getEntityPosition, _threeCamera, _engine) {
+          entity = _entity;
+          delta = _delta;
+          updateComponent = _updateComponent;
+          Input = _Input;
+          rigidBody = _rigidBody;
+          camera = _camera;
+          getEntityPosition = _getEntityPosition;
+          threeCamera = _threeCamera;
+          engine = _engine;
+        }
+
+        ${cleanCode}
+
+        return {
+          updateFrameData,
+          onUpdate: typeof onUpdate === 'function' ? onUpdate : null
+        };
+      `);
+      editorScriptInstance.current = scriptCreator(THREE);
+      
+      // Executa o script uma vez de forma síncrona para desenhar no canvas antes do primeiro render
+      if (editorScriptInstance.current.onUpdate && canvasRef.current) {
+        const mockEntity = {
+          ...entity,
+          HUDCanvas: canvasRef.current,
+          updateHUDTexture: () => {
+            if (textureRef.current) {
+              textureRef.current.needsUpdate = true;
+            }
+          }
+        };
+        editorScriptInstance.current.updateFrameData(
+          mockEntity,
+          0,
+          () => {},
+          { getKey: () => false, getGamepadButton: () => false },
+          null,
+          entity.components.Camera,
+          () => null,
+          new THREE.Camera(),
+          {}
+        );
+        editorScriptInstance.current.onUpdate(0);
+      }
+    } catch (err) {
+      console.warn('Erro ao compilar HUD script em modo de Edição:', err);
+      editorScriptInstance.current = null;
+    }
+  }
+
+  // Anula a escala herdada do pai no modo de edição (quando não está "grudado")
+  useFrame((state, delta) => {
+    const shouldStick = isPlaying || isGameView;
+    const mesh = meshRef.current;
+    if (mesh && !shouldStick) {
+      if (mesh.parent) {
+        const parentScale = new THREE.Vector3();
+        mesh.parent.getWorldScale(parentScale);
+        if (parentScale.x !== 0 && parentScale.y !== 0 && parentScale.z !== 0) {
+          mesh.scale.set(1 / parentScale.x, 1 / parentScale.y, 1 / parentScale.z);
+        }
+      } else {
+        mesh.scale.set(1, 1, 1);
+      }
+    }
+
+    // Executa a atualização do script do HUD em modo de edição (Realtime Editor Preview)
+    if (!isPlaying && editorScriptInstance.current?.onUpdate && canvasRef.current) {
+      try {
+        const mockEntity = {
+          ...entity,
+          HUDCanvas: canvasRef.current,
+          updateHUDTexture: () => {
+            if (textureRef.current) {
+              textureRef.current.needsUpdate = true;
+            }
+          }
+        };
+        editorScriptInstance.current.updateFrameData(
+          mockEntity,
+          delta,
+          () => {}, // updateComponent
+          { getKey: () => false, getGamepadButton: () => false }, // Input
+          null, // rigidBody
+          entity.components.Camera,
+          () => null, // getEntityPosition
+          state.camera,
+          {} // engine API
+        );
+        editorScriptInstance.current.onUpdate(delta);
+      } catch (err) {
+        console.error('Erro ao executar HUD script em modo de Edição:', err);
+      }
+    }
+  });
+
+  const handleBeforeRender = (renderer: any, scene: any, currentCamera: THREE.Camera) => {
+    const shouldStick = isPlaying || isGameView;
+    const mesh = meshRef.current;
+    if (mesh) {
+      if (shouldStick) {
+        mesh.matrixAutoUpdate = false;
+        
+        // 1. Obtém a matriz global da câmera e decompõe para neutralizar qualquer escala
+        targetMatrix.current.copy(currentCamera.matrixWorld);
+        const camPos = new THREE.Vector3();
+        const camQuat = new THREE.Quaternion();
+        const camScale = new THREE.Vector3();
+        targetMatrix.current.decompose(camPos, camQuat, camScale);
+        
+        // Reconstrói a matriz da câmera com escala [1, 1, 1] absoluta
+        targetMatrix.current.compose(camPos, camQuat, new THREE.Vector3(1, 1, 1));
+
+        const dist = hudComp.distance ?? 0.5;
+        transMatrix.current.makeTranslation(0, 0, -dist);
+        targetMatrix.current.multiply(transMatrix.current);
+        
+        // 2. Anula a transformação do pai no grafo 3D
+        if (mesh.parent) {
+          parentInverse.current.copy(mesh.parent.matrixWorld).invert();
+          mesh.matrix.copy(parentInverse.current).multiply(targetMatrix.current);
+          mesh.matrixWorld.multiplyMatrices(mesh.parent.matrixWorld, mesh.matrix);
+        } else {
+          mesh.matrix.copy(targetMatrix.current);
+          mesh.matrixWorld.copy(mesh.matrix);
+        }
+      } else {
+        mesh.matrixAutoUpdate = true;
+      }
+    }
+  };
+
+  const h = hudComp.height ?? 0.9;
+  const w = h * aspect;
+
+  return (
+    <mesh ref={meshRef} onBeforeRender={handleBeforeRender} frustumCulled={false}>
+      <planeGeometry args={[w, h]} />
+      <meshBasicMaterial
+        transparent
+        opacity={hudComp.opacity ?? 0.8}
+        depthTest={!isGameView} // Se isGameView for true, depthTest fica false (sempre sobrepondo)
+        depthWrite={!isGameView}
+        toneMapped={false}
+      >
+        <canvasTexture
+          key={`${canvas.width}-${canvas.height}`}
+          ref={textureRef}
+          attach="map"
+          image={canvasRef.current}
+          colorSpace={THREE.SRGBColorSpace}
+        />
+      </meshBasicMaterial>
+      {!isGameView && (
+        <Edges color={hudComp.color || "#00ffff"} />
+      )}
+    </mesh>
+  );
+};
+
+function StereoGeometry({
+  projection,
+  stereoMode,
+  eye,
+  width,
+  height,
+  segmentsX,
+  segmentsY,
+  curveAmount,
+  curveDirection,
+}: {
+  projection: 'plane' | 'sphere360' | 'sphere180';
+  stereoMode: 'none' | 'sbs' | 'tb';
+  eye: 'left' | 'right' | 'none';
+  width: number;
+  height: number;
+  segmentsX: number;
+  segmentsY: number;
+  curveAmount: number;
+  curveDirection: 'horizontal' | 'vertical';
+}) {
+  const geomRef = useRef<THREE.BufferGeometry>(null);
+
+  useEffect(() => {
+    const geometry = geomRef.current;
+    if (!geometry) return;
+
+    // Se for projeção de plano, aplica curvatura
+    if (projection === 'plane') {
+      const posAttr = geometry.attributes.position;
+      if (posAttr) {
+        const count = posAttr.count;
+        const halfW = width / 2;
+        const halfH = height / 2;
+
+        for (let i = 0; i < count; i++) {
+          // Reconstrói coordenadas originais do plano para evitar acúmulo de deformações
+          const col = i % (segmentsX + 1);
+          const row = Math.floor(i / (segmentsX + 1));
+          
+          const x = col * (width / segmentsX) - halfW;
+          const y = halfH - row * (height / segmentsY);
+          
+          let z = 0;
+          if (curveAmount !== 0) {
+            if (curveDirection === 'horizontal') {
+              z = curveAmount * (1.0 - Math.pow(x / (halfW || 1), 2));
+            } else {
+              z = curveAmount * (1.0 - Math.pow(y / (halfH || 1), 2));
+            }
+          }
+          posAttr.setXYZ(i, x, y, z);
+        }
+        posAttr.needsUpdate = true;
+        geometry.computeVertexNormals();
+      }
+    }
+
+    // Modifica as coordenadas UV baseando-se no mapeamento de estereoscopia
+    const uvAttr = geometry.attributes.uv;
+    if (uvAttr) {
+      const count = uvAttr.count;
+      for (let i = 0; i < count; i++) {
+        // Reconstrói as coordenadas UV padrão baseadas no índice
+        const col = i % (segmentsX + 1);
+        const row = Math.floor(i / (segmentsX + 1));
+        
+        let u = col / segmentsX;
+        let v = 1.0 - (row / segmentsY);
+
+        // Se for projeção esférica, inverte o U horizontalmente para renderizar correto por dentro
+        if (projection !== 'plane') {
+          u = 1.0 - u;
+        }
+
+        if (stereoMode === 'sbs') {
+          if (eye === 'left') {
+            u = u * 0.5; // Metade esquerda
+          } else if (eye === 'right') {
+            u = u * 0.5 + 0.5; // Metade direita
+          }
+        } else if (stereoMode === 'tb') {
+          if (eye === 'left') {
+            v = v * 0.5 + 0.5; // Metade superior
+          } else if (eye === 'right') {
+            v = v * 0.5; // Metade inferior
+          }
+        }
+
+        uvAttr.setXY(i, u, v);
+      }
+      uvAttr.needsUpdate = true;
+    }
+  }, [projection, stereoMode, eye, width, height, segmentsX, segmentsY, curveAmount, curveDirection]);
+
+  if (projection === 'sphere360') {
+    return (
+      <sphereGeometry
+        ref={geomRef as any}
+        args={[width || 5, segmentsX || 60, segmentsY || 40]}
+      />
+    );
+  }
+
+  if (projection === 'sphere180') {
+    // Meia esfera para domo imersivo 180°
+    return (
+      <sphereGeometry
+        ref={geomRef as any}
+        args={[width || 5, segmentsX || 60, segmentsY || 40, -Math.PI / 2, Math.PI, 0, Math.PI]}
+      />
+    );
+  }
+
+  return (
+    <planeGeometry
+      ref={geomRef as any}
+      args={[width, height, segmentsX, segmentsY]}
+    />
+  );
+}
+
+const VideoMeshRenderer = ({ entity, isGameView }: { entity: Entity; isGameView: boolean }) => {
+  const videoComp = entity.components.VideoMesh;
+  if (!videoComp) return null;
+
+  const isPlaying = useEditorStore(s => s.isPlaying);
+  const isSelected = useEditorStore(s => s.selectedEntityId === entity.id);
+
+  const { gl } = useThree();
+  const [isPresenting, setIsPresenting] = useState(gl.xr.isPresenting);
+
+  useEffect(() => {
+    const handleSessionStart = () => setIsPresenting(true);
+    const handleSessionEnd = () => setIsPresenting(false);
+
+    gl.xr.addEventListener('sessionstart', handleSessionStart);
+    gl.xr.addEventListener('sessionend', handleSessionEnd);
+
+    // Initial check
+    setIsPresenting(gl.xr.isPresenting);
+
+    return () => {
+      gl.xr.removeEventListener('sessionstart', handleSessionStart);
+      gl.xr.removeEventListener('sessionend', handleSessionEnd);
+    };
+  }, [gl]);
+
+  const leftMeshRef = useRef<THREE.Mesh>(null);
+  const rightMeshRef = useRef<THREE.Mesh>(null);
+
+  useEffect(() => {
+    const leftMesh = leftMeshRef.current;
+    if (leftMesh) {
+      if (isPresenting) {
+        leftMesh.layers.set(1); // Left eye in VR
+      } else {
+        leftMesh.layers.set(0); // Screen in desktop
+      }
+    }
+  }, [isPresenting]);
+
+  useEffect(() => {
+    const rightMesh = rightMeshRef.current;
+    if (rightMesh) {
+      rightMesh.layers.set(2); // Right eye in VR
+    }
+  }, []);
+
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [videoTexture, setVideoTexture] = useState<THREE.VideoTexture | null>(null);
+
+  const mat1Ref = useRef<THREE.MeshBasicMaterial>(null);
+  const mat2Ref = useRef<THREE.MeshBasicMaterial>(null);
+  const mat3Ref = useRef<THREE.MeshBasicMaterial>(null);
+
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
+  const pointLightRef = useRef<THREE.PointLight>(null);
+
+  const lastKeysPressed = useRef<Record<string, boolean>>({});
+  const lastGamepadPressed = useRef<Record<string, boolean>>({});
+
+  // Força o Three.js a recompilar o shader do material ativando texturização assim que a textura do vídeo estiver pronta
+  useEffect(() => {
+    if (videoTexture) {
+      if (mat1Ref.current) mat1Ref.current.needsUpdate = true;
+      if (mat2Ref.current) mat2Ref.current.needsUpdate = true;
+      if (mat3Ref.current) mat3Ref.current.needsUpdate = true;
+    }
+  }, [videoTexture]);
+
+  const width = videoComp.width ?? 2.0;
+  const height = videoComp.height ?? 1.125;
+  const curveAmount = videoComp.curveAmount ?? 0.0;
+  const curveDirection = videoComp.curveDirection ?? 'horizontal';
+  const segmentsX = videoComp.segmentsX ?? 32;
+  const segmentsY = videoComp.segmentsY ?? 32;
+  const projection = videoComp.projection ?? 'plane';
+  const stereoMode = videoComp.stereoMode ?? 'none';
+
+  // Setup element video e textura
+  useEffect(() => {
+    const video = document.createElement('video');
+    video.crossOrigin = 'anonymous';
+    video.playsInline = true;
+    video.loop = videoComp.loop ?? true;
+    video.muted = videoComp.muted ?? false;
+    video.volume = videoComp.volume ?? 1.0;
+
+    // Garante que o elemento de vídeo esteja no DOM de forma oculta
+    // Alguns navegadores/Chromium suspendem a decodificação de frames de vídeo
+    // se o elemento não estiver anexado ao DOM do documento.
+    video.style.position = 'absolute';
+    video.style.width = '0px';
+    video.style.height = '0px';
+    video.style.opacity = '0';
+    video.style.pointerEvents = 'none';
+    document.body.appendChild(video);
+
+    if (videoComp.videoUrl) {
+      video.src = videoComp.videoUrl;
+    }
+
+    videoRef.current = video;
+
+    const texture = new THREE.VideoTexture(video);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    setVideoTexture(texture);
+
+    const handleFrameUpdate = () => {
+      texture.needsUpdate = true;
+    };
+    video.addEventListener('loadeddata', handleFrameUpdate);
+    video.addEventListener('seeked', handleFrameUpdate);
+
+    if (isPlaying && videoComp.autoPlay && videoComp.play) {
+      video.play().catch(() => {});
+    }
+
+    return () => {
+      video.removeEventListener('loadeddata', handleFrameUpdate);
+      video.removeEventListener('seeked', handleFrameUpdate);
+      video.pause();
+      if (document.body.contains(video)) {
+        document.body.removeChild(video);
+      }
+      video.removeAttribute('src');
+      video.load();
+      texture.dispose();
+      setVideoTexture(null);
+    };
+  }, [videoComp.videoUrl, isPlaying]);
+
+  // Controle de reprodução em tempo real
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    video.loop = videoComp.loop ?? true;
+    video.muted = videoComp.muted ?? false;
+    video.volume = videoComp.volume ?? 1.0;
+
+    if (isPlaying) {
+      if (videoComp.play) {
+        video.play().catch(() => {});
+      } else {
+        video.pause();
+      }
+    } else {
+      video.pause();
+    }
+  }, [videoComp.play, videoComp.loop, videoComp.muted, videoComp.volume, isPlaying]);
+
+  // Força atualização da textura a cada frame de renderização e atualiza a luz emissiva se ativo
+  useFrame(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (videoTexture && !video.paused) {
+      videoTexture.needsUpdate = true;
+
+      // Se a influência de luz estiver ativada, lê a cor média do frame do vídeo
+      if (videoComp.lightInfluence) {
+        if (!canvasRef.current) {
+          canvasRef.current = document.createElement('canvas');
+          canvasRef.current.width = 1;
+          canvasRef.current.height = 1;
+          ctxRef.current = canvasRef.current.getContext('2d');
+        }
+
+        const canvas = canvasRef.current;
+        const ctx = ctxRef.current;
+        if (ctx) {
+          try {
+            // Desenha o frame atual reduzido no canvas de 1x1 pixel
+            ctx.drawImage(video, 0, 0, 1, 1);
+            const pixel = ctx.getImageData(0, 0, 1, 1).data;
+            
+            // Atualiza a cor da pointLight física com o RGB extraído do frame
+            if (pointLightRef.current) {
+              pointLightRef.current.color.setRGB(pixel[0] / 255, pixel[1] / 255, pixel[2] / 255);
+            }
+          } catch (e) {
+            // Evita erros de segurança do canvas por restrições de CORS
+          }
+        }
+      }
+    }
+
+    // Gerenciamento de input (teclado e controle) se o simulador estiver rodando
+    if (isPlaying) {
+      const wasKeyPressedThisFrame = (code: string) => {
+        const isPressed = Input.getKey(code);
+        const wasPressed = !!lastKeysPressed.current[code];
+        lastKeysPressed.current[code] = isPressed;
+        return isPressed && !wasPressed;
+      };
+
+      const wasGamepadButtonPressedThisFrame = (btn: string) => {
+        const isPressed = Input.getGamepadButton(btn);
+        const wasPressed = !!lastGamepadPressed.current[btn];
+        lastGamepadPressed.current[btn] = isPressed;
+        return isPressed && !wasPressed;
+      };
+
+      // 1. Alternar Play/Pause com Triângulo (D) no Gamepad
+      if (wasGamepadButtonPressedThisFrame('D')) {
+        if (video.paused) {
+          video.play().catch(() => {});
+          useEditorStore.getState().updateComponent(entity.id, 'VideoMesh', { play: true });
+        } else {
+          video.pause();
+          useEditorStore.getState().updateComponent(entity.id, 'VideoMesh', { play: false });
+        }
+      }
+
+      // 2. Avançar / Retroceder com Teclado (ArrowLeft/ArrowRight) ou Gamepad (L2/R2)
+      const stepSeconds = 5; // Salto de 5 segundos
+      if (wasKeyPressedThisFrame('ArrowLeft') || wasGamepadButtonPressedThisFrame('L2')) {
+        video.currentTime = Math.max(0, video.currentTime - stepSeconds);
+      }
+      if (wasKeyPressedThisFrame('ArrowRight') || wasGamepadButtonPressedThisFrame('R2')) {
+        video.currentTime = Math.min(video.duration || 0, video.currentTime + stepSeconds);
+      }
+    }
+  });
+
+  // Define qual o side do material (renderizar por dentro na esfera)
+  const side = (projection === 'sphere360' || projection === 'sphere180') ? THREE.BackSide : THREE.DoubleSide;
+
+  const lightElement = videoComp.lightInfluence && (
+    <pointLight
+      ref={pointLightRef}
+      position={[0, 0, 0.8]} // Ligeiramente à frente da tela
+      intensity={videoComp.lightIntensity ?? 2.0}
+      distance={videoComp.lightDistance ?? 15.0}
+      decay={1.2}
+      castShadow={false}
+    />
+  );
+
+  if (stereoMode === 'none') {
+    return (
+      <group>
+        <mesh>
+          <StereoGeometry
+            projection={projection}
+            stereoMode={stereoMode}
+            eye="none"
+            width={width}
+            height={height}
+            segmentsX={segmentsX}
+            segmentsY={segmentsY}
+            curveAmount={curveAmount}
+            curveDirection={curveDirection}
+          />
+          <meshBasicMaterial
+            ref={mat1Ref}
+            side={side}
+            toneMapped={false}
+            map={videoTexture || undefined}
+          />
+          {isSelected && !isGameView && (
+            <Edges scale={1.01} color="#44aaff" />
+          )}
+        </mesh>
+        {lightElement}
+      </group>
+    );
+  }
+
+  // Se for estereoscópico (SBS ou TB), renderiza dois meshes (olho esquerdo e olho direito) + a luz física
+  return (
+    <group>
+      {/* Olho Esquerdo (Visível no olho esquerdo no VR e na tela desktop) */}
+      <mesh ref={leftMeshRef}>
+        <StereoGeometry
+          projection={projection}
+          stereoMode={stereoMode}
+          eye="left"
+          width={width}
+          height={height}
+          segmentsX={segmentsX}
+          segmentsY={segmentsY}
+          curveAmount={curveAmount}
+          curveDirection={curveDirection}
+        />
+        <meshBasicMaterial
+          ref={mat2Ref}
+          side={side}
+          toneMapped={false}
+          map={videoTexture || undefined}
+        />
+        {isSelected && !isGameView && (
+          <Edges scale={1.01} color="#44aaff" />
+        )}
+      </mesh>
+
+      {/* Olho Direito (Apenas visível no olho direito no VR) */}
+      <mesh ref={rightMeshRef}>
+        <StereoGeometry
+          projection={projection}
+          stereoMode={stereoMode}
+          eye="right"
+          width={width}
+          height={height}
+          segmentsX={segmentsX}
+          segmentsY={segmentsY}
+          curveAmount={curveAmount}
+          curveDirection={curveDirection}
+        />
+        <meshBasicMaterial
+          ref={mat3Ref}
+          side={side}
+          toneMapped={false}
+          map={videoTexture || undefined}
+        />
+      </mesh>
+      {lightElement}
+    </group>
+  );
+};
 
 // ── Audio Listener Global Singleton ──────────────────────────
 let globalAudioListener: THREE.AudioListener | null = null;
@@ -33,7 +718,7 @@ function GlobalAudioListenerHandler() {
     const resumeContext = () => {
       if (listener.context && listener.context.state === 'suspended') {
         listener.context.resume().then(() => {
-          console.log("🔊 AudioContext retomado via evento de captura.");
+          console.log("AudioContext retomado via evento de captura.");
           cleanup();
         }).catch(err => {
           console.warn("Falha ao retomar AudioContext:", err);
@@ -80,7 +765,7 @@ function GlobalAudioListenerHandler() {
     if (isPlaying) {
       if (listener && listener.context && listener.context.state === 'suspended') {
         listener.context.resume().then(() => {
-          console.log('🔊 AudioContext retomado ao iniciar simulacao (Play).');
+          console.log('AudioContext retomado ao iniciar simulacao (Play).');
         }).catch(err => {
           console.warn("Falha ao retomar AudioContext no Play:", err);
         });
@@ -90,7 +775,7 @@ function GlobalAudioListenerHandler() {
       // Suspende o AudioContext principal do Three.js para garantir silêncio absoluto
       if (listener && listener.context && listener.context.state === 'running') {
         listener.context.suspend().then(() => {
-          console.log('🔇 AudioContext suspenso ao parar simulacao (Stop).');
+          console.log('AudioContext suspenso ao parar simulacao (Stop).');
         }).catch(err => {
           console.warn("Falha ao suspender AudioContext no Stop:", err);
         });
@@ -240,6 +925,15 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
       if (camera.rotation) {
         ref.current.rotation.set(camera.rotation[0], camera.rotation[1], camera.rotation[2]);
       }
+      
+      // Neutraliza a escala herdada do pai (ex: Drone) na câmera de renderização para evitar distorcer o mundo
+      if (ref.current.parent) {
+        const parentScale = new THREE.Vector3();
+        ref.current.parent.getWorldScale(parentScale);
+        if (parentScale.x !== 0 && parentScale.y !== 0 && parentScale.z !== 0) {
+          ref.current.scale.set(1 / parentScale.x, 1 / parentScale.y, 1 / parentScale.z);
+        }
+      }
     }
 
     if (state.gl.xr.isPresenting) {
@@ -301,8 +995,18 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
 
         // Atualizar a posicao do crosshair para grudar no rosto do jogador usando a pose sincronizada
         if (crosshairRef.current && subCam) {
-          crosshairRef.current.position.copy(subCamPos);
-          crosshairRef.current.quaternion.copy(subCamQuat);
+          const localPos = subCamPos.clone();
+          const localQuat = subCamQuat.clone();
+
+          if (crosshairRef.current.parent) {
+            crosshairRef.current.parent.worldToLocal(localPos);
+            const parentWorldQuat = new THREE.Quaternion();
+            crosshairRef.current.parent.getWorldQuaternion(parentWorldQuat);
+            localQuat.premultiply(parentWorldQuat.invert());
+          }
+
+          crosshairRef.current.position.copy(localPos);
+          crosshairRef.current.quaternion.copy(localQuat);
           crosshairRef.current.translateZ(-1.5);
         }
       }
@@ -365,6 +1069,16 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
 
         for (const gp of gamepads) {
           if (gp && gp.connected) {
+            // Skip Android motion sensors / gyros often reported as gamepads in Chrome
+            const idLower = gp.id ? gp.id.toLowerCase() : '';
+            if (idLower.includes('sensor') || idLower.includes('motion') || idLower.includes('accelerometer') || idLower.includes('gyro')) {
+              continue;
+            }
+            // Skip devices with no buttons
+            if (!gp.buttons || gp.buttons.length === 0) {
+              continue;
+            }
+
             if (gp.axes.length > Math.max(config.moveAxisX, config.moveAxisY)) {
               const gpX = gp.axes[config.moveAxisX];
               const gpY = gp.axes[config.moveAxisY];
@@ -448,7 +1162,7 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
           }
         }
 
-        // 2. Movimentação Suave do Player
+        // 2. Movimentação Suave do Player com suporte a Corrida (Sprint) lido do Script
         const forward = forwardVec.current.copy(gazeDirectionRef.current);
         forward.y = 0;
         forward.normalize();
@@ -457,9 +1171,58 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
         right.crossVectors(forward, new THREE.Vector3(0, 1, 0));
         right.normalize();
 
-        // Reduz a velocidade se estiver agachado
+        // Extrai variáveis públicas de velocidade e botões do Script do Player
+        let sprintSpeedVal = 8.0;
+        let speedVal = 5.0;
+        let gamepadSprintBtn = 'L2';
+        let keySprintCode = 'ShiftLeft';
+
+        const playerScript = targetEntity?.components?.Script as any;
+        if (playerScript && playerScript.code) {
+          const codeStr = playerScript.code;
+          const speedMatch = codeStr.match(/^export\s+let\s+speed\s*=\s*(.+?);?$/m);
+          if (speedMatch) speedVal = parseFloat(speedMatch[1]) || 5.0;
+
+          const sprintMatch = codeStr.match(/^export\s+let\s+sprintSpeed\s*=\s*(.+?);?$/m);
+          if (sprintMatch) sprintSpeedVal = parseFloat(sprintMatch[1]) || 8.0;
+
+          const gamepadSprintMatch = codeStr.match(/^export\s+let\s+gamepadSprint\s*=\s*["'](.+?)["'];?$/m);
+          if (gamepadSprintMatch) gamepadSprintBtn = gamepadSprintMatch[1];
+
+          const keySprintMatch = codeStr.match(/^export\s+let\s+keySprint\s*=\s*["'](.+?)["'];?$/m);
+          if (keySprintMatch) keySprintCode = keySprintMatch[1];
+        }
+
+        // Verifica se o sprint está pressionado nos controles nativos VR ou no Input global
+        let sprintPressed = false;
+        for (const source of session.inputSources) {
+          if (source.gamepad) {
+            const buttons = source.gamepad.buttons;
+            if (source.handedness === 'left') {
+              if (gamepadSprintBtn === 'L2' && buttons.length > 0 && buttons[0].pressed) {
+                sprintPressed = true;
+              }
+              if (gamepadSprintBtn === 'L1' && buttons.length > 1 && buttons[1].pressed) {
+                sprintPressed = true;
+              }
+            } else if (source.handedness === 'right') {
+              if (gamepadSprintBtn === 'R2' && buttons.length > 0 && buttons[0].pressed) {
+                sprintPressed = true;
+              }
+              if (gamepadSprintBtn === 'R1' && buttons.length > 1 && buttons[1].pressed) {
+                sprintPressed = true;
+              }
+            }
+          }
+        }
+        if (Input.getGamepadButton(gamepadSprintBtn) || Input.getKey(keySprintCode)) {
+          sprintPressed = true;
+        }
+
+        const currentSpeed = sprintPressed ? sprintSpeedVal : speedVal;
         const speedMultiplier = isCrouching.current ? 0.5 : 1.0;
-        const moveSpeed = 4.0 * speedMultiplier;
+        const moveSpeed = currentSpeed * speedMultiplier;
+
         const move = moveVec.current
           .set(0, 0, 0)
           .addScaledVector(forward, -moveZ)
@@ -526,9 +1289,21 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
         near={camera.near}
         far={camera.far}
       />
+      {gl.xr.isPresenting && (
+        <>
+          {camera.showCrosshair && (
+            <mesh ref={crosshairRef} renderOrder={9999}>
+              <ringGeometry args={[0.015, 0.02, 32]} />
+              <meshBasicMaterial color="#ffffff" transparent opacity={0.8} depthTest={false} depthWrite={false} />
+            </mesh>
+          )}
+          <HUD3D />
+        </>
+      )}
     </>
   );
 }
+
 
 // ── VR Teleport Ring ──────────────────────────────────────────
 // Only rendered in /preview (StandalonePlayer), inside <XR>.
@@ -608,7 +1383,7 @@ function VRTeleportRing({ entity }: { entity: Entity }) {
 }
 
 // ── Audio Helper Components (Spatial and 2D with volume and delay) ──
-function Audio2D({ url, loop, volume }: { url: string; loop: boolean; volume: number }) {
+function Audio2D({ url, loop, volume, playbackRate }: { url: string; loop: boolean; volume: number; playbackRate?: number }) {
   const groupRef = useRef<THREE.Group>(null);
   const audioRef = useRef<THREE.Audio | null>(null);
 
@@ -618,6 +1393,8 @@ function Audio2D({ url, loop, volume }: { url: string; loop: boolean; volume: nu
     const sound = new THREE.Audio(listener);
     sound.setVolume(volume);
     sound.setLoop(loop);
+    const rate = typeof playbackRate === 'number' ? playbackRate : 1.0;
+    sound.setPlaybackRate(rate);
 
     audioRef.current = sound;
 
@@ -692,12 +1469,14 @@ function Audio2D({ url, loop, volume }: { url: string; loop: boolean; volume: nu
     };
   }, [url, loop]);
 
-  // Atualiza volume em tempo real pelo GainNode do Three.js
+  // Atualiza volume e playbackRate em tempo real pelo GainNode do Three.js
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.setVolume(volume);
+      const rate = typeof playbackRate === 'number' ? playbackRate : 1.0;
+      audioRef.current.setPlaybackRate(rate);
     }
-  }, [volume]);
+  }, [volume, playbackRate]);
 
   return <group ref={groupRef} />;
 }
@@ -709,7 +1488,8 @@ function SpatialAudio({
   refDistance,
   rolloffFactor,
   maxDistance,
-  distanceModel
+  distanceModel,
+  playbackRate
 }: { 
   url: string; 
   loop: boolean; 
@@ -718,6 +1498,7 @@ function SpatialAudio({
   rolloffFactor?: number;
   maxDistance?: number;
   distanceModel?: 'linear' | 'inverse' | 'exponential';
+  playbackRate?: number;
 }) {
   const groupRef = useRef<THREE.Group>(null);
   const audioRef = useRef<THREE.PositionalAudio | null>(null);
@@ -732,6 +1513,7 @@ function SpatialAudio({
     const rFactor = typeof rolloffFactor === 'number' ? rolloffFactor : 1;
     const mDist = typeof maxDistance === 'number' ? maxDistance : 100;
     const model = distanceModel || 'linear';
+    const rate = typeof playbackRate === 'number' ? playbackRate : 1.0;
     
     sound.setRefDistance(rDist);
     sound.setRolloffFactor(rFactor);
@@ -739,6 +1521,7 @@ function SpatialAudio({
     sound.setDistanceModel(model);
     sound.setVolume(volume ?? 1.0);
     sound.setLoop(loop);
+    sound.setPlaybackRate(rate);
 
     audioRef.current = sound;
     
@@ -822,13 +1605,15 @@ function SpatialAudio({
       const rFactor = typeof rolloffFactor === 'number' ? rolloffFactor : 1;
       const mDist = typeof maxDistance === 'number' ? maxDistance : 100;
       const model = distanceModel || 'linear';
+      const rate = typeof playbackRate === 'number' ? playbackRate : 1.0;
       
       sound.setRefDistance(rDist);
       sound.setRolloffFactor(rFactor);
       sound.setMaxDistance(mDist);
       sound.setDistanceModel(model);
+      sound.setPlaybackRate(rate);
     }
-  }, [volume, refDistance, rolloffFactor, maxDistance, distanceModel]);
+  }, [volume, refDistance, rolloffFactor, maxDistance, distanceModel, playbackRate]);
 
   return <group ref={groupRef} />;
 }
@@ -845,6 +1630,7 @@ interface OrionAudioProps {
   rolloffFactor?: number;
   maxDistance?: number;
   distanceModel?: 'linear' | 'inverse' | 'exponential';
+  playbackRate?: number;
 }
 
 function OrionAudioComponent({ 
@@ -858,7 +1644,8 @@ function OrionAudioComponent({
   refDistance,
   rolloffFactor,
   maxDistance,
-  distanceModel
+  distanceModel,
+  playbackRate
 }: OrionAudioProps) {
   const [shouldPlay, setShouldPlay] = useState(false);
 
@@ -887,15 +1674,16 @@ function OrionAudioComponent({
         rolloffFactor={rolloffFactor}
         maxDistance={maxDistance}
         distanceModel={distanceModel}
+        playbackRate={playbackRate}
       />
     );
   } else {
-    return <Audio2D url={src} loop={loop} volume={volume ?? 1.0} />;
+    return <Audio2D url={src} loop={loop} volume={volume ?? 1.0} playbackRate={playbackRate} />;
   }
 }
 
-const mapColliderType = (type: string | undefined): 'cuboid' | 'ball' | 'hull' | 'trimesh' | false => {
-  if (!type || type === 'none') return false;
+const mapColliderType = (type: any): 'cuboid' | 'ball' | 'hull' | 'trimesh' | false => {
+  if (!type || typeof type !== 'string' || type === 'none') return false;
   const t = type.toLowerCase();
   if (t === 'cuboid' || t === 'box') return 'cuboid';
   if (t === 'ball' || t === 'sphere') return 'ball';
@@ -903,6 +1691,73 @@ const mapColliderType = (type: string | undefined): 'cuboid' | 'ball' | 'hull' |
   if (t === 'hull' || t === 'cylinder' || t === 'capsule') return 'hull';
   return 'cuboid';
 };
+
+function CustomDirectionalLight({ light, shadowMapSize }: { light: any; shadowMapSize: number }) {
+  const dirLightRef = useRef<THREE.DirectionalLight>(null);
+
+  useEffect(() => {
+    if (dirLightRef.current) {
+      const directionalLight = dirLightRef.current;
+      if (!directionalLight.target.parent) {
+        const target = new THREE.Object3D();
+        target.position.set(0, 0, -1);
+        directionalLight.add(target);
+        directionalLight.target = target;
+      }
+    }
+  }, [light]);
+
+  return (
+    <directionalLight
+      ref={dirLightRef}
+      position={[0, 0, 0]}
+      color={light.color}
+      intensity={light.intensity}
+      castShadow={light.castShadow}
+      shadow-bias={-0.0005}
+      shadow-normalBias={0.02}
+      shadow-mapSize={[shadowMapSize, shadowMapSize]}
+      shadow-camera-left={-30}
+      shadow-camera-right={30}
+      shadow-camera-top={30}
+      shadow-camera-bottom={-30}
+      shadow-camera-near={0.1}
+      shadow-camera-far={150}
+    />
+  );
+}
+
+function CustomSpotLight({ light, shadowMapSize }: { light: any; shadowMapSize: number }) {
+  const spotLightRef = useRef<THREE.SpotLight>(null);
+
+  useEffect(() => {
+    if (spotLightRef.current) {
+      const spotLight = spotLightRef.current;
+      if (!spotLight.target.parent) {
+        const target = new THREE.Object3D();
+        target.position.set(0, 0, -1);
+        spotLight.add(target);
+        spotLight.target = target;
+      }
+    }
+  }, [light]);
+
+  return (
+    <spotLight
+      ref={spotLightRef}
+      position={[0, 0, 0]}
+      color={light.color}
+      intensity={light.intensity}
+      castShadow={light.castShadow}
+      decay={1}
+      shadow-bias={-0.0005}
+      shadow-normalBias={0.02}
+      shadow-mapSize={[shadowMapSize, shadowMapSize]}
+      shadow-camera-near={0.1}
+      shadow-camera-far={150}
+    />
+  );
+}
 
 export function EntityMesh({ entity, entities }: { entity: Entity; entities: Record<string, Entity> }) {
   const meshRef = useRef<THREE.Mesh>(null!);
@@ -917,7 +1772,8 @@ export function EntityMesh({ entity, entities }: { entity: Entity; entities: Rec
     snapEnabled,
     snapValue,
     setRigidBodyRef,
-    activeViewport
+    activeViewport,
+    showLighting
   } = useEditorStore(useShallow(s => ({
     selectedEntityId: s.selectedEntityId,
     selectEntity: s.selectEntity,
@@ -927,7 +1783,8 @@ export function EntityMesh({ entity, entities }: { entity: Entity; entities: Rec
     snapEnabled: s.snapEnabled,
     snapValue: s.snapValue,
     setRigidBodyRef: s.setRigidBodyRef,
-    activeViewport: s.activeViewport
+    activeViewport: s.activeViewport,
+    showLighting: s.showLighting
   })));
 
   const isGameView = activeViewport === 'game';
@@ -939,6 +1796,179 @@ export function EntityMesh({ entity, entities }: { entity: Entity; entities: Rec
   const audio = entity.components.Audio;
   const particles = entity.components.ParticleSystem;
   const camera = entity.components.Camera;
+  const customCollider = entity.components.Collider as any;
+  const colliderScale = customCollider?.scale || [1, 1, 1];
+  const colliderOffset = customCollider?.offset || [0, 0, 0];
+  const textureComp = entity.components.Texture as any;
+
+  const [texture, setTexture] = useState<THREE.Texture | null>(null);
+  const [normalTexture, setNormalTexture] = useState<THREE.Texture | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    let objectUrl: string | null = null;
+    let normalObjectUrl: string | null = null;
+
+    const tilingX = textureComp?.tilingX ?? 1;
+    const tilingY = textureComp?.tilingY ?? 1;
+    const offsetX = textureComp?.offsetX ?? 0;
+    const offsetY = textureComp?.offsetY ?? 0;
+
+    // 1. Carrega Albedo Texture
+    if (textureComp?.textureUrl) {
+      fetch(textureComp.textureUrl)
+        .then((res) => {
+          if (!res.ok) throw new Error('Falha ao baixar imagem da textura');
+          return res.blob();
+        })
+        .then((blob) => {
+          if (!active) return;
+          objectUrl = URL.createObjectURL(blob);
+          const loader = new THREE.TextureLoader();
+          loader.load(
+            objectUrl,
+            (tex) => {
+              if (!active) return;
+              tex.colorSpace = THREE.SRGBColorSpace;
+              tex.wrapS = THREE.RepeatWrapping;
+              tex.wrapT = THREE.RepeatWrapping;
+              tex.repeat.set(tilingX, tilingY);
+              tex.offset.set(offsetX, offsetY);
+              tex.needsUpdate = true;
+              setTexture(tex);
+            },
+            undefined,
+            (err) => {
+              console.error("Erro no TextureLoader da textura Albedo:", err);
+            }
+          );
+        })
+        .catch((err) => {
+          console.error("Erro no fetch da textura Albedo em SceneEntities:", err);
+          if (active) setTexture(null);
+        });
+    } else {
+      setTexture(null);
+    }
+
+    // 2. Carrega Normal Map Texture
+    if (textureComp?.normalMapUrl) {
+      fetch(textureComp.normalMapUrl)
+        .then((res) => {
+          if (!res.ok) throw new Error('Falha ao baixar normal map');
+          return res.blob();
+        })
+        .then((blob) => {
+          if (!active) return;
+          normalObjectUrl = URL.createObjectURL(blob);
+          const loader = new THREE.TextureLoader();
+          loader.load(
+            normalObjectUrl,
+            (tex) => {
+              if (!active) return;
+              tex.colorSpace = THREE.NoColorSpace;
+              tex.wrapS = THREE.RepeatWrapping;
+              tex.wrapT = THREE.RepeatWrapping;
+              tex.repeat.set(tilingX, tilingY);
+              tex.offset.set(offsetX, offsetY);
+              tex.needsUpdate = true;
+              setNormalTexture(tex);
+            },
+            undefined,
+            (err) => {
+              console.error("Erro no TextureLoader do Normal Map:", err);
+            }
+          );
+        })
+        .catch((err) => {
+          console.error("Erro no fetch do Normal Map em SceneEntities:", err);
+          if (active) setNormalTexture(null);
+        });
+    } else {
+      setNormalTexture(null);
+    }
+
+    return () => {
+      active = false;
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+      if (normalObjectUrl) {
+        URL.revokeObjectURL(normalObjectUrl);
+      }
+    };
+  }, [
+    textureComp?.textureUrl,
+    textureComp?.normalMapUrl,
+    textureComp?.tilingX,
+    textureComp?.tilingY,
+    textureComp?.offsetX,
+    textureComp?.offsetY
+  ]);
+
+  // Se tem Animator
+  const animatorComp = entity.components.Animator as any;
+
+  // -- Material Mapping --
+  const matProps: any = { color: mesh?.color || '#ffffff' };
+
+  const renderCustomColliderPhysics = (entityScale: [number, number, number]) => {
+    if (!customCollider) return null;
+
+    const args: any = [];
+    if (customCollider.shape === 'cuboid') {
+      args.push(
+        colliderScale[0] * entityScale[0],
+        colliderScale[1] * entityScale[1],
+        colliderScale[2] * entityScale[2]
+      );
+    }
+    if (customCollider.shape === 'ball') {
+      const maxScale = Math.max(entityScale[0], entityScale[1], entityScale[2]);
+      args.push(colliderScale[0] * maxScale);
+    }
+    if (customCollider.shape === 'capsule') {
+      const radiusScale = Math.max(entityScale[0], entityScale[2]);
+      args.push(
+        colliderScale[1] * entityScale[1], // halfHeight
+        colliderScale[0] * radiusScale // radius
+      );
+    }
+    if (customCollider.shape === 'cylinder') {
+      const radiusScale = Math.max(entityScale[0], entityScale[2]);
+      args.push(
+        colliderScale[1] * entityScale[1], // halfHeight
+        colliderScale[0] * radiusScale // radius
+      );
+    }
+    if (customCollider.shape === 'cone') {
+      const radiusScale = Math.max(entityScale[0], entityScale[2]);
+      args.push(
+        colliderScale[1] * entityScale[1], // halfHeight
+        colliderScale[0] * radiusScale // radius
+      );
+    }
+
+    const scaledOffset: [number, number, number] = [
+      colliderOffset[0] * entityScale[0],
+      colliderOffset[1] * entityScale[1],
+      colliderOffset[2] * entityScale[2]
+    ];
+
+    const props = {
+      args,
+      position: scaledOffset,
+      sensor: customCollider.isTrigger,
+      restitution: customCollider.restitution ?? 0.0
+    };
+
+    if (customCollider.shape === 'cuboid') return <CuboidCollider {...props} />;
+    if (customCollider.shape === 'ball') return <BallCollider {...props} />;
+    if (customCollider.shape === 'capsule') return <CapsuleCollider {...props} />;
+    if (customCollider.shape === 'cylinder') return <CylinderCollider {...props} />;
+    if (customCollider.shape === 'cone') return <ConeCollider {...props} />;
+    return null;
+  };
 
   if (!transform) return null;
   if (!entity.active) return null;
@@ -965,6 +1995,7 @@ export function EntityMesh({ entity, entities }: { entity: Entity; entities: Rec
               rolloffFactor={audio.rolloffFactor}
               maxDistance={audio.maxDistance}
               distanceModel={audio.distanceModel}
+              playbackRate={audio.playbackRate}
             />
           )}
           {particles && (
@@ -1109,54 +2140,67 @@ export function EntityMesh({ entity, entities }: { entity: Entity; entities: Rec
   function renderMaterial() {
     if (!mesh) return null;
     const color = mesh.color;
+    const ns = textureComp?.normalScale ?? 1;
+
+    // A chave UUID inclui a normalTexture para remontar o shader caso o normal map seja anexado/removido
+    const materialKey = `${texture ? texture.uuid : 'no-tex'}-${normalTexture ? normalTexture.uuid : 'no-norm'}`;
+
     switch (mesh.material) {
-      case 'basic': return <meshBasicMaterial color={color} />;
-      case 'phong': return <meshPhongMaterial color={color} />;
+      case 'basic': 
+        return <meshBasicMaterial key={materialKey} color={color} map={texture || undefined} />;
+      case 'phong': 
+        return (
+          <meshPhongMaterial 
+            key={materialKey} 
+            color={color} 
+            map={texture || undefined} 
+            normalMap={normalTexture || undefined}
+            normalScale={new THREE.Vector2(ns, ns)}
+          />
+        );
       case 'wireframe': return <meshBasicMaterial color={color} wireframe />;
       case 'invisible': return <meshBasicMaterial color={color} transparent opacity={0.3} wireframe visible={!isGameView && !isStandalone} />;
       case 'emissive':
         return (
           <meshStandardMaterial
+            key={materialKey}
             color={color}
             emissive={color}
             emissiveIntensity={mesh.emissiveIntensity ?? 2.0}
             roughness={mesh.roughness ?? 0.2}
             metalness={mesh.metalness ?? 0.1}
+            map={texture || undefined}
+            normalMap={normalTexture || undefined}
+            normalScale={[ns, ns]}
           />
         );
       default:
         return (
           <meshStandardMaterial
+            key={materialKey}
             color={color}
             roughness={mesh.roughness ?? 0.6}
             metalness={mesh.metalness ?? 0.1}
+            map={texture || undefined}
+            normalMap={normalTexture || undefined}
+            normalScale={[ns, ns]}
           />
         );
     }
   };
 
   function renderLight() {
-    if (!light) return null;
+    if (!light || (!showLighting && !isGameView)) return null;
     const isMobile = typeof navigator !== 'undefined' && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
     const shadowMapSize = isMobile ? 512 : 1024;
 
     // Como esta função é renderizada dentro do container <mesh> que já possui a posição global definida em `pos`,
-    // as luzes locais (point e spot) devem ter posição local [0, 0, 0] para coincidir com a posição visual da entidade no editor.
+    // as luzes locais (point, directional e spot) devem ter posição local [0, 0, 0] para coincidir com a posição visual da entidade no editor.
     // Também adicionamos decay={1} para melhorar a visibilidade em intensidades mais baixas.
     // Adicionamos shadow-bias e shadow-normalBias para evitar o efeito "shadow acne" (listras indesejadas no modelo 3D).
     switch (light.lightType) {
       case 'directional':
-        return (
-          <directionalLight
-            position={pos}
-            color={light.color}
-            intensity={light.intensity}
-            castShadow={light.castShadow}
-            shadow-bias={-0.0005}
-            shadow-normalBias={0.02}
-            shadow-mapSize={[shadowMapSize, shadowMapSize]}
-          />
-        );
+        return <CustomDirectionalLight light={light} shadowMapSize={shadowMapSize} />;
       case 'point':
         return (
           <pointLight
@@ -1171,18 +2215,7 @@ export function EntityMesh({ entity, entities }: { entity: Entity; entities: Rec
           />
         );
       case 'spot':
-        return (
-          <spotLight
-            position={[0, 0, 0]}
-            color={light.color}
-            intensity={light.intensity}
-            castShadow={light.castShadow}
-            decay={1}
-            shadow-bias={-0.0005}
-            shadow-normalBias={0.02}
-            shadow-mapSize={[shadowMapSize, shadowMapSize]}
-          />
-        );
+        return <CustomSpotLight light={light} shadowMapSize={shadowMapSize} />;
       default:
         return null;
     }
@@ -1201,7 +2234,7 @@ export function EntityMesh({ entity, entities }: { entity: Entity; entities: Rec
         userData={{ entityId: entity.id }}
       >
         <sphereGeometry args={[0.2, 8, 8]} />
-        <meshBasicMaterial color={light ? light.color : "#ffffff"} wireframe opacity={0.3} transparent visible={!isGameView} />
+        <meshBasicMaterial color={light ? light.color : "#ffffff"} wireframe opacity={0.3} transparent visible={!isGameView && !entity.components.VideoMesh && !entity.components.HUDPlane} />
 
         {renderLight()}
         {audio && audio.src && (
@@ -1217,6 +2250,7 @@ export function EntityMesh({ entity, entities }: { entity: Entity; entities: Rec
             rolloffFactor={audio.rolloffFactor}
             maxDistance={audio.maxDistance}
             distanceModel={audio.distanceModel}
+            playbackRate={audio.playbackRate}
           />
         )}
         {particles && (
@@ -1237,11 +2271,33 @@ export function EntityMesh({ entity, entities }: { entity: Entity; entities: Rec
             isStandalone={isStandalone}
           />
         )}
+        {entity.components.HUDPlane && (
+          <HUDPlaneRenderer
+            entity={entity}
+            isGameView={isGameView}
+          />
+        )}
+        {entity.components.VideoMesh && (
+          <VideoMeshRenderer
+            entity={entity}
+            isGameView={isGameView}
+          />
+        )}
         {entity.childrenIds && entity.childrenIds.map(id => {
           const childEntity = entities[id];
           if (!childEntity) return null;
           return <EntityMesh key={id} entity={childEntity} entities={entities} />;
         })}
+        {customCollider && !isGameView && (
+          <mesh position={customCollider.offset}>
+            {customCollider.shape === 'cuboid' && <boxGeometry args={[customCollider.scale[0]*2, customCollider.scale[1]*2, customCollider.scale[2]*2]} />}
+            {customCollider.shape === 'ball' && <sphereGeometry args={[customCollider.scale[0]]} />}
+            {customCollider.shape === 'capsule' && <capsuleGeometry args={[customCollider.scale[0], customCollider.scale[1]*2, 4, 8]} />}
+            {customCollider.shape === 'cylinder' && <cylinderGeometry args={[customCollider.scale[0], customCollider.scale[0], customCollider.scale[1]*2, 8]} />}
+            {customCollider.shape === 'cone' && <coneGeometry args={[customCollider.scale[0], customCollider.scale[1]*2, 8]} />}
+            <meshBasicMaterial wireframe color="#00ff00" transparent opacity={0.3} depthTest={false} />
+          </mesh>
+        )}
       </mesh>
     );
 
@@ -1252,19 +2308,39 @@ export function EntityMesh({ entity, entities }: { entity: Entity; entities: Rec
             ref={(rb) => { if (rb) setRigidBodyRef(entity.id, rb); }}
             position={pos}
             rotation={rot}
-            type={rigidBody.isStatic ? 'fixed' : 'dynamic'}
+            type={rigidBody.isStatic ? 'fixed' : (rigidBody.isKinematic ? 'kinematicPosition' : 'dynamic')}
             mass={rigidBody.mass}
             gravityScale={rigidBody.useGravity ? 1 : 0}
-            colliders={mapColliderType(rigidBody.collider)}
+            linearDamping={rigidBody.drag ?? 0}
+            angularDamping={rigidBody.angularDrag ?? 0.05}
+            restitution={rigidBody.restitution ?? 0.0}
+            ccd={rigidBody.collisionDetection === 'continuous'}
+            enabledTranslations={[
+              !(rigidBody.freezePositionX ?? false),
+              !(rigidBody.freezePositionY ?? false),
+              !(rigidBody.freezePositionZ ?? false)
+            ]}
+            enabledRotations={[
+              !(rigidBody.freezeRotationX ?? false),
+              !(rigidBody.freezeRotationY ?? false),
+              !(rigidBody.freezeRotationZ ?? false)
+            ]}
+            colliders={customCollider ? false : mapColliderType(rigidBody.collider)}
           >
             {emptyMesh}
-            {rigidBody.collider === 'trimesh' && (
+            {customCollider && renderCustomColliderPhysics(scale)}
+            {(!customCollider && rigidBody.collider === 'trimesh') && (
               <MeshCollider type="trimesh">
                 <mesh geometry={(meshRef.current as any)?.geometry}>
                   <meshBasicMaterial />
                 </mesh>
               </MeshCollider>
             )}
+          </RigidBody>
+        ) : (customCollider && isPlaying && !rigidBody) ? (
+          <RigidBody type="fixed" colliders={false} position={pos} rotation={rot}>
+            {emptyMesh}
+            {renderCustomColliderPhysics(scale)}
           </RigidBody>
         ) : emptyMesh}
 
@@ -1309,6 +2385,7 @@ export function EntityMesh({ entity, entities }: { entity: Entity; entities: Rec
           rolloffFactor={audio.rolloffFactor}
           maxDistance={audio.maxDistance}
           distanceModel={audio.distanceModel}
+          playbackRate={audio.playbackRate}
         />
       )}
       {/* Particles */}
@@ -1330,9 +2407,31 @@ export function EntityMesh({ entity, entities }: { entity: Entity; entities: Rec
           isStandalone={isStandalone}
         />
       )}
+      {entity.components.HUDPlane && (
+        <HUDPlaneRenderer
+          entity={entity}
+          isGameView={isGameView}
+        />
+      )}
+      {entity.components.VideoMesh && (
+        <VideoMeshRenderer
+          entity={entity}
+          isGameView={isGameView}
+        />
+      )}
       {/* Selection outline */}
       {isSelected && !isGameView && (
         <Edges scale={1.01} color="#44aaff" />
+      )}
+      {customCollider && !isGameView && (
+        <mesh position={colliderOffset}>
+          {customCollider.shape === 'cuboid' && <boxGeometry args={[colliderScale[0]*2, colliderScale[1]*2, colliderScale[2]*2]} />}
+          {customCollider.shape === 'ball' && <sphereGeometry args={[colliderScale[0]]} />}
+          {customCollider.shape === 'capsule' && <capsuleGeometry args={[colliderScale[0], colliderScale[1]*2, 4, 8]} />}
+          {customCollider.shape === 'cylinder' && <cylinderGeometry args={[colliderScale[0], colliderScale[0], colliderScale[1]*2, 8]} />}
+          {customCollider.shape === 'cone' && <coneGeometry args={[colliderScale[0], colliderScale[1]*2, 8]} />}
+          <meshBasicMaterial wireframe color="#00ff00" transparent opacity={0.3} depthTest={false} />
+        </mesh>
       )}
       {entity.childrenIds && entity.childrenIds.map(id => {
         const childEntity = entities[id];
@@ -1349,16 +2448,36 @@ export function EntityMesh({ entity, entities }: { entity: Entity; entities: Rec
           ref={(rb) => { if (rb) setRigidBodyRef(entity.id, rb); }}
           position={pos}
           rotation={rot}
-          type={rigidBody.isStatic ? 'fixed' : 'dynamic'}
+          type={rigidBody.isStatic ? 'fixed' : (rigidBody.isKinematic ? 'kinematicPosition' : 'dynamic')}
           mass={rigidBody.mass}
           gravityScale={rigidBody.useGravity ? 1 : 0}
-          colliders={mapColliderType(rigidBody.collider)}
+          linearDamping={rigidBody.drag ?? 0}
+          angularDamping={rigidBody.angularDrag ?? 0.05}
+          restitution={rigidBody.restitution ?? 0.0}
+          ccd={rigidBody.collisionDetection === 'continuous'}
+          enabledTranslations={[
+            !(rigidBody.freezePositionX ?? false),
+            !(rigidBody.freezePositionY ?? false),
+            !(rigidBody.freezePositionZ ?? false)
+          ]}
+          enabledRotations={[
+            !(rigidBody.freezeRotationX ?? false),
+            !(rigidBody.freezeRotationY ?? false),
+            !(rigidBody.freezeRotationZ ?? false)
+          ]}
+          colliders={customCollider ? false : mapColliderType(rigidBody.collider)}
         >
-          {rigidBody.collider === 'trimesh' ? (
+          {(!customCollider && rigidBody.collider === 'trimesh') ? (
             <MeshCollider type="trimesh">
               {innerMesh}
             </MeshCollider>
           ) : innerMesh}
+          {customCollider && renderCustomColliderPhysics(scale)}
+        </RigidBody>
+      ) : (customCollider && isPlaying && !rigidBody) ? (
+        <RigidBody type="fixed" colliders={false} position={pos} rotation={rot}>
+          {innerMesh}
+          {renderCustomColliderPhysics(scale)}
         </RigidBody>
       ) : innerMesh}
 

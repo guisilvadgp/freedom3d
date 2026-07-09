@@ -66,7 +66,13 @@ export function onUpdate(delta) {
 
     const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(q);
     const right = new THREE.Vector3(1, 0, 0).applyQuaternion(q);
-    const vel = new THREE.Vector3(0, rigidBody.linvel().y, 0);
+    
+    let yVel = rigidBody.linvel().y;
+    // Zera velocidade vertical pequena contra o chão para evitar trepidação (stutter)
+    if (yVel < 0 && Math.abs(yVel) < 0.1) {
+      yVel = 0;
+    }
+    const vel = new THREE.Vector3(0, yVel, 0);
     
     let moveForward = 0;
     let moveRight = 0;
@@ -161,7 +167,13 @@ export function onUpdate(delta) {
     const qCam = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, angleX, 0));
     const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(qCam);
     const right = new THREE.Vector3(1, 0, 0).applyQuaternion(qCam);
-    const vel = new THREE.Vector3(0, rigidBody.linvel().y, 0);
+    
+    let yVel = rigidBody.linvel().y;
+    // Zera velocidade vertical pequena contra o chão para evitar trepidação (stutter)
+    if (yVel < 0 && Math.abs(yVel) < 0.1) {
+      yVel = 0;
+    }
+    const vel = new THREE.Vector3(0, yVel, 0);
     
     let isMoving = false;
     let moveForward = 0;
@@ -386,7 +398,12 @@ export function MenuBar() {
     } else {
       store.addComponent(selectedEntityId, { type: 'Script', scriptName: name, code });
     }
-    setBottomTab('script');
+    
+    // Save scene and open the external code editor
+    setTimeout(() => {
+      store.saveCurrentScene();
+      window.open(`/code-editor?entityId=${selectedEntityId}&scriptId=main`, 'Freedom3DCodeEditor', 'width=1100,height=750');
+    }, 100);
   };
 
   return (
@@ -624,11 +641,7 @@ export function MenuBar() {
                 <span>Painel: Assets Browser</span>
                 <span className="menu-shortcut">Alt + 2</span>
               </button>
-              <button onClick={() => setBottomTab('script')} className={bottomTab === 'script' ? 'checked' : ''}>
-                <CheckCircle size={13} />
-                <span>Painel: Editor de Script</span>
-                <span className="menu-shortcut">Alt + 3</span>
-              </button>
+
               <button onClick={() => setBottomTab('explorer')} className={bottomTab === 'explorer' ? 'checked' : ''}>
                 <Files size={13} />
                 <span>Painel: File Explorer</span>
@@ -665,7 +678,10 @@ export function MenuBar() {
                 <span>{isPlaying ? 'Parar Simulação (Stop)' : 'Iniciar Simulação (Play)'}</span>
                 <span className="menu-shortcut">Espaço</span>
               </button>
-              <button onClick={() => window.open('/preview', '_blank')}>
+              <button onClick={() => {
+                const url = currentProjectName ? `/preview?project=${encodeURIComponent(currentProjectName)}` : '/preview';
+                window.open(url, '_blank');
+              }}>
                 <Monitor size={13} />
                 <span>Abrir Preview em Nova Aba</span>
               </button>
@@ -774,10 +790,7 @@ export function MenuBar() {
                     <td>Focar Assets Browser</td>
                     <td><kbd>Alt</kbd> + <kbd>2</kbd></td>
                   </tr>
-                  <tr>
-                    <td>Focar Editor de Scripts</td>
-                    <td><kbd>Alt</kbd> + <kbd>3</kbd></td>
-                  </tr>
+
                 </tbody>
               </table>
             </div>

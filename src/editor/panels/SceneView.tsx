@@ -5,11 +5,54 @@ import { useEditorStore } from '../store/editorStore';
 import { SceneEntities } from './SceneEntities';
 import { GameLoop } from '../../engine/systems/GameLoop';
 import { Physics } from '@react-three/rapier';
-import { XR, createXRStore } from '@react-three/xr';
+import { XR, createXRStore, XRSpace, useXRInputSourceStateContext } from '@react-three/xr';
 import * as THREE from 'three';
-import { Eye, Gamepad } from 'lucide-react';
+import { Eye, Gamepad, Sun } from 'lucide-react';
+import { HUD2D } from '../../engine/systems/HUD';
+import { VirtualARScreen } from './VirtualARScreen';
 
-export const xrStore = createXRStore();
+const XR_JOINTS = [
+  'wrist',
+  'thumb-metacarpal', 'thumb-phalanx-proximal', 'thumb-phalanx-distal', 'thumb-tip',
+  'index-finger-metacarpal', 'index-finger-phalanx-proximal', 'index-finger-phalanx-intermediate', 'index-finger-phalanx-distal', 'index-finger-tip',
+  'middle-finger-metacarpal', 'middle-finger-phalanx-proximal', 'middle-finger-phalanx-intermediate', 'middle-finger-phalanx-distal', 'middle-finger-tip',
+  'ring-finger-metacarpal', 'ring-finger-phalanx-proximal', 'ring-finger-phalanx-intermediate', 'ring-finger-phalanx-distal', 'ring-finger-tip',
+  'pinky-finger-metacarpal', 'pinky-finger-phalanx-proximal', 'pinky-finger-phalanx-intermediate', 'pinky-finger-phalanx-distal', 'pinky-finger-tip'
+];
+
+function CustomXRHand() {
+  const state = useXRInputSourceStateContext('hand');
+  if (!state?.inputSource?.hand) return null;
+
+  return (
+    <group>
+      {XR_JOINTS.map((jointName) => {
+        // @ts-ignore
+        const jointSpace = state.inputSource.hand.get(jointName);
+        if (!jointSpace) return null;
+
+        return (
+          <XRSpace key={jointName} space={jointSpace}>
+            <mesh>
+              <sphereGeometry args={[0.015, 12, 12]} />
+              <meshStandardMaterial
+                color="#00ffd8"
+                emissive="#00ffd8"
+                emissiveIntensity={1.2}
+                roughness={0.1}
+                metalness={0.9}
+              />
+            </mesh>
+          </XRSpace>
+        );
+      })}
+    </group>
+  );
+}
+
+export const xrStore = createXRStore({
+  hand: CustomXRHand
+});
 
 let lastTeleportTime = 0;
 export function attemptTeleport(): boolean {
@@ -28,7 +71,7 @@ function LoadingTracker({
   onLoaded
 }: {
   sceneLoaded: boolean;
-  onProgress?: (progress: number) => void;
+  onProgress?: (progress: number, statusText?: string) => void;
   onLoaded?: () => void;
 }) {
   const [loadingState, setLoadingState] = useState({ active: false, progress: 0 });
@@ -41,13 +84,24 @@ function LoadingTracker({
   useEffect(() => {
     let timeout: any;
     
-    const updateState = (active: boolean, loaded: number, total: number) => {
+    const updateState = (active: boolean, loaded: number, total: number, url?: string) => {
       clearTimeout(timeout);
       timeout = setTimeout(() => {
         const progress = total > 0 ? (loaded / total) * 100 : 0;
         setLoadingState({ active, progress });
         if (onProgressRef.current) {
-          onProgressRef.current(Math.round(progress));
+          let statusText = '';
+          if (url) {
+            const parts = url.split('/');
+            let filename = parts[parts.length - 1] || '';
+            if (filename.includes('?')) {
+              filename = filename.split('?')[0];
+            }
+            statusText = filename ? `Carregando: ${decodeURIComponent(filename)}` : 'Carregando recursos...';
+          } else {
+            statusText = active ? 'Carregando recursos...' : 'Pronto!';
+          }
+          onProgressRef.current(Math.round(progress), statusText);
         }
       }, 0);
     };
@@ -59,19 +113,19 @@ function LoadingTracker({
     const origError = manager.onError;
 
     manager.onStart = (url, loaded, total) => {
-      updateState(true, loaded, total);
+      updateState(true, loaded, total, url);
       if (origStart) origStart(url, loaded, total);
     };
     manager.onProgress = (url, loaded, total) => {
-      updateState(true, loaded, total);
+      updateState(true, loaded, total, url);
       if (origProgress) origProgress(url, loaded, total);
     };
     manager.onLoad = () => {
-      updateState(false, 1, 1);
+      updateState(false, 1, 1, '');
       if (origLoad) origLoad();
     };
     manager.onError = (url) => {
-      updateState(false, 1, 1);
+      updateState(false, 1, 1, '');
       if (origError) origError(url);
     };
 
@@ -186,19 +240,80 @@ export function SceneView({
 }: {
   isStandalone?: boolean;
   sceneLoaded?: boolean;
-  onProgress?: (progress: number) => void;
+  onProgress?: (progress: number, statusText?: string) => void;
   onLoaded?: () => void;
 }) {
   const showGrid = useEditorStore(s => s.showGrid);
   const isPlaying = useEditorStore(s => s.isPlaying);
   const showGizmos = useEditorStore(s => s.showGizmos);
+  const showLighting = useEditorStore(s => s.showLighting);
   const activeViewport = useEditorStore(s => s.activeViewport);
   const setActiveViewport = useEditorStore(s => s.setActiveViewport);
   const scene = useEditorStore(s => s.scenes[s.activeSceneId]);
   const isGameView = isStandalone || activeViewport === 'game';
   const isDragging = useRef(false);
 
+  const [soccerScore, setSoccerScore] = useState<{ home: number; away: number } | null>(null);
+  const [matchTime, setMatchTime] = useState<string>("00:00");
+  const [soccerPhase, setSoccerPhase] = useState<{ phase: string; winner?: string; team?: string }>({ phase: "waiting" });
+
+  useEffect(() => {
+    const handleScoreUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail) {
+        setSoccerScore({
+          home: customEvent.detail.home ?? 0,
+          away: customEvent.detail.away ?? 0
+        });
+      }
+    };
+
+    const handleTimerUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail && customEvent.detail.formattedTime) {
+        setMatchTime(customEvent.detail.formattedTime);
+      }
+    };
+
+    const handlePhaseUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail) {
+        setSoccerPhase({
+          phase: customEvent.detail.phase,
+          winner: customEvent.detail.winner,
+          team: customEvent.detail.team
+        });
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      if ((window as any).soccerScore) {
+        setSoccerScore({
+          home: (window as any).soccerScore.home ?? 0,
+          away: (window as any).soccerScore.away ?? 0
+        });
+      }
+    }
+
+    window.addEventListener('soccer-score-updated', handleScoreUpdate);
+    window.addEventListener('soccer-timer-updated', handleTimerUpdate);
+    window.addEventListener('soccer-phase', handlePhaseUpdate);
+
+    return () => {
+      window.removeEventListener('soccer-score-updated', handleScoreUpdate);
+      window.removeEventListener('soccer-timer-updated', handleTimerUpdate);
+      window.removeEventListener('soccer-phase', handlePhaseUpdate);
+    };
+  }, []);
+
+
   if (!scene) return null;
+
+  const mainCameraEntity = Object.values(scene.entities).find(
+    entity => entity.active && entity.components.Camera?.isMain
+  );
+  const showCrosshair = mainCameraEntity?.components.Camera?.showCrosshair ?? false;
+  const antialias = mainCameraEntity?.components.Camera?.antialias ?? (!isStandalone || !('ontouchstart' in window));
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -240,6 +355,7 @@ export function SceneView({
     <>
       {!isGameView && <EditorCameraHandler />}
       <LoadingTracker sceneLoaded={sceneLoaded} onProgress={onProgress} onLoaded={onLoaded} />
+      {isStandalone && <VirtualARScreen />}
       {/* Background */}
       {scene.skyboxUrl ? (
         <Suspense fallback={<color attach="background" args={[scene.backgroundColor]} />}>
@@ -255,7 +371,11 @@ export function SceneView({
       )}
 
       {/* Ambient */}
-      <ambientLight color={scene.ambientColor} intensity={scene.ambientIntensity} />
+      {showLighting || isGameView ? (
+        <ambientLight color={scene.ambientColor} intensity={scene.ambientIntensity} />
+      ) : (
+        <ambientLight color="#ffffff" intensity={1.5} />
+      )}
 
       {/* Entities and Physics */}
       <Suspense fallback={null}>
@@ -332,6 +452,21 @@ export function SceneView({
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, background: '#1e293b', display: 'flex', padding: '4px 8px', gap: '8px', borderBottom: '1px solid #334155' }}>
           <button className="panel-btn" style={{ background: activeViewport === 'scene' ? '#3b82f6' : 'transparent', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => setActiveViewport('scene')}><Eye size={14} /> Scene</button>
           <button className="panel-btn" style={{ background: activeViewport === 'game' ? '#3b82f6' : 'transparent', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => setActiveViewport('game')}><Gamepad size={14} /> Game</button>
+          <button
+            className="panel-btn"
+            style={{
+              marginLeft: 'auto',
+              background: showLighting ? 'transparent' : '#b45309',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+            onClick={() => useEditorStore.getState().toggleLighting()}
+            title={showLighting ? "Desativar Iluminação no Editor" : "Ativar Iluminação no Editor"}
+          >
+            <Sun size={14} color={showLighting ? "#ffffff" : "#cbd5e1"} />
+            {showLighting ? "Luzes: Ligadas" : "Luzes: Desligadas"}
+          </button>
         </div>
       )}
 
@@ -343,7 +478,7 @@ export function SceneView({
       )}
 
       {/* Cursor de mira HTML puro — zero custo de processamento no game loop */}
-      {isStandalone && (
+      {isGameView && showCrosshair && (
         <div
           style={{
             position: 'absolute',
@@ -366,7 +501,27 @@ export function SceneView({
         </div>
       )}
 
+      {/* HUD Híbrido 2D (HTML) da Engine */}
+      <HUD2D isGameView={isGameView} isStandalone={isStandalone} />
+
       <div
+        onClick={() => {
+          if (isPlaying && isGameView) {
+            const canvas = document.querySelector('.scene-view canvas') as HTMLCanvasElement | null;
+            if (canvas && canvas.requestPointerLock) {
+              try {
+                const res = canvas.requestPointerLock();
+                if (res && typeof res.catch === 'function') {
+                  res.catch((err: any) => {
+                    console.warn("Pointer Lock recusado:", err);
+                  });
+                }
+              } catch (err) {
+                console.warn("Falha ao solicitar Pointer Lock:", err);
+              }
+            }
+          }
+        }}
         style={{
           width: '100%',
           height: '100%',
@@ -376,7 +531,7 @@ export function SceneView({
         <Canvas
           shadows={{ type: THREE.PCFShadowMap }}
           dpr={[1, isStandalone ? Math.min(window.devicePixelRatio, 1.5) : 2]}
-          gl={{ antialias: !isStandalone || !('ontouchstart' in window), powerPreference: 'high-performance', toneMapping: THREE.ACESFilmicToneMapping }}
+          gl={{ antialias: antialias, powerPreference: 'high-performance', toneMapping: THREE.ACESFilmicToneMapping }}
           camera={{ fov: 60, near: 0.1, far: 1000, position: [5, 5, 8] }}
           onPointerMissed={() => {
             if (!isGameView && !isDragging.current) {

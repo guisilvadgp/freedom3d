@@ -82,8 +82,28 @@ export const Input = {
     Input.gamepad.buttons = {};
     Input.gamepad.axes = [0, 0, 0, 0];
 
+    // Detecta se o XR está ativo para filtrar os controllers XR virtuais
+    const isXRActive = typeof navigator !== 'undefined' &&
+      typeof (navigator as any).xr !== 'undefined' &&
+      (document.querySelector('canvas') !== null) &&
+      !!(window as any).__freedom3d_xr_presenting__;
+
     for (const gp of gamepads) {
       if (gp && gp.connected) {
+        // Skip Android motion sensors / gyros often reported as gamepads in Chrome
+        const idLower = gp.id ? gp.id.toLowerCase() : '';
+        if (idLower.includes('sensor') || idLower.includes('motion') || idLower.includes('accelerometer') || idLower.includes('gyro')) {
+          continue;
+        }
+        // Skip OpenXR / WebXR virtual controllers (evita conflito com steering de câmera XR)
+        if (isXRActive && (idLower.includes('openvr') || idLower.includes('oculus') || idLower.includes('quest') || idLower.includes('hand'))) {
+          continue;
+        }
+        // Skip devices with no buttons
+        if (!gp.buttons || gp.buttons.length === 0) {
+          continue;
+        }
+
         if (gp.buttons.length > config.buttonA) Input.gamepad.buttons['A'] = gp.buttons[config.buttonA].pressed;
         if (gp.buttons.length > config.buttonB) Input.gamepad.buttons['B'] = gp.buttons[config.buttonB].pressed;
         if (gp.buttons.length > config.buttonC) Input.gamepad.buttons['C'] = gp.buttons[config.buttonC].pressed;

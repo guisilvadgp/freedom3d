@@ -16,6 +16,8 @@ import {
   createEmpty,
   createCapsule,
   createCamera,
+  createHUDPlane,
+  createVideoMesh,
 } from '../../engine/ecs/EntityFactory';
 
 export type EditorMode = 'select' | 'translate' | 'rotate' | 'scale';
@@ -35,7 +37,10 @@ function makeDefaultScene(): Scene {
   plane.components.RigidBody = {
     type: 'RigidBody',
     mass: 0,
+    drag: 0,
+    angularDrag: 0.05,
     isStatic: true,
+    isKinematic: false,
     useGravity: false,
     collider: 'cuboid'
   };
@@ -50,6 +55,8 @@ function makeDefaultScene(): Scene {
   return {
     id: uuidv4(),
     name: 'Main Scene',
+    roomId: uuidv4(),   // ID único da sala gerado automaticamente
+    coverImage: '',
     entities,
     rootEntityIds: [light.id, plane.id, player.id],
     backgroundColor: '#87CEEB',
@@ -89,6 +96,8 @@ interface EditorStore {
   toggleGrid: () => void;
   showGizmos: boolean;
   toggleGizmos: () => void;
+  showLighting: boolean;
+  toggleLighting: () => void;
   snapEnabled: boolean;
   toggleSnap: () => void;
   snapValue: number;
@@ -109,6 +118,7 @@ interface EditorStore {
   duplicateEntity: (id: EntityId) => void;
   renameEntity: (id: EntityId, name: string) => void;
   toggleEntityActive: (id: EntityId) => void;
+  updateEntityTags: (id: EntityId, tags: string[]) => void;
   reparentEntity: (childId: EntityId, newParentId: EntityId | null) => void;
 
   // Component operations
@@ -284,6 +294,31 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         // Salva backup da cena ativa antes de iniciar o play mode
         const activeScene = s.scenes[s.activeSceneId];
         const backup = activeScene ? JSON.parse(JSON.stringify(activeScene)) : null;
+
+        // Solicita Tela Cheia (Fullscreen) e Pointer Lock de forma paralela para preservar o token de gesto
+        setTimeout(() => {
+          const container = document.querySelector('.scene-view') || document.body;
+          const canvas = document.querySelector('.scene-view canvas') || document.querySelector('canvas');
+          
+          if (container && container.requestFullscreen) {
+            container.requestFullscreen().catch((err) => {
+              console.warn("Falha ao entrar em tela cheia:", err);
+            });
+          }
+          if (canvas && canvas.requestPointerLock) {
+            try {
+              const res = canvas.requestPointerLock();
+              if (res && typeof res.catch === 'function') {
+                res.catch((err: any) => {
+                  console.warn("Pointer Lock automático recusado pelo navegador (o usuário deve clicar na tela para travar o mouse):", err);
+                });
+              }
+            } catch (err) {
+              console.warn("Falha ao solicitar Pointer Lock:", err);
+            }
+          }
+        }, 150);
+
         return {
           isPlaying: true,
           playModeBackupScene: backup,
@@ -294,6 +329,15 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         // Restaura o backup preservando o estado original
         const backup = s.playModeBackupScene;
         const updatedScenes = backup ? { ...s.scenes, [s.activeSceneId]: backup } : s.scenes;
+
+        // Garante a saída de tela cheia e de pointer lock caso ainda estejam ativos ao parar
+        if (document.fullscreenElement) {
+          document.exitFullscreen().catch(() => {});
+        }
+        if (document.pointerLockElement) {
+          document.exitPointerLock();
+        }
+
         return {
           isPlaying: false,
           scenes: updatedScenes,
@@ -308,12 +352,14 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     toggleGrid: () => set((s) => ({ showGrid: !s.showGrid })),
     showGizmos: true,
     toggleGizmos: () => set((s) => ({ showGizmos: !s.showGizmos })),
+    showLighting: true,
+    toggleLighting: () => set((s) => ({ showLighting: !s.showLighting })),
     snapEnabled: false,
     toggleSnap: () => set((s) => ({ snapEnabled: !s.snapEnabled })),
     snapValue: 0.5,
     setSnapValue: (v) => set({ snapValue: v }),
 
-    bottomTab: 'console',
+    bottomTab: 'explorer',
     setBottomTab: (tab) => set({ bottomTab: tab }),
 
     consoleLogs: [
@@ -347,6 +393,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         case 'first-person': entity = createFirstPersonPlayer(); break;
         case 'third-person': entity = createThirdPersonPlayer(); break;
         case 'vr-position': entity = createVRPosition(); break;
+        case 'hud-plane': entity = createHUDPlane(); break;
+        case 'video-mesh': entity = createVideoMesh(); break;
         default: entity = createCube();
       }
       get().addLog('log', `Entidade criada: "${entity.name}"`);
@@ -427,6 +475,23 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             entities: {
               ...scene.entities,
               [id]: { ...scene.entities[id], name },
+            },
+          },
+        },
+        hasUnpublishedChanges: true,
+      }));
+    },
+
+    updateEntityTags: (id, tags) => {
+      const scene = get().activeScene();
+      set((s) => ({
+        scenes: {
+          ...s.scenes,
+          [scene.id]: {
+            ...scene,
+            entities: {
+              ...scene.entities,
+              [id]: { ...scene.entities[id], tags },
             },
           },
         },
@@ -846,6 +911,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         const newScene = makeDefaultScene();
         newScene.id = finalName;
         newScene.name = finalName;
+        // Garante roomId único para o projeto
+        if (!newScene.roomId) newScene.roomId = uuidv4();
 
         // Salva o scene.json inicial na pasta do projeto
         const saveResponse = await fetch('/api/project/save-scene', {
@@ -920,8 +987,20 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         if (!response.ok) throw new Error('Projeto não encontrado no disco');
         const scene = await response.json();
 
+        // Garante a existência do array rootEntityIds para evitar erros de renderização no HierarchyPanel
+        if (!scene.rootEntityIds || !Array.isArray(scene.rootEntityIds)) {
+          scene.rootEntityIds = Object.values(scene.entities || {})
+            .filter((e: any) => !e.parentId)
+            .map((e: any) => e.id);
+        }
+
+        // Garante roomId retrocompatível para projetos mais antigos
+        if (!scene.roomId) {
+          scene.roomId = id; // usa o nome do projeto como roomId (retrocompat)
+        }
+
         // Reidrata blob URLs de modelos GLTF apontando para o endpoint do projeto
-        for (const entity of Object.values(scene.entities) as any[]) {
+        for (const entity of Object.values(scene.entities || {}) as any[]) {
           if (entity.components.GLTFModel) {
             const { fileName } = entity.components.GLTFModel;
             entity.components.GLTFModel.src = `/api/project/get-asset?project=${encodeURIComponent(id)}&file=${encodeURIComponent(fileName)}`;

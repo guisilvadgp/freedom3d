@@ -2,582 +2,13 @@
   "id": "teste",
   "name": "teste",
   "entities": {
-    "cc2334e4-657c-489c-aa1a-a7581197fb8f": {
-      "id": "cc2334e4-657c-489c-aa1a-a7581197fb8f",
-      "name": "Directional Light",
+    "drone-001": {
+      "id": "drone-001",
+      "name": "Drone",
       "parentId": null,
-      "childrenIds": [],
-      "active": true,
-      "tags": [],
-      "components": {
-        "Transform": {
-          "type": "Transform",
-          "position": [
-            10,
-            30,
-            10
-          ],
-          "rotation": [
-            0,
-            0,
-            0
-          ],
-          "scale": [
-            1,
-            1,
-            1
-          ]
-        },
-        "Light": {
-          "type": "Light",
-          "lightType": "directional",
-          "color": "#ffffff",
-          "intensity": 1.5,
-          "castShadow": true
-        }
-      }
-    },
-    "9aef49b7-9277-40b4-ad83-0afa226bea2a": {
-      "id": "9aef49b7-9277-40b4-ad83-0afa226bea2a",
-      "name": "Pista Principal",
-      "parentId": null,
-      "childrenIds": [],
-      "active": true,
-      "tags": [
-        "runway"
+      "childrenIds": [
+        "cam-001"
       ],
-      "components": {
-        "Transform": {
-          "type": "Transform",
-          "position": [
-            0,
-            0,
-            -100
-          ],
-          "rotation": [
-            -90,
-            0,
-            0
-          ],
-          "scale": [
-            25,
-            300,
-            1
-          ]
-        },
-        "MeshRenderer": {
-          "type": "MeshRenderer",
-          "geometry": "plane",
-          "material": "standard",
-          "color": "#090912",
-          "castShadow": false,
-          "receiveShadow": true
-        },
-        "RigidBody": {
-          "type": "RigidBody",
-          "mass": 0,
-          "isStatic": true,
-          "useGravity": false,
-          "collider": "cuboid"
-        }
-      }
-    },
-    "asteroid-0": {
-      "id": "asteroid-0",
-      "name": "Asteroide 1",
-      "parentId": null,
-      "childrenIds": [],
-      "active": true,
-      "tags": [
-        "obstacle"
-      ],
-      "components": {
-        "Transform": {
-          "type": "Transform",
-          "position": [
-            5,
-            4,
-            -40
-          ],
-          "rotation": [
-            14.838571685034607,
-            2.8294038116809266,
-            0
-          ],
-          "scale": [
-            4.414456807159381,
-            4.414456807159381,
-            4.414456807159381
-          ]
-        },
-        "MeshRenderer": {
-          "type": "MeshRenderer",
-          "geometry": "box",
-          "material": "standard",
-          "color": "#4a4b54",
-          "castShadow": true,
-          "receiveShadow": true
-        },
-        "RigidBody": {
-          "type": "RigidBody",
-          "mass": 0,
-          "isStatic": true,
-          "useGravity": false,
-          "collider": "cuboid"
-        }
-      }
-    },
-    "asteroid-1": {
-      "id": "asteroid-1",
-      "name": "Asteroide 2",
-      "parentId": null,
-      "childrenIds": [],
-      "active": true,
-      "tags": [
-        "obstacle"
-      ],
-      "components": {
-        "Transform": {
-          "type": "Transform",
-          "position": [
-            -6,
-            6,
-            -80
-          ],
-          "rotation": [
-            24.340451510420305,
-            4.919331047702232,
-            0
-          ],
-          "scale": [
-            5.806520628759789,
-            5.806520628759789,
-            5.806520628759789
-          ]
-        },
-        "MeshRenderer": {
-          "type": "MeshRenderer",
-          "geometry": "box",
-          "material": "standard",
-          "color": "#4a4b54",
-          "castShadow": true,
-          "receiveShadow": true
-        },
-        "RigidBody": {
-          "type": "RigidBody",
-          "mass": 0,
-          "isStatic": true,
-          "useGravity": false,
-          "collider": "cuboid"
-        }
-      }
-    },
-    "asteroid-2": {
-      "id": "asteroid-2",
-      "name": "Asteroide 3",
-      "parentId": null,
-      "childrenIds": [],
-      "active": true,
-      "tags": [
-        "obstacle"
-      ],
-      "components": {
-        "Transform": {
-          "type": "Transform",
-          "position": [
-            8,
-            3,
-            -120
-          ],
-          "rotation": [
-            25.102395679822603,
-            29.60575672821692,
-            0
-          ],
-          "scale": [
-            5.827427953923877,
-            5.827427953923877,
-            5.827427953923877
-          ]
-        },
-        "MeshRenderer": {
-          "type": "MeshRenderer",
-          "geometry": "box",
-          "material": "standard",
-          "color": "#4a4b54",
-          "castShadow": true,
-          "receiveShadow": true
-        },
-        "RigidBody": {
-          "type": "RigidBody",
-          "mass": 0,
-          "isStatic": true,
-          "useGravity": false,
-          "collider": "cuboid"
-        }
-      }
-    },
-    "asteroid-3": {
-      "id": "asteroid-3",
-      "name": "Asteroide 4",
-      "parentId": null,
-      "childrenIds": [],
-      "active": true,
-      "tags": [
-        "obstacle"
-      ],
-      "components": {
-        "Transform": {
-          "type": "Transform",
-          "position": [
-            -4,
-            5,
-            -160
-          ],
-          "rotation": [
-            23.392056869617424,
-            30.29089581166837,
-            0
-          ],
-          "scale": [
-            5.354643973513465,
-            5.354643973513465,
-            5.354643973513465
-          ]
-        },
-        "MeshRenderer": {
-          "type": "MeshRenderer",
-          "geometry": "sphere",
-          "material": "standard",
-          "color": "#4a4b54",
-          "castShadow": true,
-          "receiveShadow": true
-        },
-        "RigidBody": {
-          "type": "RigidBody",
-          "mass": 0,
-          "isStatic": true,
-          "useGravity": false,
-          "collider": "cuboid"
-        }
-      }
-    },
-    "asteroid-4": {
-      "id": "asteroid-4",
-      "name": "Asteroide 5",
-      "parentId": null,
-      "childrenIds": [],
-      "active": true,
-      "tags": [
-        "obstacle"
-      ],
-      "components": {
-        "Transform": {
-          "type": "Transform",
-          "position": [
-            0,
-            8,
-            -200
-          ],
-          "rotation": [
-            35.08753187465892,
-            32.16893843031089,
-            0
-          ],
-          "scale": [
-            5.959958745392637,
-            5.959958745392637,
-            5.959958745392637
-          ]
-        },
-        "MeshRenderer": {
-          "type": "MeshRenderer",
-          "geometry": "box",
-          "material": "standard",
-          "color": "#4a4b54",
-          "castShadow": true,
-          "receiveShadow": true
-        },
-        "RigidBody": {
-          "type": "RigidBody",
-          "mass": 0,
-          "isStatic": true,
-          "useGravity": false,
-          "collider": "cuboid"
-        }
-      }
-    },
-    "asteroid-5": {
-      "id": "asteroid-5",
-      "name": "Asteroide 6",
-      "parentId": null,
-      "childrenIds": [],
-      "active": true,
-      "tags": [
-        "obstacle"
-      ],
-      "components": {
-        "Transform": {
-          "type": "Transform",
-          "position": [
-            6,
-            3,
-            -240
-          ],
-          "rotation": [
-            8.141958874853604,
-            6.544732007189749,
-            0
-          ],
-          "scale": [
-            4.7819504911640545,
-            4.7819504911640545,
-            4.7819504911640545
-          ]
-        },
-        "MeshRenderer": {
-          "type": "MeshRenderer",
-          "geometry": "box",
-          "material": "standard",
-          "color": "#4a4b54",
-          "castShadow": true,
-          "receiveShadow": true
-        },
-        "RigidBody": {
-          "type": "RigidBody",
-          "mass": 0,
-          "isStatic": true,
-          "useGravity": false,
-          "collider": "cuboid"
-        }
-      }
-    },
-    "asteroid-6": {
-      "id": "asteroid-6",
-      "name": "Asteroide 7",
-      "parentId": null,
-      "childrenIds": [],
-      "active": true,
-      "tags": [
-        "obstacle"
-      ],
-      "components": {
-        "Transform": {
-          "type": "Transform",
-          "position": [
-            -7,
-            5,
-            -280
-          ],
-          "rotation": [
-            37.40478238730082,
-            0.03527675742920344,
-            0
-          ],
-          "scale": [
-            6.572723007126912,
-            6.572723007126912,
-            6.572723007126912
-          ]
-        },
-        "MeshRenderer": {
-          "type": "MeshRenderer",
-          "geometry": "box",
-          "material": "standard",
-          "color": "#4a4b54",
-          "castShadow": true,
-          "receiveShadow": true
-        },
-        "RigidBody": {
-          "type": "RigidBody",
-          "mass": 0,
-          "isStatic": true,
-          "useGravity": false,
-          "collider": "cuboid"
-        }
-      }
-    },
-    "boost-ring-0": {
-      "id": "boost-ring-0",
-      "name": "Portal de Boost 1",
-      "parentId": null,
-      "childrenIds": [],
-      "active": true,
-      "tags": [
-        "boost-ring"
-      ],
-      "components": {
-        "Transform": {
-          "type": "Transform",
-          "position": [
-            0,
-            4,
-            -60
-          ],
-          "rotation": [
-            0,
-            0,
-            0
-          ],
-          "scale": [
-            4,
-            4,
-            1
-          ]
-        },
-        "MeshRenderer": {
-          "type": "MeshRenderer",
-          "geometry": "torus",
-          "material": "emissive",
-          "color": "#00ffff",
-          "castShadow": false,
-          "receiveShadow": false,
-          "emissiveIntensity": 2
-        },
-        "Script": {
-          "type": "Script",
-          "scriptName": "BoostRingBehavior",
-          "code": "// Comportamento do Portal de Boost\nexport let boostPower = 80;\nlet triggered = false;\n\nexport function onUpdate(delta) {\n  if (triggered) return;\n  const player = engine.find(\"NaveJogador\");\n  if (!player) return;\n  \n  const pPos = engine.getPosition(player.id);\n  const myPos = getEntityPosition(entity.id);\n  if (!pPos || !myPos) return;\n  \n  // Calcula distância tridimensional\n  const dist = Math.hypot(pPos[0] - myPos[0], pPos[1] - myPos[1], pPos[2] - myPos[2]);\n  if (dist < 4) {\n    triggered = true;\n    updateComponent(entity.id, 'MeshRenderer', { color: '#ff00ff' });\n    \n    // Procura o script do jogador e injeta velocidade temporária\n    const playerRb = player.components.RigidBody;\n    if (playerRb) {\n      updateComponent(player.id, 'Script', {\n        code: player.components.Script.code.replace('let boostMultiplier = 2.5;', 'let boostMultiplier = 5.0; // SUPER BOOST ACTIVATED!')\n      });\n      setTimeout(() => {\n        updateComponent(player.id, 'Script', {\n          code: player.components.Script.code.replace('let boostMultiplier = 5.0; // SUPER BOOST ACTIVATED!', 'let boostMultiplier = 2.5;')\n        });\n      }, 1500);\n    }\n  }\n}"
-        }
-      }
-    },
-    "boost-ring-1": {
-      "id": "boost-ring-1",
-      "name": "Portal de Boost 2",
-      "parentId": null,
-      "childrenIds": [],
-      "active": true,
-      "tags": [
-        "boost-ring"
-      ],
-      "components": {
-        "Transform": {
-          "type": "Transform",
-          "position": [
-            0,
-            5,
-            -140
-          ],
-          "rotation": [
-            0,
-            0,
-            0
-          ],
-          "scale": [
-            4,
-            4,
-            1
-          ]
-        },
-        "MeshRenderer": {
-          "type": "MeshRenderer",
-          "geometry": "torus",
-          "material": "emissive",
-          "color": "#00ffff",
-          "castShadow": false,
-          "receiveShadow": false,
-          "emissiveIntensity": 2
-        },
-        "Script": {
-          "type": "Script",
-          "scriptName": "BoostRingBehavior",
-          "code": "// Comportamento do Portal de Boost\nexport let boostPower = 80;\nlet triggered = false;\n\nexport function onUpdate(delta) {\n  if (triggered) return;\n  const player = engine.find(\"NaveJogador\");\n  if (!player) return;\n  \n  const pPos = engine.getPosition(player.id);\n  const myPos = getEntityPosition(entity.id);\n  if (!pPos || !myPos) return;\n  \n  // Calcula distância tridimensional\n  const dist = Math.hypot(pPos[0] - myPos[0], pPos[1] - myPos[1], pPos[2] - myPos[2]);\n  if (dist < 4) {\n    triggered = true;\n    updateComponent(entity.id, 'MeshRenderer', { color: '#ff00ff' });\n    \n    // Procura o script do jogador e injeta velocidade temporária\n    const playerRb = player.components.RigidBody;\n    if (playerRb) {\n      updateComponent(player.id, 'Script', {\n        code: player.components.Script.code.replace('let boostMultiplier = 2.5;', 'let boostMultiplier = 5.0; // SUPER BOOST ACTIVATED!')\n      });\n      setTimeout(() => {\n        updateComponent(player.id, 'Script', {\n          code: player.components.Script.code.replace('let boostMultiplier = 5.0; // SUPER BOOST ACTIVATED!', 'let boostMultiplier = 2.5;')\n        });\n      }, 1500);\n    }\n  }\n}"
-        }
-      }
-    },
-    "boost-ring-2": {
-      "id": "boost-ring-2",
-      "name": "Portal de Boost 3",
-      "parentId": null,
-      "childrenIds": [],
-      "active": true,
-      "tags": [
-        "boost-ring"
-      ],
-      "components": {
-        "Transform": {
-          "type": "Transform",
-          "position": [
-            0,
-            4,
-            -220
-          ],
-          "rotation": [
-            0,
-            0,
-            0
-          ],
-          "scale": [
-            4,
-            4,
-            1
-          ]
-        },
-        "MeshRenderer": {
-          "type": "MeshRenderer",
-          "geometry": "torus",
-          "material": "emissive",
-          "color": "#00ffff",
-          "castShadow": false,
-          "receiveShadow": false,
-          "emissiveIntensity": 2
-        },
-        "Script": {
-          "type": "Script",
-          "scriptName": "BoostRingBehavior",
-          "code": "// Comportamento do Portal de Boost\nexport let boostPower = 80;\nlet triggered = false;\n\nexport function onUpdate(delta) {\n  if (triggered) return;\n  const player = engine.find(\"NaveJogador\");\n  if (!player) return;\n  \n  const pPos = engine.getPosition(player.id);\n  const myPos = getEntityPosition(entity.id);\n  if (!pPos || !myPos) return;\n  \n  // Calcula distância tridimensional\n  const dist = Math.hypot(pPos[0] - myPos[0], pPos[1] - myPos[1], pPos[2] - myPos[2]);\n  if (dist < 4) {\n    triggered = true;\n    updateComponent(entity.id, 'MeshRenderer', { color: '#ff00ff' });\n    \n    // Procura o script do jogador e injeta velocidade temporária\n    const playerRb = player.components.RigidBody;\n    if (playerRb) {\n      updateComponent(player.id, 'Script', {\n        code: player.components.Script.code.replace('let boostMultiplier = 2.5;', 'let boostMultiplier = 5.0; // SUPER BOOST ACTIVATED!')\n      });\n      setTimeout(() => {\n        updateComponent(player.id, 'Script', {\n          code: player.components.Script.code.replace('let boostMultiplier = 5.0; // SUPER BOOST ACTIVATED!', 'let boostMultiplier = 2.5;')\n        });\n      }, 1500);\n    }\n  }\n}"
-        }
-      }
-    },
-    "ab889cc6-04c1-48b7-8ab2-ef12dd770f08": {
-      "id": "ab889cc6-04c1-48b7-8ab2-ef12dd770f08",
-      "name": "Linha de Chegada",
-      "parentId": null,
-      "childrenIds": [],
-      "active": true,
-      "tags": [
-        "finish"
-      ],
-      "components": {
-        "Transform": {
-          "type": "Transform",
-          "position": [
-            0,
-            4,
-            -290
-          ],
-          "rotation": [
-            0,
-            0,
-            0
-          ],
-          "scale": [
-            20,
-            8,
-            1
-          ]
-        },
-        "MeshRenderer": {
-          "type": "MeshRenderer",
-          "geometry": "plane",
-          "material": "emissive",
-          "color": "#ff0055",
-          "castShadow": false,
-          "receiveShadow": false,
-          "emissiveIntensity": 1.5
-        },
-        "Script": {
-          "type": "Script",
-          "scriptName": "FinishLineBehavior",
-          "code": "// Checa se cruzou a linha de chegada\nlet won = false;\n\nexport function onUpdate(delta) {\n  if (won) return;\n  const player = engine.find(\"NaveJogador\");\n  if (!player) return;\n  \n  const pPos = engine.getPosition(player.id);\n  if (pPos && pPos[2] <= -288) {\n    won = true;\n    updateComponent(entity.id, 'MeshRenderer', { color: '#00ff33' });\n    console.log(\"🏁 PARABÉNS! VOCÊ COMPLETOU A CORRIDA!\");\n  }\n}"
-        }
-      }
-    },
-    "133780e3-a1d6-4f5c-a795-f3f28815d748": {
-      "id": "133780e3-a1d6-4f5c-a795-f3f28815d748",
-      "name": "NaveJogador",
-      "parentId": null,
-      "childrenIds": [],
       "active": true,
       "tags": [
         "player"
@@ -587,60 +18,87 @@
           "type": "Transform",
           "position": [
             0,
-            2,
-            10
+            1.5,
+            0
           ],
           "rotation": [
             0,
-            180,
+            0,
             0
           ],
           "scale": [
-            1.2,
-            0.6,
-            2
+            0.3,
+            0.1,
+            0.3
           ]
         },
         "MeshRenderer": {
           "type": "MeshRenderer",
-          "geometry": "cone",
+          "geometry": "box",
           "material": "standard",
-          "color": "#00e5ff",
-          "castShadow": true,
-          "receiveShadow": true
+          "color": "#ff3333"
         },
         "RigidBody": {
           "type": "RigidBody",
           "mass": 1,
           "isStatic": false,
-          "useGravity": false,
+          "useGravity": true,
           "collider": "cuboid"
+        },
+        "Network": {
+          "type": "Network",
+          "isLocal": true,
+          "syncPosition": true,
+          "syncRotation": true,
+          "syncAnimation": false,
+          "sendRate": 20,
+          "role": "player",
+          "ready": true
+        },
+        "Audio": {
+          "type": "Audio",
+          "src": "/api/project/get-asset?project=DroneSimulator&file=sounds/249408__rsths13__hubsan.wav",
+          "fileName": "249408__rsths13__hubsan.wav",
+          "loop": true,
+          "volume": 0.1,
+          "playOnStart": true,
+          "is3D": true,
+          "refDistance": 5,
+          "rolloffFactor": 1,
+          "maxDistance": 100,
+          "distanceModel": "linear",
+          "playbackRate": 1
         },
         "Script": {
           "type": "Script",
-          "scriptName": "NaveController",
-          "code": "// Controle de Voo da Nave\nexport let speed = 35;\nexport let boostMultiplier = 2.5;\nexport let turnSpeed = 4;\nexport let pitchSpeed = 2;\n\nlet curVelocity = new THREE.Vector3();\nlet lastCamPos = null;\n\nexport function onUpdate(delta) {\n  if (!entity.components.Transform) return;\n  \n  const pos = getEntityPosition(entity.id) || [0, 2, 10];\n  const rot = entity.components.Transform.rotation;\n  \n  // Aceleração\n  let accelZ = 0;\n  let accelX = 0;\n  let accelY = 0;\n  \n  if (Input.getKey(\"KeyW\") || Input.getKey(\"ArrowUp\")) accelZ -= 1; // Frente\n  if (Input.getKey(\"KeyS\") || Input.getKey(\"ArrowDown\")) accelZ += 1; // Trás\n  if (Input.getKey(\"KeyA\") || Input.getKey(\"ArrowLeft\")) accelX -= 1; // Esquerda\n  if (Input.getKey(\"KeyD\") || Input.getKey(\"ArrowRight\")) accelX += 1; // Direita\n  if (Input.getKey(\"Space\")) accelY += 0.8; // Subir\n  if (Input.getKey(\"ShiftLeft\")) accelY -= 0.8; // Descer\n\n  const isBoost = Input.getKey(\"ControlLeft\");\n  const finalSpeed = isBoost ? speed * boostMultiplier : speed;\n\n  // Atualiza posição manualmente via updateComponent para suavidade\n  const moveVec = new THREE.Vector3(accelX, accelY, accelZ).multiplyScalar(finalSpeed * delta);\n  \n  // Limita nave nas bordas da pista\n  let newX = Math.max(-12, Math.min(12, pos[0] + moveVec.x));\n  let newY = Math.max(1, Math.min(15, pos[1] + moveVec.y));\n  let newZ = pos[2] + moveVec.z;\n\n  updateComponent(entity.id, 'Transform', {\n    position: [newX, newY, newZ],\n    rotation: [0, 180, accelX * -15] // Inclinação lateral na curva\n  });\n\n  // Atualiza Câmera de Perseguição\n  const mainCam = engine.find(\"Main Camera\");\n  if (mainCam) {\n    const targetCamPos = new THREE.Vector3(newX, newY + 2.5, newZ + 9);\n    let camPos;\n    if (lastCamPos) {\n      camPos = lastCamPos.clone().lerp(targetCamPos, delta * 8);\n    } else {\n      camPos = targetCamPos;\n    }\n    lastCamPos = camPos.clone();\n    \n    engine.updateComponent(mainCam.id, 'Transform', {\n      position: [camPos.x, camPos.y, camPos.z],\n      rotation: [-10, 180, 0]\n    });\n  }\n}"
+          "scriptName": "DroneController",
+          "code": "// Controlador de Drone FPV (Modo Assistido / Fácil) com Som Dinâmico\n\nconst SPEED_FORWARD = 15;\nconst SPEED_STRAFE = 12;\nconst SPEED_VERTICAL = 8;\nconst YAW_SPEED = 2.5;\nconst MOUSE_SENSITIVITY = 0.002;\n\n// Parâmetros públicos editáveis no editor para assistência do mouse\nexport const MOUSE_STEERING_ENABLED = true; \nexport const MOUSE_STEERING_SENSITIVITY = 1.2; \nexport const MOUSE_AUTO_CENTER = 3.5; \n\n// Arrasto para parar suavemente quando soltar as teclas\nconst LINEAR_DRAG = 0.90; \n\n// Intensidade da inclinação visual (tilt) ao mover\nconst TILT_MAX = 0.35; // radianos\n\n// Variáveis para o controle dinâmico do som do motor (ECS)\nlet currentPitchFactor = 1.0;\nlet mousePitchInput = 0;\nlet mouseYawInput = 0;\n\n// Sistema de projéteis e vida\nlet droneHealth = 100;\nlet activeProjectiles = [];\nlet lastShootTime = 0;\nconst SHOOT_COOLDOWN = 0.2; // 200ms entre tiros\n\nexport function onAwake() {\n    // Inicialização da Telemetria Global para o HUD Visor\n    if (typeof window !== 'undefined') {\n        window.droneTelemetry = { altitude: \"0.0\", speed: \"0.0\", health: \"100\" };\n\n        // Limpa projéteis órfãos de sessões de teste anteriores do editor\n        if (window._activeDroneProjectiles) {\n            window._activeDroneProjectiles.forEach(p => {\n                if (p.mesh && p.mesh.parent) {\n                    p.mesh.parent.remove(p.mesh);\n                }\n            });\n        }\n        window._activeDroneProjectiles = [];\n        activeProjectiles = window._activeDroneProjectiles;\n\n        // Registro robusto de eventos de rede limpando closures anteriores (HMR do Editor)\n        if (window._handleRemoteShoot) {\n            window.removeEventListener('network-packet-drone-shoot', window._handleRemoteShoot);\n        }\n        if (window._handleRemoteDamage) {\n            window.removeEventListener('network-packet-drone-damage', window._handleRemoteDamage);\n        }\n\n        window._handleRemoteShoot = handleRemoteShoot;\n        window._handleRemoteDamage = handleRemoteDamage;\n\n        window.addEventListener('network-packet-drone-shoot', window._handleRemoteShoot);\n        window.addEventListener('network-packet-drone-damage', window._handleRemoteDamage);\n    }\n}\n\nexport function onUpdate(delta) {\n    const _THREE = typeof THREE !== 'undefined' ? THREE : (typeof engine !== 'undefined' && engine.THREE ? engine.THREE : null);\n    if (!rigidBody || !_THREE) return;\n\n    let moveZ = 0; // Frente/Trás\n    let moveX = 0; // Esquerda/Direita\n    let moveY = 0; // Subir/Descer\n    let yaw = 0;   // Girar\n\n    // === CONTROLES ASSISTIDOS (Mova-se como em um jogo FPS) ===\n    \n    // Subir / Descer\n    if (Input.getKey(\"Space\") || Input.getGamepadButton(\"R2\")) moveY = 1;\n    if (Input.getKey(\"ShiftLeft\") || Input.getGamepadButton(\"L2\")) moveY = -1;\n\n    // Frente / Trás (Eixo Z no espaço local)\n    if (Input.getKey(\"KeyW\")) moveZ = -1; // -Z é para frente\n    if (Input.getKey(\"KeyS\")) moveZ = 1;  // +Z é para trás\n    \n    // Esquerda / Direita (Strafe no eixo X)\n    if (Input.getKey(\"KeyA\")) moveX = -1;\n    if (Input.getKey(\"KeyD\")) moveX = 1;\n    \n    // Girar (Yaw)\n    if (Input.getKey(\"KeyQ\")) yaw = 1;\n    if (Input.getKey(\"KeyE\")) yaw = -1;\n    \n    // Analógicos Gamepad\n    const leftAxisX = Input.getGamepadAxis(0);\n    const rightAxisY = Input.getGamepadAxis(3); \n    const rightAxisX = Input.getGamepadAxis(2);\n    \n    if (Math.abs(rightAxisY) > 0.1) moveZ = rightAxisY;\n    if (Math.abs(rightAxisX) > 0.1) moveX = rightAxisX;\n    if (Math.abs(leftAxisX) > 0.1) yaw = -leftAxisX;\n\n    // Solicita Pointer Lock ao clicar com o botão esquerdo para habilitar deltas de mouse\n    if (Input.getMouseButton && Input.getMouseButton(0) && Input.lockMouse) {\n        Input.lockMouse();\n    }\n\n    if (typeof MOUSE_STEERING_ENABLED !== 'undefined' && MOUSE_STEERING_ENABLED) {\n        const mouseDeltaX = Input.mouse ? Input.mouse.movementX : 0;\n        const mouseDeltaY = Input.mouse ? Input.mouse.movementY : 0;\n\n        // Sensibilidade reduzida para movimento do mouse para baixo (movementY > 0)\n        const pitchSensitivity = mouseDeltaY > 0 ? 0.4 : 1.0;\n\n        // Acumula os movimentos para o joystick virtual\n        mouseYawInput -= mouseDeltaX * MOUSE_SENSITIVITY * MOUSE_STEERING_SENSITIVITY * 15;\n        mousePitchInput += mouseDeltaY * MOUSE_SENSITIVITY * MOUSE_STEERING_SENSITIVITY * 15 * pitchSensitivity;\n\n        // Limitadores do joystick virtual (-1.0 a 1.0)\n        mouseYawInput = Math.max(-1.0, Math.min(1.0, mouseYawInput));\n        mousePitchInput = Math.max(-1.0, Math.min(1.0, mousePitchInput));\n\n        // Centralização automática suave se o mouse não estiver se movendo\n        if (mouseDeltaX === 0) {\n            mouseYawInput += (0 - mouseYawInput) * MOUSE_AUTO_CENTER * delta;\n        }\n        if (mouseDeltaY === 0) {\n            mousePitchInput += (0 - mousePitchInput) * MOUSE_AUTO_CENTER * delta;\n        }\n\n        // Aplica o joystick do mouse nos inputs\n        yaw += mouseYawInput;\n        moveZ += mousePitchInput;\n    }\n\n    // === FÍSICA ASSISTIDA E AUTO-HOVER ===\n    const currentVel = rigidBody.linvel();\n    const rot = rigidBody.rotation();\n    const q = new _THREE.Quaternion(rot.x, rot.y, rot.z, rot.w);\n    \n    // Pegar direção baseado APENAS na rotação YAW para não ir pro chão quando olhar pra baixo\n    const euler = new _THREE.Euler().setFromQuaternion(q, 'YXZ');\n    const yawQuat = new _THREE.Quaternion().setFromEuler(new _THREE.Euler(0, euler.y, 0));\n    \n    const forward = new _THREE.Vector3(0, 0, 1).applyQuaternion(yawQuat);\n    const right = new _THREE.Vector3(1, 0, 0).applyQuaternion(yawQuat);\n\n    // Define o arrasto dinâmico: menor ao pilotar (preserva momentum/derrapa), maior ao soltar controles (estabiliza)\n    const hasInput = (moveZ !== 0 || moveX !== 0 || yaw !== 0);\n    const currentDrag = hasInput ? 0.97 : LINEAR_DRAG;\n\n    // Calcular nova velocidade linear no plano XZ\n    let newVx = currentVel.x * currentDrag;\n    let newVz = currentVel.z * currentDrag;\n\n    newVx += (forward.x * moveZ * SPEED_FORWARD + right.x * moveX * SPEED_STRAFE) * delta * 5;\n    newVz += (forward.z * moveZ * SPEED_FORWARD + right.z * moveX * SPEED_STRAFE) * delta * 5;\n    \n    // Movimento Vertical (Auto-Hover substitui gravidade)\n    let newVy = 0;\n    if (moveY !== 0) {\n       newVy = moveY * SPEED_VERTICAL;\n    } else {\n       newVy = 0; // Trava no ar perfeitamente (Assisted Hover)\n    }\n    \n    rigidBody.setLinvel({ x: newVx, y: newVy, z: newVz }, true);\n    \n    // === ROTAÇÃO ASSISTIDA E INCLINAÇÃO VISUAL (TILT) ===\n    // Calcula inclinação alvo para dar a sensação visual de que o drone está se movendo\n    const targetPitch = moveZ * TILT_MAX; \n    const targetRoll = -moveX * TILT_MAX; \n    \n    euler.y += yaw * YAW_SPEED * delta; // Gira pra esquerda/direita livremente\n    \n    // Interpola suavemente para não dar solavanco\n    euler.x += (targetPitch - euler.x) * 0.1;\n    euler.z += (targetRoll - euler.z) * 0.1;\n    \n    const newQuat = new _THREE.Quaternion().setFromEuler(euler, 'YXZ');\n    rigidBody.setRotation({ x: newQuat.x, y: newQuat.y, z: newQuat.z, w: newQuat.w }, true);\n    \n    // Zera a física angular, já que controlamos a rotação cinemáticamente\n    rigidBody.setAngvel({x: 0, y: 0, z: 0}, true); \n\n    // === SISTEMA DE DISPARO DE PROJÉTEIS (TIRO) ===\n    const now = performance.now();\n    const canShoot = (now - lastShootTime) > (SHOOT_COOLDOWN * 1000);\n    \n    // Atira com clique do botão esquerdo (quando o pointer lock está ativo) ou com a tecla \"KeyF\" ou gatilho direito do gamepad\n    const isPointerLocked = typeof document !== 'undefined' && document.pointerLockElement !== null;\n    const clickToShoot = Input.getMouseButton && Input.getMouseButton(0) && isPointerLocked;\n    const keyToShoot = Input.getKey && (Input.getKey(\"KeyF\") || Input.getKey(\"Enter\"));\n    const gamepadShoot = Input.getGamepadButton && (Input.getGamepadButton(\"R1\") || Input.getGamepadButton(\"FaceButtonDown\"));\n    \n    if ((clickToShoot || keyToShoot || gamepadShoot) && canShoot) {\n        lastShootTime = now;\n        \n        const currentTranslation = rigidBody.translation();\n        const startPos = new _THREE.Vector3(currentTranslation.x, currentTranslation.y, currentTranslation.z);\n        \n        // Direção de disparo baseada na orientação atual do drone\n        const rot = rigidBody.rotation();\n        const q = new _THREE.Quaternion(rot.x, rot.y, rot.z, rot.w);\n        const shootDirection = new _THREE.Vector3(0, 0, -1).applyQuaternion(q).normalize(); // -Z local é para frente\n        \n        // Ponto de partida do tiro um pouco à frente do drone para evitar autocolisão\n        startPos.add(shootDirection.clone().multiplyScalar(1.2));\n        \n        const projId = 'proj-' + Math.floor(Math.random() * 100000);\n        const ownerId = engine.network.getPlayerId();\n\n        // Instancia localmente\n        spawnProjectile(startPos, shootDirection, ownerId, projId);\n\n        // Propaga para os outros no multiplayer\n        if (engine.network.isConnected()) {\n            engine.network.send({\n                type: 'drone-shoot',\n                projectileId: projId,\n                ownerId: ownerId,\n                position: [startPos.x, startPos.y, startPos.z],\n                direction: [shootDirection.x, shootDirection.y, shootDirection.z]\n            });\n        }\n    }\n\n    // === ATUALIZAÇÃO DOS PROJÉTEIS E COLISÕES ===\n    for (let i = activeProjectiles.length - 1; i >= 0; i--) {\n        const proj = activeProjectiles[i];\n        proj.lifeTime -= delta;\n\n        if (proj.lifeTime <= 0) {\n            if (proj.mesh && proj.mesh.parent) {\n                proj.mesh.parent.remove(proj.mesh);\n            }\n            activeProjectiles.splice(i, 1);\n            continue;\n        }\n\n        const moveDist = proj.speed * delta;\n        const moveVec = proj.direction.clone().multiplyScalar(moveDist);\n        proj.mesh.position.add(moveVec);\n\n        // Apenas o dono da bala calcula a colisão no seu cliente\n        if (proj.ownerId === engine.network.getPlayerId()) {\n            const ghosts = engine.findAllByTag('multiplayer-ghost');\n            let collided = false;\n\n            for (const ghost of ghosts) {\n                if (!ghost.active) continue;\n                const ghostPos = engine.getPosition(ghost.id);\n                if (!ghostPos) continue;\n\n                const ghostVec = new _THREE.Vector3(ghostPos[0], ghostPos[1], ghostPos[2]);\n                const dist = proj.mesh.position.distanceTo(ghostVec);\n\n                if (dist < 1.8) { // Raio de colisão com o drone inimigo\n                    collided = true;\n                    const targetPlayerId = ghost.id.replace('ghost-', '');\n                    \n                    console.log(`[Tiro] Acertamos o oponente ${targetPlayerId}!`);\n                    \n                    // Envia pacote de dano pela rede\n                    if (engine.network.isConnected()) {\n                        engine.network.send({\n                            type: 'drone-damage',\n                            targetId: targetPlayerId,\n                            damage: proj.damage,\n                            attackerId: engine.network.getPlayerId()\n                        });\n                    }\n                    break;\n                }\n            }\n\n            if (collided) {\n                if (proj.mesh && proj.mesh.parent) {\n                    proj.mesh.parent.remove(proj.mesh);\n                }\n                activeProjectiles.splice(i, 1);\n                continue;\n            }\n        }\n    }\n\n    // === ATUALIZAR VARIÁVEL DE TELEMETRIA GLOBAL E SOM ===\n    if (typeof window !== 'undefined' && typeof Math !== 'undefined') {\n        const altitude = rigidBody.translation().y.toFixed(1);\n        const speedVal = Math.sqrt(newVx*newVx + newVy*newVy + newVz*newVz);\n        const speed = speedVal.toFixed(1);\n        window.droneTelemetry = { altitude, speed, health: droneHealth.toFixed(0) };\n        \n        // Atualiza áudio (pitch e volume) dinamicamente no componente ECS\n        updateDroneAudio(moveX, moveY, moveZ, yaw, speedVal);\n    }\n}\n\nfunction updateDroneAudio(moveX, moveY, moveZ, yaw, currentSpeed) {\n    // Mede a atividade de input\n    let inputIntensity = 0;\n    if (moveX !== 0 || moveZ !== 0 || yaw !== 0) {\n        inputIntensity = 0.5;\n    }\n    if (moveY !== 0) {\n        inputIntensity = moveY > 0 ? 0.9 : 0.3; // Mais esforço ao subir, menos ao descer\n    }\n    \n    // Combina o input do jogador com a velocidade atual do drone\n    const speedRatio = Math.min(currentSpeed / SPEED_FORWARD, 1.0);\n    const effort = Math.max(inputIntensity, speedRatio);\n    \n    // Fator de pitch do motor: 1.0 (idle) a 2.5 (RPM máximo)\n    const targetPitch = 1.0 + effort * 1.5;\n    currentPitchFactor += (targetPitch - currentPitchFactor) * 0.15; // Interpolação suave\n\n    // Atualiza o componente Audio do ECS (para reproduzir via Three.js e propagar no multiplayer)\n    if (typeof entity !== 'undefined' && entity && entity.components && entity.components.Audio && typeof updateComponent === 'function') {\n        const audioVolume = 0.1 + effort * 0.4;\n        updateComponent(entity.id, 'Audio', {\n            playbackRate: currentPitchFactor,\n            volume: audioVolume\n        });\n    }\n}\n\n// === AUXILIARES DO SISTEMA DE COMBATE E TIRO ===\n\nfunction spawnProjectile(position, direction, ownerId, projectileId) {\n    const _THREE = typeof THREE !== 'undefined' ? THREE : (typeof engine !== 'undefined' && engine.THREE ? engine.THREE : null);\n    if (!threeCamera || !_THREE) return;\n    \n    // Encontra a cena 3D principal a partir da camera do Three.js\n    let scene3D = threeCamera.parent;\n    while (scene3D && scene3D.type !== \"Scene\") {\n        scene3D = scene3D.parent;\n    }\n    if (!scene3D) return;\n\n    // Pequeno cilindro azul orientado horizontalmente (no eixo Z)\n    const geometry = new _THREE.CylinderGeometry(0.04, 0.04, 0.5, 8);\n    geometry.rotateX(Math.PI / 2); // Alinha o cilindro com a direção Z de movimento\n\n    // Material azul brilhante com emissividade\n    const material = new _THREE.MeshBasicMaterial({\n        color: 0x00a8ff,\n        transparent: true,\n        opacity: 0.95\n    });\n\n    const mesh = new _THREE.Mesh(geometry, material);\n    mesh.position.copy(position);\n    \n    // Aponta o projétil na direção correta\n    const targetPos = new _THREE.Vector3().copy(position).add(direction);\n    mesh.lookAt(targetPos);\n\n    scene3D.add(mesh);\n\n    activeProjectiles.push({\n        id: projectileId,\n        ownerId: ownerId,\n        mesh: mesh,\n        direction: direction.clone().normalize(),\n        speed: 90, // Alta velocidade para ser responsivo\n        lifeTime: 2.0, // Remove após 2 segundos\n        damage: 10\n    });\n}\n\nfunction handleRemoteShoot(event) {\n    const packet = event.detail;\n    if (packet.ownerId === engine.network.getPlayerId()) return;\n\n    const _THREE = typeof THREE !== 'undefined' ? THREE : (typeof engine !== 'undefined' && engine.THREE ? engine.THREE : null);\n    if (!_THREE) return;\n\n    // Instancia o projétil azul do oponente\n    spawnProjectile(\n        new _THREE.Vector3().fromArray(packet.position),\n        new _THREE.Vector3().fromArray(packet.direction),\n        packet.ownerId,\n        packet.projectileId\n    );\n}\n\nfunction handleRemoteDamage(event) {\n    const packet = event.detail;\n    if (packet.targetId === engine.network.getPlayerId()) {\n        // Nós fomos atingidos!\n        droneHealth = Math.max(0, droneHealth - packet.damage);\n        console.log(`[Combate] Fomos atingidos por ${packet.attackerId}! Vida restante: ${droneHealth}`);\n        \n        // Se a vida for a zero, realiza o respawn\n        if (droneHealth <= 0) {\n            respawnDrone();\n        }\n    }\n}\n\nfunction respawnDrone() {\n    droneHealth = 100;\n    if (rigidBody) {\n        // Teleporta para a posição de início no ar\n        rigidBody.setTranslation({ x: 0, y: 10, z: 0 }, true);\n        rigidBody.setLinvel({ x: 0, y: 0, z: 0 }, true);\n        console.log(\"[Combate] Nosso drone caiu! Respawning no ar...\");\n    }\n}\n",
+          "variables": []
         }
       }
     },
-    "857e94ea-6fed-4ffa-a7aa-a234e889e664": {
-      "id": "857e94ea-6fed-4ffa-a7aa-a234e889e664",
-      "name": "Main Camera",
-      "parentId": null,
-      "childrenIds": [],
+    "cam-001": {
+      "id": "cam-001",
+      "name": "FPV_Camera",
+      "parentId": "drone-001",
+      "childrenIds": [
+        "hud-001"
+      ],
       "active": true,
-      "tags": [],
+      "tags": [
+        "mainCamera"
+      ],
       "components": {
         "Transform": {
           "type": "Transform",
           "position": [
             0,
-            4,
-            19
+            0.05,
+            0
           ],
           "rotation": [
-            -10,
-            180,
+            0,
+            0,
             0
           ],
           "scale": [
@@ -651,9 +109,9 @@
         },
         "Camera": {
           "type": "Camera",
-          "fov": 65,
-          "near": 0.1,
-          "far": 1000,
+          "fov": 100,
+          "near": 0.01,
+          "far": 2000,
           "isMain": true,
           "offset": [
             0,
@@ -662,31 +120,403 @@
           ]
         }
       }
+    },
+    "ground-001": {
+      "id": "ground-001",
+      "name": "Ground",
+      "parentId": null,
+      "childrenIds": [],
+      "active": true,
+      "tags": [
+        "ground"
+      ],
+      "components": {
+        "Transform": {
+          "type": "Transform",
+          "position": [
+            0,
+            -0.5,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            400,
+            1,
+            400
+          ]
+        },
+        "MeshRenderer": {
+          "type": "MeshRenderer",
+          "geometry": "box",
+          "material": "standard",
+          "color": "#113311"
+        },
+        "RigidBody": {
+          "type": "RigidBody",
+          "mass": 0,
+          "isStatic": true,
+          "useGravity": false,
+          "collider": "cuboid"
+        }
+      }
+    },
+    "spawn-001": {
+      "id": "spawn-001",
+      "name": "SpawnPoint",
+      "parentId": null,
+      "childrenIds": [],
+      "active": true,
+      "tags": [
+        "teleport"
+      ],
+      "components": {
+        "Transform": {
+          "type": "Transform",
+          "position": [
+            0,
+            1.6,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            0.5,
+            0.5,
+            0.5
+          ]
+        },
+        "MeshRenderer": {
+          "type": "MeshRenderer",
+          "geometry": "sphere",
+          "material": "standard",
+          "color": "#00ff00"
+        }
+      }
+    },
+    "obstacle-wall-1": {
+      "id": "obstacle-wall-1",
+      "name": "Wall1",
+      "parentId": null,
+      "childrenIds": [],
+      "active": true,
+      "tags": [
+        "obstacle"
+      ],
+      "components": {
+        "Transform": {
+          "type": "Transform",
+          "position": [
+            0,
+            5,
+            -30
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            20,
+            10,
+            1
+          ]
+        },
+        "MeshRenderer": {
+          "type": "MeshRenderer",
+          "geometry": "box",
+          "material": "standard",
+          "color": "#888888"
+        },
+        "RigidBody": {
+          "type": "RigidBody",
+          "mass": 0,
+          "isStatic": true,
+          "useGravity": false,
+          "collider": "cuboid"
+        }
+      }
+    },
+    "gate-001": {
+      "id": "gate-001",
+      "name": "Gate1",
+      "parentId": null,
+      "childrenIds": [],
+      "active": true,
+      "tags": [
+        "gate"
+      ],
+      "components": {
+        "Transform": {
+          "type": "Transform",
+          "position": [
+            15,
+            3,
+            -15
+          ],
+          "rotation": [
+            0,
+            45,
+            0
+          ],
+          "scale": [
+            6,
+            4,
+            0.2
+          ]
+        },
+        "MeshRenderer": {
+          "type": "MeshRenderer",
+          "geometry": "box",
+          "material": "standard",
+          "color": "#ffaa00"
+        },
+        "RigidBody": {
+          "type": "RigidBody",
+          "mass": 0,
+          "isStatic": true,
+          "useGravity": false,
+          "collider": "cuboid"
+        }
+      }
+    },
+    "gate-002": {
+      "id": "gate-002",
+      "name": "Gate2",
+      "parentId": null,
+      "childrenIds": [],
+      "active": true,
+      "tags": [
+        "gate"
+      ],
+      "components": {
+        "Transform": {
+          "type": "Transform",
+          "position": [
+            25,
+            6,
+            -40
+          ],
+          "rotation": [
+            0,
+            90,
+            0
+          ],
+          "scale": [
+            6,
+            4,
+            0.2
+          ]
+        },
+        "MeshRenderer": {
+          "type": "MeshRenderer",
+          "geometry": "box",
+          "material": "standard",
+          "color": "#00aaff"
+        },
+        "RigidBody": {
+          "type": "RigidBody",
+          "mass": 0,
+          "isStatic": true,
+          "useGravity": false,
+          "collider": "cuboid"
+        }
+      }
+    },
+    "gate-003": {
+      "id": "gate-003",
+      "name": "Gate3",
+      "parentId": null,
+      "childrenIds": [],
+      "active": true,
+      "tags": [
+        "gate"
+      ],
+      "components": {
+        "Transform": {
+          "type": "Transform",
+          "position": [
+            -20,
+            4,
+            -40
+          ],
+          "rotation": [
+            0,
+            -45,
+            0
+          ],
+          "scale": [
+            6,
+            4,
+            0.2
+          ]
+        },
+        "MeshRenderer": {
+          "type": "MeshRenderer",
+          "geometry": "box",
+          "material": "standard",
+          "color": "#ff00aa"
+        },
+        "RigidBody": {
+          "type": "RigidBody",
+          "mass": 0,
+          "isStatic": true,
+          "useGravity": false,
+          "collider": "cuboid"
+        }
+      }
+    },
+    "pillar-1": {
+      "id": "pillar-1",
+      "name": "Pillar1",
+      "parentId": null,
+      "childrenIds": [],
+      "active": true,
+      "tags": [
+        "obstacle"
+      ],
+      "components": {
+        "Transform": {
+          "type": "Transform",
+          "position": [
+            -10,
+            10,
+            -20
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            2,
+            20,
+            2
+          ]
+        },
+        "MeshRenderer": {
+          "type": "MeshRenderer",
+          "geometry": "cylinder",
+          "material": "standard",
+          "color": "#ffffff"
+        },
+        "RigidBody": {
+          "type": "RigidBody",
+          "mass": 0,
+          "isStatic": true,
+          "useGravity": false,
+          "collider": "cylinder"
+        }
+      }
+    },
+    "pillar-2": {
+      "id": "pillar-2",
+      "name": "Pillar2",
+      "parentId": null,
+      "childrenIds": [],
+      "active": true,
+      "tags": [
+        "obstacle"
+      ],
+      "components": {
+        "Transform": {
+          "type": "Transform",
+          "position": [
+            10,
+            10,
+            -50
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            2,
+            20,
+            2
+          ]
+        },
+        "MeshRenderer": {
+          "type": "MeshRenderer",
+          "geometry": "cylinder",
+          "material": "standard",
+          "color": "#ffffff"
+        },
+        "RigidBody": {
+          "type": "RigidBody",
+          "mass": 0,
+          "isStatic": true,
+          "useGravity": false,
+          "collider": "cylinder"
+        }
+      }
+    },
+    "hud-001": {
+      "id": "hud-001",
+      "name": "HUD Visor",
+      "parentId": "cam-001",
+      "childrenIds": [],
+      "active": true,
+      "tags": [],
+      "components": {
+        "Transform": {
+          "type": "Transform",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "HUDPlane": {
+          "type": "HUDPlane",
+          "opacity": 1,
+          "color": "#ffffff",
+          "width": 1.6,
+          "height": 0.9,
+          "distance": 0.5
+        },
+        "Script": {
+          "type": "Script",
+          "scriptName": "DroneHUD",
+          "code": "// Script do Visor HUD 3D (Simulador FPV)\n\nexport function onAwake() {\n    console.log(\"[HUD Visor] Iniciado no simulador de drone\");\n}\n\nexport function onUpdate(delta) {\n    // Obtém o canvas HTML5 interno da entidade \"HUD Visor\"\n    const canvas = entity.HUDCanvas;\n    if (!canvas) return;\n    \n    const ctx = canvas.getContext('2d');\n    ctx.clearRect(0, 0, canvas.width, canvas.height);\n    \n    const cx = canvas.width / 2;\n    const cy = canvas.height / 2;\n    \n    // 1. Desenhar Retícula (Mira)\n    ctx.strokeStyle = 'rgba(0, 255, 204, 0.9)';\n    ctx.lineWidth = 3;\n    \n    ctx.beginPath();\n    ctx.arc(cx, cy, 15, 0, Math.PI * 2);\n    ctx.stroke();\n    \n    ctx.beginPath();\n    ctx.moveTo(cx - 30, cy); ctx.lineTo(cx - 10, cy);\n    ctx.moveTo(cx + 10, cy); ctx.lineTo(cx + 30, cy);\n    ctx.moveTo(cx, cy - 30); ctx.lineTo(cx, cy - 10);\n    ctx.moveTo(cx, cy + 10); ctx.lineTo(cx, cy + 30);\n    ctx.stroke();\n\n    // 2. Desenhar Painel de Telemetria (Lado Esquerdo)\n    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';\n    ctx.fillRect(20, cy - 100, 350, 200);\n\n    ctx.fillStyle = 'rgba(0, 255, 204, 1)';\n    ctx.font = 'bold 24px monospace';\n    ctx.fillText(\"MODO ASSISTIDO\", 40, cy - 60);\n    \n    ctx.font = '18px monospace';\n    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';\n    ctx.fillText(\"[Espaço/Shift]: Subir/Descer\", 40, cy - 20);\n    ctx.fillText(\"[W/S/A/D]: Voar no plano\", 40, cy + 10);\n    ctx.fillText(\"[Q/E]: Girar Câmera\", 40, cy + 40);\n    \n    // Obter dados do DroneController\n    const tele = window.droneTelemetry || { altitude: \"0.0\", speed: \"0.0\" };\n    \n    ctx.font = 'bold 26px monospace';\n    ctx.fillStyle = 'rgba(0, 255, 204, 1)';\n    ctx.fillText(\"ALT: \" + tele.altitude + \"m\", 40, cy + 80);\n    \n    // Telemetria Lateral Direita\n    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';\n    ctx.fillRect(canvas.width - 320, cy - 100, 300, 200);\n    \n    ctx.fillStyle = 'rgba(0, 255, 204, 1)';\n    ctx.fillText(\"VELOCIDADE\", canvas.width - 290, cy - 40);\n    ctx.font = 'bold 42px monospace';\n    ctx.fillText(tele.speed, canvas.width - 290, cy + 20);\n    ctx.font = 'bold 20px monospace';\n    ctx.fillText(\"km/h\", canvas.width - 290, cy + 50);\n\n    // Solicita que a engine atualize a textura da malha 3D na GPU\n    entity.updateHUDTexture();\n}\n",
+          "variables": []
+        }
+      }
     }
   },
   "rootEntityIds": [
-    "cc2334e4-657c-489c-aa1a-a7581197fb8f",
-    "9aef49b7-9277-40b4-ad83-0afa226bea2a",
-    "asteroid-0",
-    "asteroid-1",
-    "asteroid-2",
-    "asteroid-3",
-    "asteroid-4",
-    "asteroid-5",
-    "asteroid-6",
-    "boost-ring-0",
-    "boost-ring-1",
-    "boost-ring-2",
-    "ab889cc6-04c1-48b7-8ab2-ef12dd770f08",
-    "133780e3-a1d6-4f5c-a795-f3f28815d748",
-    "857e94ea-6fed-4ffa-a7aa-a234e889e664"
+    "drone-001",
+    "ground-001",
+    "spawn-001",
+    "obstacle-wall-1",
+    "gate-001",
+    "gate-002",
+    "gate-003",
+    "pillar-1",
+    "pillar-2"
   ],
-  "backgroundColor": "#020208",
+  "backgroundColor": "#87CEEB",
   "ambientColor": "#ffffff",
-  "ambientIntensity": 0.5,
+  "ambientIntensity": 0.6,
   "fogEnabled": true,
-  "fogColor": "#020208",
-  "fogNear": 15,
-  "fogFar": 220,
-  "skyboxUrl": "skybox/ChatGPT Image 21 de jun. de 2026, 16_59_08.png"
+  "fogColor": "#87CEEB",
+  "fogNear": 20,
+  "fogFar": 300
 }

@@ -39,6 +39,8 @@ export interface CameraComponent {
   isMain: boolean;
   offset: [number, number, number];
   rotation?: [number, number, number];
+  showCrosshair?: boolean;
+  antialias?: boolean;
 }
 
 export interface ScriptVariable {
@@ -70,11 +72,24 @@ export interface RigidBodyComponent {
   isStatic: boolean;
   useGravity: boolean;
   collider: 'cuboid' | 'ball' | 'hull' | 'trimesh' | 'none';
+  drag?: number;
+  angularDrag?: number;
+  restitution?: number;
+  isKinematic?: boolean;
+  interpolate?: 'none' | 'interpolate' | 'extrapolate';
+  collisionDetection?: 'discrete' | 'continuous';
+  freezePositionX?: boolean;
+  freezePositionY?: boolean;
+  freezePositionZ?: boolean;
+  freezeRotationX?: boolean;
+  freezeRotationY?: boolean;
+  freezeRotationZ?: boolean;
 }
 
 export interface AudioComponent {
   type: 'Audio';
   src: string;
+  fileName?: string;
   loop: boolean;
   volume: number;
   playOnStart: boolean;
@@ -84,6 +99,7 @@ export interface AudioComponent {
   rolloffFactor?: number;
   maxDistance?: number;
   distanceModel?: 'linear' | 'inverse' | 'exponential';
+  playbackRate?: number;
 }
 
 export interface ParticleSystemComponent {
@@ -92,6 +108,28 @@ export interface ParticleSystemComponent {
   color: string;
   size: number;
   speed: number;
+}
+
+export interface ColliderComponent {
+  type: 'Collider';
+  shape: 'cuboid' | 'ball' | 'capsule' | 'cylinder' | 'cone';
+  scale: [number, number, number];
+  offset: [number, number, number];
+  isTrigger: boolean;
+  restitution?: number;
+}
+
+export interface TextureComponent {
+  type: 'Texture';
+  textureUrl: string;
+  fileName: string;
+  tilingX?: number;
+  tilingY?: number;
+  offsetX?: number;
+  offsetY?: number;
+  normalMapUrl?: string;
+  normalFileName?: string;
+  normalScale?: number;
 }
 
 export interface GLTFModelComponent {
@@ -133,36 +171,10 @@ export interface NetworkComponent {
   syncRotation: boolean;
   syncAnimation: boolean;
   sendRate: number; // updates por segundo
+  role?: string;
+  ready?: boolean;
 }
 
-export type AnyComponent =
-  | TransformComponent
-  | MeshRendererComponent
-  | LightComponent
-  | CameraComponent
-  | ScriptComponent
-  | RigidBodyComponent
-  | AudioComponent
-  | ParticleSystemComponent
-  | GLTFModelComponent
-  | AnimatorComponent
-  | NetworkComponent;
-
-export type ComponentType = AnyComponent['type'];
-
-export type ComponentsMap = {
-  Transform: TransformComponent;
-  MeshRenderer: MeshRendererComponent;
-  Light: LightComponent;
-  Camera: CameraComponent;
-  Script: ScriptComponent;
-  RigidBody: RigidBodyComponent;
-  Audio: AudioComponent;
-  ParticleSystem: ParticleSystemComponent;
-  GLTFModel: GLTFModelComponent;
-  Animator: AnimatorComponent;
-  Network: NetworkComponent;
-};
 
 export interface Entity {
   id: EntityId;
@@ -179,6 +191,8 @@ export type SceneId = string;
 export interface Scene {
   id: SceneId;
   name: string;
+  roomId?: string;       // Identificador único da sala (gerado automaticamente)
+  coverImage?: string;   // URL da imagem de capa para o Discover
   entities: Record<EntityId, Entity>;
   rootEntityIds: EntityId[];
   backgroundColor: string;
@@ -189,5 +203,122 @@ export interface Scene {
   fogNear: number;
   fogFar: number;
   skyboxUrl?: string;
+  hudEnabled?: boolean;
+  hudConfig?: {
+    labelHome?: string;
+    labelAway?: string;
+    showTimer?: boolean;
+    showLobby?: boolean;
+    showScoreboard?: boolean;
+    showMatchOverlay?: boolean;
+    themeColor?: string;
+  };
+}
+
+export interface HUDPlaneComponent {
+  type: 'HUDPlane';
+  opacity: number;
+  color: string;
+  width: number;
+  height: number;
+  distance: number;
+}
+
+export interface VideoMeshComponent {
+  type: 'VideoMesh';
+  videoUrl: string;
+  fileName: string;
+  autoPlay: boolean;
+  loop: boolean;
+  volume: number;
+  muted: boolean;
+  play: boolean;
+  curveAmount: number;
+  curveDirection: 'horizontal' | 'vertical';
+  width: number;
+  height: number;
+  segmentsX: number;
+  segmentsY: number;
+  projection?: 'plane' | 'sphere360' | 'sphere180';
+  stereoMode?: 'none' | 'sbs' | 'tb';
+  lightInfluence?: boolean;
+  lightIntensity?: number;
+  lightDistance?: number;
+}
+
+export type AnyComponent =
+  | TransformComponent
+  | MeshRendererComponent
+  | LightComponent
+  | CameraComponent
+  | ScriptComponent
+  | RigidBodyComponent
+  | AudioComponent
+  | ParticleSystemComponent
+  | ColliderComponent
+  | GLTFModelComponent
+  | AnimatorComponent
+  | NetworkComponent
+  | TextureComponent
+  | HUDPlaneComponent
+  | VideoMeshComponent;
+
+export type ComponentType = AnyComponent['type'];
+
+export type ComponentsMap = {
+  Transform: TransformComponent;
+  MeshRenderer: MeshRendererComponent;
+  Light: LightComponent;
+  Camera: CameraComponent;
+  Script: ScriptComponent;
+  RigidBody: RigidBodyComponent;
+  Audio: AudioComponent;
+  ParticleSystem: ParticleSystemComponent;
+  Collider: ColliderComponent;
+  GLTFModel: GLTFModelComponent;
+  Animator: AnimatorComponent;
+  Network: NetworkComponent;
+  Texture: TextureComponent;
+  HUDPlane: HUDPlaneComponent;
+  VideoMesh: VideoMeshComponent;
+};
+
+const hudCanvasCache: Record<string, {
+  canvas: HTMLCanvasElement;
+  onHUDUpdate: (() => void) | null;
+}> = {};
+
+export function getOrCreateHUDCanvas(entity: any): HTMLCanvasElement {
+  const entityId = entity.id;
+  if (!hudCanvasCache[entityId]) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.fillStyle = 'rgba(0,0,0,0)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    hudCanvasCache[entityId] = {
+      canvas,
+      onHUDUpdate: null
+    };
+  }
+  
+  const cached = hudCanvasCache[entityId];
+  entity.HUDCanvas = cached.canvas;
+  entity.updateHUDTexture = () => {
+    if (typeof cached.onHUDUpdate === 'function') {
+      cached.onHUDUpdate();
+    }
+  };
+  
+  return cached.canvas;
+}
+
+export function setHUDUpdateCallback(entityId: string, callback: () => void) {
+  if (hudCanvasCache[entityId]) {
+    hudCanvasCache[entityId].onHUDUpdate = callback;
+  }
 }
 

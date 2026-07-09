@@ -9,9 +9,8 @@ interface ProjectAsset {
 
 export function AssetBrowser() {
   const { instantiateAsset, prefabs, instantiatePrefab } = useEditorStore();
-  const activeSceneId = useEditorStore(s => s.activeSceneId);
-  const activeScene = useEditorStore(s => s.scenes[activeSceneId]);
-  const sceneName = activeScene?.name || 'default';
+  const currentProjectName = useEditorStore(s => s.currentProjectName);
+  const sceneName = currentProjectName || 'default';
 
   const [assets, setAssets] = useState<ProjectAsset[]>([]);
   const [loading, setLoading] = useState(true);

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useEditorStore } from '../store/editorStore';
 import { 
   Box, 
@@ -19,7 +19,8 @@ import {
   Video,
   Cpu,
   Edit2,
-  CircleDot
+  CircleDot,
+  Film
 } from 'lucide-react';
 
 function CapsuleIcon({ size = 14 }: { size?: number }) {
@@ -61,6 +62,8 @@ const PLAYER_TYPES = [
 
 const XR_TYPES = [
   { id: 'vr-position', label: 'VR Position', icon: <Target size={14} /> },
+  { id: 'hud-plane', label: 'HUD Visor', icon: <Cpu size={14} /> },
+  { id: 'video-mesh', label: 'Video Mesh', icon: <Film size={14} /> },
 ];
 
 export function HierarchyPanel({ style }: { style?: React.CSSProperties }) {
@@ -68,11 +71,23 @@ export function HierarchyPanel({ style }: { style?: React.CSSProperties }) {
     activeScene,
     createEntity,
     renameEntity,
+    currentProjectName,
   } = useEditorStore();
   const scene = activeScene();
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameVal, setRenameVal] = useState('');
   const [showCreateMenu, setShowCreateMenu] = useState(false);
+
+  // Fecha o menu de criação ao clicar fora
+  useEffect(() => {
+    const handleGlobalClick = () => {
+      setShowCreateMenu(false);
+    };
+    if (showCreateMenu) {
+      window.addEventListener('click', handleGlobalClick);
+    }
+    return () => window.removeEventListener('click', handleGlobalClick);
+  }, [showCreateMenu]);
 
   const handleCreate = (type: string) => {
     createEntity(type);
@@ -97,10 +112,10 @@ export function HierarchyPanel({ style }: { style?: React.CSSProperties }) {
         <span className="panel-title">Hierarchy</span>
         <button
           className="panel-btn"
-          onClick={() => setShowCreateMenu(!showCreateMenu)}
-          title="Create Entity"
+          onClick={(e) => { e.stopPropagation(); setShowCreateMenu(!showCreateMenu); }}
+          title="Criar Entidade"
         >
-          <Plus size={13} /> Create
+          <Plus size={13} />
         </button>
       </div>
 
@@ -180,8 +195,9 @@ function HierarchyNode({
   setRenamingId: (v: string | null) => void, setRenameVal: (v: string) => void, 
   finishRename: () => void, startRename: (id: string, name: string) => void 
 }) {
-  const { selectedEntityId, selectEntity, toggleEntityActive, duplicateEntity, deleteEntity, activeScene, reparentEntity } = useEditorStore();
+  const { selectedEntityId, selectEntity, toggleEntityActive, duplicateEntity, deleteEntity, activeScene, reparentEntity, currentProjectName } = useEditorStore();
   const scene = activeScene();
+  const [isDragOver, setIsDragOver] = useState(false);
   const entity = scene.entities[entityId];
   if (!entity) return null;
 
@@ -204,7 +220,7 @@ function HierarchyNode({
   return (
     <>
       <div
-        className={`hierarchy-item ${isSelected ? 'selected' : ''} ${!entity.active ? 'inactive' : ''}`}
+        className={`hierarchy-item ${isSelected ? 'selected' : ''} ${!entity.active ? 'inactive' : ''} ${isDragOver ? 'drag-over' : ''}`}
         style={{ paddingLeft: `${8 + depth * 16}px` }}
         draggable
         onDragStart={(e) => {
@@ -215,9 +231,146 @@ function HierarchyNode({
           e.preventDefault();
           e.stopPropagation();
         }}
-        onDrop={(e) => {
+        onDragEnter={(e) => {
           e.preventDefault();
           e.stopPropagation();
+          setIsDragOver(true);
+        }}
+        onDragLeave={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsDragOver(false);
+        }}
+        onDrop={async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsDragOver(false);
+
+          // Handle file drop (script, audio, model)
+          const fileDataStr = e.dataTransfer.getData('application/orion-file');
+          if (fileDataStr) {
+            try {
+              const fileData = JSON.parse(fileDataStr);
+              if (fileData && !fileData.isDir) {
+                const ext = fileData.name.split('.').pop()?.toLowerCase();
+                const store = useEditorStore.getState();
+                const targetEntity = scene.entities[entityId];
+
+                if (ext === 'js' || ext === 'ts') {
+                  const sceneName = currentProjectName || 'default';
+                  const res = await fetch(`/api/explorer/read-file?project=${encodeURIComponent(sceneName)}&subpath=${encodeURIComponent(fileData.path)}`);
+                  if (res.ok) {
+                    const data = await res.json();
+                    const code = data.content || '';
+                    const scriptName = fileData.name.replace(/\.(js|ts)$/i, '');
+                    
+                    if (targetEntity) {
+                      if (targetEntity.components.Script) {
+                        const mainScript = targetEntity.components.Script as any;
+                        if (!mainScript.code || mainScript.scriptName === 'NewScript' || mainScript.scriptName === '') {
+                          store.updateComponent(entityId, 'Script', {
+                            scriptName,
+                            code
+                          });
+                          store.addLog('info', `Script principal do objeto "${targetEntity.name}" atualizado para "${scriptName}".`);
+                          store.showToast(`Script "${scriptName}" adicionado!`);
+                        } else {
+                          const currentScripts = mainScript.scripts || [];
+                          if (currentScripts.some((s: any) => s.scriptName === scriptName)) {
+                            store.showToast(`Script "${scriptName}" já está anexado.`, 'warning');
+                          } else {
+                            const newScript = {
+                              id: Math.random().toString(36).substring(2, 9),
+                              scriptName,
+                              code,
+                              variables: []
+                            };
+                            store.updateComponent(entityId, 'Script', {
+                              scripts: [...currentScripts, newScript]
+                            });
+                            store.addLog('info', `Script adicional "${scriptName}" anexado ao objeto "${targetEntity.name}".`);
+                            store.showToast(`Script adicional "${scriptName}" adicionado!`);
+                          }
+                        }
+                      } else {
+                        store.addComponent(entityId, {
+                          type: 'Script',
+                          scriptName,
+                          code,
+                          variables: [],
+                          scripts: []
+                        });
+                        store.addLog('info', `Componente Script adicionado ao objeto "${targetEntity.name}" com o arquivo "${fileData.name}".`);
+                        store.showToast(`Script "${scriptName}" adicionado ao objeto!`);
+                      }
+                    }
+                  } else {
+                    store.showToast('Erro ao ler arquivo de script.', 'error');
+                  }
+                } else if (ext === 'mp3' || ext === 'wav' || ext === 'ogg') {
+                  const sceneName = currentProjectName || 'default';
+                  const src = `/api/explorer/load-file?project=${encodeURIComponent(sceneName)}&subpath=${encodeURIComponent(fileData.path)}`;
+                  if (targetEntity) {
+                    if (targetEntity.components.Audio) {
+                      store.updateComponent(entityId, 'Audio', { src, fileName: fileData.path });
+                      store.addLog('info', `Áudio de "${targetEntity.name}" atualizado para "${fileData.name}".`);
+                    } else {
+                      store.addComponent(entityId, {
+                        type: 'Audio',
+                        src,
+                        fileName: fileData.path,
+                        loop: true,
+                        playOnStart: true,
+                        volume: 1,
+                        is3D: true,
+                        delay: 0,
+                        refDistance: 5,
+                        rolloffFactor: 1,
+                        maxDistance: 100,
+                        distanceModel: 'linear'
+                      });
+                      store.addLog('info', `Componente Audio Source adicionado a "${targetEntity.name}".`);
+                    }
+                    store.showToast(`Áudio "${fileData.name}" anexado!`);
+                  }
+                } else if (ext === 'gltf' || ext === 'glb') {
+                  const sceneName = activeScene().name || 'default';
+                  const src = `/api/project/get-asset?project=${encodeURIComponent(sceneName)}&file=${encodeURIComponent(fileData.name)}`;
+                  if (targetEntity) {
+                    if (targetEntity.components.GLTFModel) {
+                      store.updateComponent(entityId, 'GLTFModel', { src, fileName: fileData.name });
+                      store.addLog('info', `Modelo GLTF de "${targetEntity.name}" atualizado para "${fileData.name}".`);
+                    } else {
+                      store.addComponent(entityId, {
+                        type: 'GLTFModel',
+                        src,
+                        fileName: fileData.name,
+                        modelScale: 1,
+                        castShadow: true,
+                        receiveShadow: true,
+                        overrideMaterial: 'none',
+                        color: '#ffffff',
+                        roughness: 0.5,
+                        metalness: 0.1,
+                        textureUrl: '',
+                        normalMapUrl: '',
+                        normalScale: 1,
+                      });
+                      store.addLog('info', `Componente GLTFModel adicionado a "${targetEntity.name}".`);
+                    }
+                    store.showToast(`Modelo "${fileData.name}" anexado!`);
+                  }
+                } else {
+                  store.showToast(`Tipo de arquivo não suportado para o objeto.`, 'info');
+                }
+              }
+            } catch (err) {
+              console.error('Failed to handle drop of file in hierarchy', err);
+            }
+            return;
+          }
+
+          // Handle reparenting drop
           const draggedId = e.dataTransfer.getData('application/orion-entity');
           if (draggedId && draggedId !== entityId) {
             reparentEntity(draggedId, entityId);

@@ -19,7 +19,7 @@ function createWindow() {
 
   // Em desenvolvimento, carrega a URL do servidor Vite.
   // Em produção, carregaria o build gerado.
-  const devUrl = 'http://localhost:5173';
+  const devUrl = 'http://127.0.0.1:5173';
   mainWindow.loadURL(devUrl);
 
   // Abre o DevTools automaticamente em modo de desenvolvimento se desejado
@@ -50,7 +50,30 @@ ipcMain.on('window-control', (event, action) => {
   }
 });
 
-app.on('ready', createWindow);
+app.on('ready', async () => {
+  const { session } = require('electron');
+  
+  // Limpa o cache de dados (incluindo HSTS)
+  await session.defaultSession.clearStorageData();
+
+  // Força a permissão da câmera e do microfone sem perguntar ao usuário
+  session.defaultSession.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) => {
+    if (permission === 'media') {
+      return true;
+    }
+    return true;
+  });
+
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
+    if (permission === 'media') {
+      callback(true);
+    } else {
+      callback(true);
+    }
+  });
+
+  createWindow();
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

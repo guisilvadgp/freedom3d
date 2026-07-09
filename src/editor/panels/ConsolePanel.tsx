@@ -33,8 +33,8 @@ export function ConsolePanel() {
     <div className="console-panel">
       <div className="console-toolbar">
         <span className="console-count">{consoleLogs.length} logs</span>
-        <button className="panel-btn small" onClick={clearConsole}>
-          <Trash2 size={12} /> Clear
+        <button className="panel-btn small" onClick={clearConsole} title="Limpar Console">
+          <Trash2 size={12} />
         </button>
       </div>
       <div className="console-output">

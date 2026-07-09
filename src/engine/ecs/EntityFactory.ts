@@ -159,9 +159,19 @@ export function createFirstPersonPlayer(name = 'First Person Player'): Entity {
   e.components.RigidBody = {
     type: 'RigidBody',
     mass: 1,
+    drag: 0,
+    angularDrag: 0.05,
     isStatic: false,
+    isKinematic: false,
     useGravity: true,
-    collider: 'cuboid',
+    collider: 'none',
+  };
+  e.components.Collider = {
+    type: 'Collider',
+    shape: 'capsule',
+    scale: [0.5, 0.5, 1],
+    offset: [0, 0, 0],
+    isTrigger: false,
   };
   e.components.Camera = {
     type: 'Camera',
@@ -187,24 +197,32 @@ let eulerX = 0;
 let isCrouching = false;
 
 export function onUpdate(delta) {
-  if (typeof window !== 'undefined' && window.isVRActive) return;
+  const isVR = typeof window !== 'undefined' && window.isVRActive;
 
-  if (Input.getMouseButton(0)) Input.lockMouse();
-  if (Input.mouse.isLocked) {
-    eulerY -= Input.mouse.movementX * 0.002;
-    eulerX -= Input.mouse.movementY * 0.002;
+  if (!isVR) {
+    if (Input.getMouseButton(0)) Input.lockMouse();
+    if (Input.mouse.isLocked) {
+      eulerY -= Input.mouse.movementX * 0.002;
+      eulerX -= Input.mouse.movementY * 0.002;
+    }
   }
 
   // Eixos do Gamepad (Look Axis: X=2, Y=3)
   const lookX = Input.getGamepadAxis(2);
   const lookY = Input.getGamepadAxis(3);
-  if (Math.abs(lookX) > 0.1) eulerY -= lookX * 0.03;
-  if (Math.abs(lookY) > 0.1) eulerX -= lookY * 0.03;
-
-  eulerX = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, eulerX));
   
-  if (camera) {
-    camera.rotation = [eulerX, 0, 0];
+  if (Math.abs(lookX) > 0.1) eulerY -= lookX * 0.03;
+
+  if (!isVR) {
+    if (Math.abs(lookY) > 0.1) eulerX -= lookY * 0.03;
+    eulerX = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, eulerX));
+    if (camera) {
+      camera.rotation = [eulerX, 0, 0];
+    }
+  } else {
+    if (camera) {
+      camera.rotation = [0, 0, 0];
+    }
   }
   
   const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, eulerY, 0));
@@ -232,7 +250,13 @@ export function onUpdate(delta) {
 
     const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(q);
     const right = new THREE.Vector3(1, 0, 0).applyQuaternion(q);
-    const vel = new THREE.Vector3(0, rigidBody.linvel().y, 0);
+    
+    let yVel = rigidBody.linvel().y;
+    // Zera velocidade vertical pequena contra o chão para evitar trepidação (stutter)
+    if (yVel < 0 && Math.abs(yVel) < 0.1) {
+      yVel = 0;
+    }
+    const vel = new THREE.Vector3(0, yVel, 0);
     
     let moveForward = 0;
     let moveRight = 0;
@@ -280,9 +304,19 @@ export function createThirdPersonPlayer(name = 'Third Person Player'): Entity {
   e.components.RigidBody = {
     type: 'RigidBody',
     mass: 1,
+    drag: 0,
+    angularDrag: 0.05,
     isStatic: false,
+    isKinematic: false,
     useGravity: true,
-    collider: 'cuboid',
+    collider: 'none',
+  };
+  e.components.Collider = {
+    type: 'Collider',
+    shape: 'capsule',
+    scale: [0.5, 0.5, 1],
+    offset: [0, 0, 0],
+    isTrigger: false,
   };
   e.components.Camera = {
     type: 'Camera',
@@ -359,7 +393,13 @@ export function onUpdate(delta) {
     const qCam = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, angleX, 0));
     const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(qCam);
     const right = new THREE.Vector3(1, 0, 0).applyQuaternion(qCam);
-    const vel = new THREE.Vector3(0, rigidBody.linvel().y, 0);
+    
+    let yVel = rigidBody.linvel().y;
+    // Zera velocidade vertical pequena contra o chão para evitar trepidação (stutter)
+    if (yVel < 0 && Math.abs(yVel) < 0.1) {
+      yVel = 0;
+    }
+    const vel = new THREE.Vector3(0, yVel, 0);
     
     let isMoving = false;
     let moveForward = 0;
@@ -415,6 +455,98 @@ export function createCapsule(name = 'Capsule'): Entity {
     color: '#e67e22',
     castShadow: true,
     receiveShadow: true,
+  };
+  return e;
+}
+
+export function createHUDPlane(name = 'HUD Visor'): Entity {
+  const e = createEntity(name);
+  e.components.HUDPlane = {
+    type: 'HUDPlane',
+    opacity: 0.8,
+    color: '#00ffff',
+    width: 2.0,
+    height: 1.0,
+    distance: 0.5
+  };
+  
+  // Script inicial com exemplo de desenho 2D no canvas do HUD
+  e.components.Script = {
+    type: 'Script',
+    scriptName: 'HUDController',
+    code: `// Script do Visor HUD 3D
+export function onAwake() {
+  // Chamado na inicialização
+}
+
+export function onUpdate(delta) {
+  // Obtém o canvas HTML5 interno da entidade
+  const canvas = entity.HUDCanvas;
+  if (!canvas) return;
+  
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+  // 1. Desenhar Retícula (Mira) centralizada
+  const cx = canvas.width / 2;
+  const cy = canvas.height / 2;
+  
+  ctx.strokeStyle = 'rgba(0, 255, 200, 0.85)';
+  ctx.lineWidth = 3;
+  
+  // Círculo central
+  ctx.beginPath();
+  ctx.arc(cx, cy, 12, 0, Math.PI * 2);
+  ctx.stroke();
+  
+  // Linhas da mira
+  ctx.beginPath();
+  ctx.moveTo(cx - 20, cy); ctx.lineTo(cx - 6, cy);
+  ctx.moveTo(cx + 6, cy); ctx.lineTo(cx + 20, cy);
+  ctx.moveTo(cx, cy - 20); ctx.lineTo(cx, cy - 6);
+  ctx.moveTo(cx, cy + 6); ctx.lineTo(cx, cy + 20);
+  ctx.stroke();
+  
+  // 2. Desenhar elementos de interface translúcidos nas bordas
+  ctx.fillStyle = 'rgba(0, 255, 200, 0.9)';
+  ctx.font = 'bold 26px monospace';
+  ctx.fillText("SYSTEM: ACTIVE", 50, 80);
+  
+  ctx.fillStyle = 'rgba(255, 60, 60, 0.9)';
+  ctx.fillText("HP: 100", 50, 450);
+  
+  ctx.fillStyle = 'rgba(240, 200, 40, 0.9)';
+  ctx.fillText("AMMO: 30/90", 750, 450);
+  
+  // Solicita que a engine atualize a textura da malha 3D na GPU
+  entity.updateHUDTexture();
+}`
+  };
+  return e;
+}
+
+export function createVideoMesh(name = 'Video Mesh'): Entity {
+  const e = createEntity(name);
+  e.components.VideoMesh = {
+    type: 'VideoMesh',
+    videoUrl: '',
+    fileName: '',
+    autoPlay: true,
+    loop: true,
+    volume: 1.0,
+    muted: false,
+    play: true,
+    curveAmount: 0.0,
+    curveDirection: 'horizontal',
+    width: 2.0,
+    height: 1.125,
+    segmentsX: 32,
+    segmentsY: 32,
+    projection: 'plane',
+    stereoMode: 'none',
+    lightInfluence: false,
+    lightIntensity: 2.0,
+    lightDistance: 15.0,
   };
   return e;
 }

@@ -13,9 +13,10 @@ interface ExplorerItem {
 }
 
 export function ProjectExplorer() {
+  const currentProjectName = useEditorStore(s => s.currentProjectName);
   const activeSceneId = useEditorStore(s => s.activeSceneId);
   const activeScene = useEditorStore(s => s.scenes[activeSceneId]);
-  const sceneName = activeScene?.name || 'default';
+  const sceneName = currentProjectName || 'default';
 
   const [currentSubpath, setCurrentSubpath] = useState('');
   const [items, setItems] = useState<ExplorerItem[]>([]);
@@ -188,6 +189,55 @@ export function ProjectExplorer() {
     }
   };
 
+  const handleDoubleClick = (item: ExplorerItem) => {
+    if (item.isDir) {
+      setCurrentSubpath(item.path);
+      return;
+    }
+
+    const isScript = item.name.toLowerCase().endsWith('.js');
+    if (isScript) {
+      const scriptNameClean = item.name.replace(/\.js$/i, '').trim().toLowerCase();
+      
+      let foundEntityId = '';
+      let foundScriptId = '';
+      
+      if (activeScene && activeScene.entities) {
+        for (const entity of Object.values(activeScene.entities) as any[]) {
+          if (entity.components && entity.components.Script) {
+            const scriptComp = entity.components.Script;
+            
+            // Script principal
+            if (scriptComp.scriptName && scriptComp.scriptName.trim().toLowerCase() === scriptNameClean) {
+              foundEntityId = entity.id;
+              foundScriptId = 'main';
+              break;
+            }
+            
+            // Scripts adicionais
+            if (scriptComp.scripts && Array.isArray(scriptComp.scripts)) {
+              const addScript = scriptComp.scripts.find(
+                (scr: any) => scr.scriptName && scr.scriptName.trim().toLowerCase() === scriptNameClean
+              );
+              if (addScript) {
+                foundEntityId = entity.id;
+                foundScriptId = addScript.id;
+                break;
+              }
+            }
+          }
+        }
+      }
+
+      if (foundEntityId && foundScriptId) {
+        window.open(`/code-editor?entityId=${foundEntityId}&scriptId=${foundScriptId}`, 'Freedom3DCodeEditor', 'width=1100,height=750');
+        return;
+      }
+    }
+
+    handleEditFile(item);
+  };
+
   // Salvar arquivo editado
   const handleSaveFile = async () => {
     if (!editingFile) return;
@@ -297,6 +347,17 @@ export function ProjectExplorer() {
                   key={item.path} 
                   className="explorer-row"
                   onClick={() => item.isDir && setCurrentSubpath(item.path)}
+                  onDoubleClick={() => handleDoubleClick(item)}
+                  draggable={!item.isDir}
+                  onDragStart={(e) => {
+                    if (item.isDir) return;
+                    e.stopPropagation();
+                    e.dataTransfer.setData('application/orion-file', JSON.stringify({
+                      name: item.name,
+                      path: item.path,
+                      isDir: item.isDir
+                    }));
+                  }}
                   style={{ 
                     borderBottom: '1px solid var(--border-light)', 
                     cursor: item.isDir ? 'pointer' : 'default',
