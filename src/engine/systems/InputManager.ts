@@ -82,53 +82,79 @@ export const Input = {
     Input.gamepad.buttons = {};
     Input.gamepad.axes = [0, 0, 0, 0];
 
-    // Detecta se o XR está ativo para filtrar os controllers XR virtuais
+    // Detecta se o XR está ativo (modos VR / AR / MR) para filtrar os
+    // controllers virtuais do XR e o giroscópio do próprio celular.
     const isXRActive = typeof navigator !== 'undefined' &&
       typeof (navigator as any).xr !== 'undefined' &&
       (document.querySelector('canvas') !== null) &&
       !!(window as any).__freedom3d_xr_presenting__;
 
+    // IDs que denotam sensores de movimento / giroscópio expostos como
+    // "gamepad" (bug comum do Chrome no Android, usado nos modos AR/MR).
+    const MOTION_KEYWORDS = [
+      'sensor', 'motion', 'accelerometer', 'gyro',
+      'android', 'orientation', 'deviceorientation', 'tilt'
+    ];
+
+    const isMotionSensor = (gp: Gamepad): boolean => {
+      const idLower = gp.id ? gp.id.toLowerCase() : '';
+      if (MOTION_KEYWORDS.some(k => idLower.includes(k))) return true;
+      // Em AR/MR (celular no headset) o giroscópio aparece como gamepad sem
+      // botões. Um controle Bluetooth real sempre tem botões.
+      if (isXRActive && (!gp.buttons || gp.buttons.length === 0)) return true;
+      return false;
+    };
+
+    const isXRVirtualController = (gp: Gamepad): boolean => {
+      const idLower = gp.id ? gp.id.toLowerCase() : '';
+      return isXRActive &&
+        (idLower.includes('openvr') || idLower.includes('oculus') ||
+         idLower.includes('quest') || idLower.includes('hand'));
+    };
+
+    // Coleta apenas controles genuínos, ignorando o giroscópio e os
+    // controllers virtuais do XR. Assim o drone NÃO é guiado pelo
+    // giroscópio e o controle Bluetooth real é o selecionado.
+    const candidates: Gamepad[] = [];
     for (const gp of gamepads) {
-      if (gp && gp.connected) {
-        // Skip Android motion sensors / gyros often reported as gamepads in Chrome
-        const idLower = gp.id ? gp.id.toLowerCase() : '';
-        if (idLower.includes('sensor') || idLower.includes('motion') || idLower.includes('accelerometer') || idLower.includes('gyro')) {
-          continue;
-        }
-        // Skip OpenXR / WebXR virtual controllers (evita conflito com steering de câmera XR)
-        if (isXRActive && (idLower.includes('openvr') || idLower.includes('oculus') || idLower.includes('quest') || idLower.includes('hand'))) {
-          continue;
-        }
-        // Skip devices with no buttons
-        if (!gp.buttons || gp.buttons.length === 0) {
-          continue;
-        }
+      if (!gp || !gp.connected) continue;
+      if (isMotionSensor(gp)) continue;
+      if (isXRVirtualController(gp)) continue;
+      if (!gp.buttons || gp.buttons.length === 0) continue;
+      candidates.push(gp);
+    }
 
-        if (gp.buttons.length > config.buttonA) Input.gamepad.buttons['A'] = gp.buttons[config.buttonA].pressed;
-        if (gp.buttons.length > config.buttonB) Input.gamepad.buttons['B'] = gp.buttons[config.buttonB].pressed;
-        if (gp.buttons.length > config.buttonC) Input.gamepad.buttons['C'] = gp.buttons[config.buttonC].pressed;
-        if (gp.buttons.length > config.buttonD) Input.gamepad.buttons['D'] = gp.buttons[config.buttonD].pressed;
-        if (gp.buttons.length > config.buttonL1) Input.gamepad.buttons['L1'] = gp.buttons[config.buttonL1].pressed;
-        if (gp.buttons.length > config.buttonR1) Input.gamepad.buttons['R1'] = gp.buttons[config.buttonR1].pressed;
-        if (gp.buttons.length > config.buttonL2) Input.gamepad.buttons['L2'] = gp.buttons[config.buttonL2].pressed;
-        if (gp.buttons.length > config.buttonR2) Input.gamepad.buttons['R2'] = gp.buttons[config.buttonR2].pressed;
-        if (gp.buttons.length > config.buttonL3) Input.gamepad.buttons['L3'] = gp.buttons[config.buttonL3].pressed;
-        if (gp.buttons.length > config.buttonR3) Input.gamepad.buttons['R3'] = gp.buttons[config.buttonR3].pressed;
-        if (gp.buttons.length > config.buttonShare) Input.gamepad.buttons['Share'] = gp.buttons[config.buttonShare].pressed;
-        if (gp.buttons.length > config.buttonOptions) Input.gamepad.buttons['Options'] = gp.buttons[config.buttonOptions].pressed;
+    // Prefere o dispositivo com mais botões/eixos (controle Bluetooth real)
+    // em vez do primeiro da lista (que costuma ser o giroscópio do celular).
+    candidates.sort((a, b) =>
+      (b.buttons.length + b.axes.length) - (a.buttons.length + a.axes.length)
+    );
 
-        if (gp.axes.length > Math.max(config.moveAxisX, config.moveAxisY)) {
-          const rawX = gp.axes[config.moveAxisX];
-          const rawY = gp.axes[config.moveAxisY];
-          Input.gamepad.axes[0] = config.invertX ? -rawX : rawX;
-          Input.gamepad.axes[1] = config.invertY ? -rawY : rawY;
-        }
+    const gp = candidates[0];
+    if (gp) {
+      if (gp.buttons.length > config.buttonA) Input.gamepad.buttons['A'] = gp.buttons[config.buttonA].pressed;
+      if (gp.buttons.length > config.buttonB) Input.gamepad.buttons['B'] = gp.buttons[config.buttonB].pressed;
+      if (gp.buttons.length > config.buttonC) Input.gamepad.buttons['C'] = gp.buttons[config.buttonC].pressed;
+      if (gp.buttons.length > config.buttonD) Input.gamepad.buttons['D'] = gp.buttons[config.buttonD].pressed;
+      if (gp.buttons.length > config.buttonL1) Input.gamepad.buttons['L1'] = gp.buttons[config.buttonL1].pressed;
+      if (gp.buttons.length > config.buttonR1) Input.gamepad.buttons['R1'] = gp.buttons[config.buttonR1].pressed;
+      if (gp.buttons.length > config.buttonL2) Input.gamepad.buttons['L2'] = gp.buttons[config.buttonL2].pressed;
+      if (gp.buttons.length > config.buttonR2) Input.gamepad.buttons['R2'] = gp.buttons[config.buttonR2].pressed;
+      if (gp.buttons.length > config.buttonL3) Input.gamepad.buttons['L3'] = gp.buttons[config.buttonL3].pressed;
+      if (gp.buttons.length > config.buttonR3) Input.gamepad.buttons['R3'] = gp.buttons[config.buttonR3].pressed;
+      if (gp.buttons.length > config.buttonShare) Input.gamepad.buttons['Share'] = gp.buttons[config.buttonShare].pressed;
+      if (gp.buttons.length > config.buttonOptions) Input.gamepad.buttons['Options'] = gp.buttons[config.buttonOptions].pressed;
 
-        if (gp.axes.length > Math.max(config.lookAxisX, config.lookAxisY)) {
-          Input.gamepad.axes[2] = gp.axes[config.lookAxisX];
-          Input.gamepad.axes[3] = gp.axes[config.lookAxisY];
-        }
-        break;
+      if (gp.axes.length > Math.max(config.moveAxisX, config.moveAxisY)) {
+        const rawX = gp.axes[config.moveAxisX];
+        const rawY = gp.axes[config.moveAxisY];
+        Input.gamepad.axes[0] = config.invertX ? -rawX : rawX;
+        Input.gamepad.axes[1] = config.invertY ? -rawY : rawY;
+      }
+
+      if (gp.axes.length > Math.max(config.lookAxisX, config.lookAxisY)) {
+        Input.gamepad.axes[2] = gp.axes[config.lookAxisX];
+        Input.gamepad.axes[3] = gp.axes[config.lookAxisY];
       }
     }
   },
