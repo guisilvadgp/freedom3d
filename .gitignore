@@ -27,3 +27,4 @@ dist-ssr
 projects/
 node_modules/.cache/
 
+.dyad/
