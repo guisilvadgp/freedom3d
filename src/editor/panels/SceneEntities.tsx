@@ -936,7 +936,11 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
       }
     }
 
-    if (state.gl.xr.isPresenting) {
+    // No modo AR/MR simulado (TV) o jogo roda como "Screen mode": não
+    // aplicamos locomoção VR, gaze nem tomada da câmera XR no drone.
+    const simulatedAR = typeof window !== 'undefined' && (window as any).__freedom3d_simulated_ar__;
+
+    if (state.gl.xr.isPresenting && !simulatedAR) {
       if (typeof window !== 'undefined') {
         (window as any).isVRActive = true;
       }
@@ -1131,7 +1135,10 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
         const currentScene = storeState.activeScene();
         if (currentScene) {
           if (!cachedPlayerId.current || !currentScene.entities[cachedPlayerId.current]) {
-            const found = Object.values(currentScene.entities).find(e => e.tags?.includes('player') || e.components.Camera?.isMain);
+            // Apenas entidades explícitas com a tag 'player' são controladas pela
+            // locomoção VR. Câmeras isMain (ex.: drone FPV) NÃO devem ser
+            // sequestradas — assim o drone voa só pelo próprio script, igual ao Screen.
+            const found = Object.values(currentScene.entities).find(e => e.tags?.includes('player'));
             cachedPlayerId.current = found?.id ?? null;
           }
         }
@@ -1289,8 +1296,8 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
         near={camera.near}
         far={camera.far}
       />
-      {gl.xr.isPresenting && (
-        <>
+    {gl.xr.isPresenting && !(window as any).__freedom3d_simulated_ar__ && (
+      <>
           {camera.showCrosshair && (
             <mesh ref={crosshairRef} renderOrder={9999}>
               <ringGeometry args={[0.015, 0.02, 32]} />
@@ -2523,12 +2530,15 @@ function XRSync() {
 
   useFrame((state, delta) => {
     if (!groupRef.current) return;
+    // No modo AR/MR simulado (TV), o jogo roda como "Screen mode":
+    // sem sincronização de origem XR nem locomoção de player.
+    if (typeof window !== 'undefined' && (window as any).__freedom3d_simulated_ar__) return;
     const currentScene = sceneRef.current;
     if (!currentScene) return;
 
     // Busca o player uma única vez por cena e armazena em cache
     if (!cachedPlayerId.current || !currentScene.entities[cachedPlayerId.current]) {
-      const found = Object.values(currentScene.entities).find(e => e.tags?.includes('player') || e.components.Camera?.isMain);
+      const found = Object.values(currentScene.entities).find(e => e.tags?.includes('player'));
       cachedPlayerId.current = found?.id ?? null;
     }
     if (!cachedPlayerId.current) return;

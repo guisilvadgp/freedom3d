@@ -186,6 +186,12 @@ export function VirtualARScreen({ roomId }: { roomId?: string } = {}) {
 
   // Monitora o momento exato de ativação do AR para guiar a calibração
   useEffect(() => {
+    // Sinaliza ao resto do motor que estamos no modo AR/MR "simulado"
+    // (TV dentro do headset). Nesse modo o jogo deve rodar EXATAMENTE como
+    // o "Screen mode" — sem locomoção VR, sem sincronização de player XR.
+    if (typeof window !== 'undefined') {
+      (window as any).__freedom3d_simulated_ar__ = !!isAR;
+    }
     if (isAR) {
       setSessionStartTime(Date.now());
     } else {
