@@ -1,4 +1,4 @@
-import { useEditorStore } from '../../editor/store/editorStore';
+import { useRuntimeStore } from '../runtime/runtimeStore';
 import type { Entity } from '../ecs/types';
 
 export interface NetworkConfig {
@@ -32,7 +32,7 @@ export class NetworkManager {
     this.playerId = 'player-' + Math.floor(Math.random() * 10000);
 
     console.log(`[Network] Conectando a ${this.serverUrl} (Room: ${this.roomId}) como ${this.playerId}...`);
-    useEditorStore.getState().addLog('info', `Conectando ao multiplayer como ${this.playerId}...`);
+    useRuntimeStore.getState().addLog('info', `Conectando ao multiplayer como ${this.playerId}...`);
 
     try {
       this.socket = new WebSocket(this.serverUrl);
@@ -40,7 +40,7 @@ export class NetworkManager {
       this.socket.onopen = () => {
         this.connected = true;
         console.log(`[Network] Conectado com sucesso!`);
-        useEditorStore.getState().addLog('info', `Multiplayer: Conectado ao servidor.`);
+        useRuntimeStore.getState().addLog('info', `Multiplayer: Conectado ao servidor.`);
 
         // Busca posição/rotação do jogador local para enviar no join
         const localData = this.findLocalPlayerTransform();
@@ -77,7 +77,7 @@ export class NetworkManager {
 
       this.socket.onerror = (err) => {
         console.error('[Network] WebSocket error:', err);
-        useEditorStore.getState().addLog('error', `Multiplayer: Erro de conexão`);
+        useRuntimeStore.getState().addLog('error', `Multiplayer: Erro de conexão`);
       };
 
     } catch (err) {
@@ -97,7 +97,7 @@ export class NetworkManager {
     if (this.connected) {
       this.connected = false;
       console.log('[Network] Desconectado do servidor.');
-      useEditorStore.getState().addLog('warn', `Multiplayer: Desconectado.`);
+      useRuntimeStore.getState().addLog('warn', `Multiplayer: Desconectado.`);
 
       // Remove todos os ghosts do jogador remoto da cena para limpar
       this.removeAllGhosts();
@@ -135,7 +135,7 @@ export class NetworkManager {
     if (now - this.lastSentTime < 50) return;
     this.lastSentTime = now;
 
-    const store = useEditorStore.getState();
+    const store = useRuntimeStore.getState();
     const scene = store.activeScene();
     let playbackRate: number | undefined;
     let volume: number | undefined;
@@ -170,7 +170,7 @@ export class NetworkManager {
   private onReceiveState(packet: any) {
     if (!packet || packet.playerId === this.playerId) return;
 
-    const store = useEditorStore.getState();
+    const store = useRuntimeStore.getState();
     const scene = store.activeScene();
     if (!scene) return;
 
@@ -186,7 +186,7 @@ export class NetworkManager {
 
       case 'player-joined':
         // Outro jogador entrou
-        useEditorStore.getState().addLog('info', `Jogador ${packet.playerId} entrou no jogo como ${packet.role || 'red'}.`);
+        useRuntimeStore.getState().addLog('info', `Jogador ${packet.playerId} entrou no jogo como ${packet.role || 'red'}.`);
         this.createOrUpdateGhost(packet.playerId, packet.position, packet.rotation, packet.role || 'red', packet.ready || false, packet.playbackRate, packet.volume);
         break;
 
@@ -197,7 +197,7 @@ export class NetworkManager {
 
       case 'role-update':
         // Outro jogador mudou de papel
-        useEditorStore.getState().addLog('info', `Jogador ${packet.playerId} mudou para o time ${packet.role}.`);
+        useRuntimeStore.getState().addLog('info', `Jogador ${packet.playerId} mudou para o time ${packet.role}.`);
         this.createOrUpdateGhost(packet.playerId, packet.position || [0, 1.5, 0], packet.rotation || [0, 0, 0], packet.role, packet.ready || false, packet.playbackRate, packet.volume);
         break;
 
@@ -208,7 +208,7 @@ export class NetworkManager {
 
       case 'player-left':
         // Outro jogador saiu
-        useEditorStore.getState().addLog('warn', `Jogador ${packet.playerId} saiu do jogo.`);
+        useRuntimeStore.getState().addLog('warn', `Jogador ${packet.playerId} saiu do jogo.`);
         this.removeGhost(packet.playerId);
         break;
 
@@ -241,7 +241,7 @@ export class NetworkManager {
     playbackRate?: number,
     volume?: number
   ) {
-    const store = useEditorStore.getState();
+    const store = useRuntimeStore.getState();
     const scene = store.activeScene();
     if (!scene) return;
 
@@ -334,7 +334,7 @@ export class NetworkManager {
         components: ghostComponents
       };
 
-      useEditorStore.setState((s) => ({
+      useRuntimeStore.setState((s) => ({
         scenes: {
           ...s.scenes,
           [scene.id]: {
@@ -353,7 +353,7 @@ export class NetworkManager {
 
       // Atualiza o estado ativo se necessário
       if (existingGhost.active !== active) {
-        useEditorStore.setState((s) => {
+        useRuntimeStore.setState((s) => {
           const currentScene = s.scenes[scene.id];
           if (!currentScene) return {};
           const currentGhost = currentScene.entities[ghostId];
@@ -408,7 +408,7 @@ export class NetworkManager {
   }
 
   private updateGhostReadyStatus(remotePlayerId: string, ready: boolean) {
-    const store = useEditorStore.getState();
+    const store = useRuntimeStore.getState();
     const scene = store.activeScene();
     if (!scene) return;
 
@@ -420,7 +420,7 @@ export class NetworkManager {
   }
 
   private removeGhost(remotePlayerId: string) {
-    const store = useEditorStore.getState();
+    const store = useRuntimeStore.getState();
     const scene = store.activeScene();
     if (!scene) return;
 
@@ -430,7 +430,7 @@ export class NetworkManager {
     const newEntities = { ...scene.entities };
     delete newEntities[ghostId];
 
-    useEditorStore.setState((s) => ({
+    useRuntimeStore.setState((s) => ({
       scenes: {
         ...s.scenes,
         [scene.id]: {
@@ -443,7 +443,7 @@ export class NetworkManager {
   }
 
   private removeAllGhosts() {
-    const store = useEditorStore.getState();
+    const store = useRuntimeStore.getState();
     const scene = store.activeScene();
     if (!scene) return;
 
@@ -458,7 +458,7 @@ export class NetworkManager {
     });
 
     if (changed) {
-      useEditorStore.setState((s) => ({
+      useRuntimeStore.setState((s) => ({
         scenes: {
           ...s.scenes,
           [scene.id]: {
@@ -472,7 +472,7 @@ export class NetworkManager {
   }
 
   private findLocalPlayerTransform(): { id: string; position: [number, number, number]; rotation: [number, number, number] } | null {
-    const store = useEditorStore.getState();
+    const store = useRuntimeStore.getState();
     const scene = store.activeScene();
     if (!scene) return null;
 

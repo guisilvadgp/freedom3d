@@ -7,7 +7,7 @@ import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { TransformControls } from '@react-three/drei';
 import { RigidBody, MeshCollider, CuboidCollider, BallCollider, CapsuleCollider, CylinderCollider, ConeCollider } from '@react-three/rapier';
 import * as THREE from 'three';
-import { useEditorStore } from '../store/editorStore';
+import { useRuntimeStore } from '../runtime/runtimeStore';
 import { useShallow } from 'zustand/react/shallow';
 import type { Entity } from '../../engine/ecs/types';
 
@@ -348,7 +348,7 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
     snapEnabled,
     snapValue,
     activeViewport
-  } = useEditorStore(useShallow(s => ({
+  } = useRuntimeStore(useShallow(s => ({
     selectedEntityId: s.selectedEntityId,
     selectEntity: s.selectEntity,
     editorMode: s.editorMode,
@@ -481,7 +481,7 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
       if (fileName.startsWith('/') || fileName.startsWith('http') || fileName.startsWith('blob:') || fileName.startsWith('data:')) {
         return fileName;
       }
-      const sceneActive = useEditorStore.getState().scenes[useEditorStore.getState().activeSceneId];
+      const sceneActive = useRuntimeStore.getState().scenes[useRuntimeStore.getState().activeSceneId];
       const projectName = sceneActive?.name || 'default';
       
       if (isStandalone) {
@@ -1070,8 +1070,8 @@ export function GLTFErrorFallback({ fileName }: { fileName: string }) {
 // ── Renderiza todos os GLTF da cena ─────────────────────────
 
 export function GLTFViewers() {
-  const scene = useEditorStore(s => s.scenes[s.activeSceneId]);
-  const activeSceneId = useEditorStore(s => s.activeSceneId);
+  const scene = useRuntimeStore(s => s.scenes[s.activeSceneId]);
+  const activeSceneId = useRuntimeStore(s => s.activeSceneId);
 
   // Limpa o cache global de modelos carregados na RAM/VRAM ao trocar de cena no editor
   useEffect(() => {

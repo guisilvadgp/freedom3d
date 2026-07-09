@@ -1,7 +1,7 @@
 import { useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useRef, useState, useCallback, useMemo, type MutableRefObject } from 'react';
 import * as THREE from 'three';
-import { useEditorStore } from '../store/editorStore';
+import { useRuntimeStore } from '../runtime/runtimeStore';
 
 type TVMode = 'world' | 'follow' | 'pin';
 type TVQuality = 'low' | 'med' | 'high';
@@ -114,7 +114,7 @@ function updateTVPlacement(opts: {
 
 export function VirtualARScreen({ roomId }: { roomId?: string } = {}) {
   const { gl, scene } = useThree();
-  const isPlaying = useEditorStore(s => s.isPlaying);
+  const isPlaying = useRuntimeStore(s => s.isPlaying);
 
   const [isPresenting, setIsPresenting] = useState(gl.xr.isPresenting);
   const [isAR, setIsAR] = useState(false);
