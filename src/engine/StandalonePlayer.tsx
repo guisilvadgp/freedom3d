@@ -321,6 +321,9 @@ export function StandalonePlayer({ roomId }: { roomId?: string } = {}) {
   const [showDebug, setShowDebug] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
 
+  // Modo de posicionamento da TV virtual (World / Follow / Pin) — lido pela VirtualARScreen
+  const [tvMode, setTvMode] = useState<'world' | 'follow' | 'pin'>('world');
+
 
   // Referencias para atualizacao direta no DOM da barra de carregamento
   const progressBarRef = useRef<HTMLDivElement>(null);
@@ -420,7 +423,10 @@ export function StandalonePlayer({ roomId }: { roomId?: string } = {}) {
   const handlePlayAR = (e: React.MouseEvent) => {
     e.stopPropagation();
     (window as any).__freedom3d_ar_mode__ = true;
-    
+    // Registra modo e qualidade da TV virtual (lidos pela VirtualARScreen ao entrar no AR)
+    (window as any).__freedom3d_ar_tv_mode__ = tvMode;
+    (window as any).__freedom3d_ar_tv_quality__ = (window as any).__freedom3d_ar_tv_quality__ || 'low';
+
     // Inicia captura do feed da câmera traseira (passthrough simulado)
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       navigator.mediaDevices.getUserMedia({
@@ -732,6 +738,7 @@ export function StandalonePlayer({ roomId }: { roomId?: string } = {}) {
       <SceneView
         isStandalone={true}
         sceneLoaded={sceneLoaded}
+        roomId={roomId}
         onProgress={(p, statusText) => {
           const clampedP = Math.max(5, p);
           if (progressBarRef.current) progressBarRef.current.style.width = `${clampedP}%`;
@@ -922,6 +929,67 @@ export function StandalonePlayer({ roomId }: { roomId?: string } = {}) {
                   </div>
                 )}
                 {!isXRSupported && <div style={{ marginBottom: '28px' }} />}
+
+                {/* Seletor de posicionamento da TV virtual (relevante no Modo AR) */}
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '8px',
+                  marginTop: '24px'
+                }}>
+                  <span style={{
+                    fontSize: '10px',
+                    letterSpacing: '1.5px',
+                    color: 'rgba(255,255,255,0.4)',
+                    textTransform: 'uppercase',
+                    fontWeight: 700
+                  }}>
+                    Posição da TV Virtual (AR)
+                  </span>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap' }}>
+                    {([
+                      { id: 'world', label: 'World Locked' },
+                      { id: 'follow', label: 'Follow User' },
+                      { id: 'pin', label: 'Pin / Anchor' },
+                    ] as const).map((opt) => {
+                      const active = tvMode === opt.id;
+                      return (
+                        <button
+                          key={opt.id}
+                          onClick={(ev) => {
+                            ev.stopPropagation();
+                            setTvMode(opt.id);
+                            (window as any).__freedom3d_ar_tv_mode__ = opt.id;
+                          }}
+                          style={{
+                            background: active ? 'rgba(124,58,237,0.18)' : 'rgba(255,255,255,0.04)',
+                            color: active ? '#c4b5fd' : 'rgba(255,255,255,0.65)',
+                            border: active ? '1px solid rgba(124,58,237,0.6)' : '1px solid rgba(255,255,255,0.12)',
+                            padding: '8px 14px',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            borderRadius: '100px',
+                            cursor: 'pointer',
+                            backdropFilter: 'blur(8px)',
+                            transition: 'all 0.2s ease',
+                            outline: 'none',
+                            fontFamily: "'Outfit', 'Inter', sans-serif",
+                            whiteSpace: 'nowrap'
+                          }}
+                          onMouseEnter={(ev) => {
+                            if (!active) ev.currentTarget.style.background = 'rgba(255,255,255,0.1)';
+                          }}
+                          onMouseLeave={(ev) => {
+                            if (!active) ev.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                          }}
+                        >
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
 
                 {/* Três Modos de Inicialização lado a lado */}
                 <div style={{

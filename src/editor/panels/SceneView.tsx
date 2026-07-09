@@ -236,12 +236,14 @@ export function SceneView({
   isStandalone,
   sceneLoaded = true,
   onProgress,
-  onLoaded
+  onLoaded,
+  roomId
 }: {
   isStandalone?: boolean;
   sceneLoaded?: boolean;
   onProgress?: (progress: number, statusText?: string) => void;
   onLoaded?: () => void;
+  roomId?: string;
 }) {
   const showGrid = useEditorStore(s => s.showGrid);
   const isPlaying = useEditorStore(s => s.isPlaying);
@@ -355,7 +357,7 @@ export function SceneView({
     <>
       {!isGameView && <EditorCameraHandler />}
       <LoadingTracker sceneLoaded={sceneLoaded} onProgress={onProgress} onLoaded={onLoaded} />
-      {isStandalone && <VirtualARScreen />}
+      {isStandalone && <VirtualARScreen roomId={roomId} />}
       {/* Background */}
       {scene.skyboxUrl ? (
         <Suspense fallback={<color attach="background" args={[scene.backgroundColor]} />}>
