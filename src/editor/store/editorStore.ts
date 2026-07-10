@@ -3,18 +3,33 @@ import { v4 as uuidv4 } from 'uuid';
 import type { Entity, EntityId, Scene, SceneId, AnyComponent, ComponentType } from '../../engine/ecs/types';
 import type { SceneMetadata } from '../../engine/core/persistence';
 import {
-  createDirectionalLight,
+  createCube,
+  createSphere,
   createPlane,
+  createDirectionalLight,
+  createCylinder,
+  createTorus,
+  createPointLight,
   createFirstPersonPlayer,
+  createThirdPersonPlayer,
+  createVRPosition,
+  createEmpty,
+  createCapsule,
+  createCamera,
+  createHUDPlane,
+  createVideoMesh,
 } from '../../engine/ecs/EntityFactory';
-import {
-  useRuntimeStore,
-  type ConsoleLog,
-  type EditorMode,
-  type ViewMode,
-} from '../../engine/runtime/runtimeStore';
 
+export type EditorMode = 'select' | 'translate' | 'rotate' | 'scale';
+export type ViewMode = 'perspective' | 'top' | 'front' | 'right';
 export type PanelTab = 'hierarchy' | 'assets' | 'console' | 'script' | 'explorer' | 'ai-assistant';
+
+export interface ConsoleLog {
+  id: string;
+  type: 'log' | 'warn' | 'error' | 'info';
+  message: string;
+  timestamp: number;
+}
 
 function makeDefaultScene(): Scene {
   const light = createDirectionalLight();
@@ -54,30 +69,20 @@ function makeDefaultScene(): Scene {
   };
 }
 
-// ── Editor Store (facade) ────────────────────────────────────────────────
-// The Editor is a "client" of the engine. The shared, single source of truth
-// (scenes, play state, view flags, selection, console, history, prefabs) lives
-// in `runtimeStore`. This store:
-//   • keeps editor-only UI/authoring state (panels, project CRUD, save/load,
-//     asset browser, toast),
-//   • delegates scene/runtime mutations to `useRuntimeStore`,
-//   • mirrors the shared keys from `useRuntimeStore` so the ~185 panel usages
-//     that read `useEditorStore(s => s.scenes[...])` keep working unchanged.
-// Engine code MUST NOT import this store (direction: editor → engine only).
 interface EditorStore {
-  // Scenes (mirrored from runtime)
+  // Scenes
   scenes: Record<SceneId, Scene>;
   activeSceneId: SceneId;
   activeScene: () => Scene;
 
-  // Selection (mirrored from runtime)
+  // Selection
   selectedEntityId: EntityId | null;
   selectEntity: (id: EntityId | null) => void;
   selectedEntity: () => Entity | null;
   focusTrigger: { entityId: string; timestamp: number } | null;
   focusEntity: (id: string) => void;
 
-  // Editor preview helpers (mirrored from runtime)
+  // Editor state
   editorMode: EditorMode;
   setEditorMode: (mode: EditorMode) => void;
   viewMode: ViewMode;
@@ -98,16 +103,16 @@ interface EditorStore {
   snapValue: number;
   setSnapValue: (v: number) => void;
 
-  // Bottom panel (editor-only)
+  // Bottom panel
   bottomTab: PanelTab;
   setBottomTab: (tab: PanelTab) => void;
 
-  // Console (mirrored from runtime)
+  // Console
   consoleLogs: ConsoleLog[];
   addLog: (type: ConsoleLog['type'], message: string) => void;
   clearConsole: () => void;
 
-  // Entity operations (delegate to runtime)
+  // Entity operations
   createEntity: (type: string) => void;
   deleteEntity: (id: EntityId) => void;
   duplicateEntity: (id: EntityId) => void;
@@ -116,30 +121,30 @@ interface EditorStore {
   updateEntityTags: (id: EntityId, tags: string[]) => void;
   reparentEntity: (childId: EntityId, newParentId: EntityId | null) => void;
 
-  // Component operations (delegate to runtime)
+  // Component operations
   addComponent: (entityId: EntityId, component: AnyComponent) => void;
   removeComponent: (entityId: EntityId, type: ComponentType) => void;
   updateComponent: (entityId: EntityId, type: ComponentType, patch: Partial<AnyComponent>) => void;
 
-  // Runtime references (mirrored from runtime)
+  // Runtime references
   rigidBodyRefs: Record<string, any>;
   setRigidBodyRef: (id: string, ref: any) => void;
 
-  // Scene settings (delegate to runtime)
+  // Scene settings
   updateSceneSettings: (patch: Partial<Scene>) => void;
 
   publishToPreview: () => Promise<void>;
 
-  // GLTF Import (editor-only, mutates runtime scenes)
+  // GLTF Import & Assets
   importGLTF: (file: File) => Promise<void>;
+  instantiateAsset: (fileName: string) => Promise<void>;
 
-  // Prefabs (mirrored from runtime)
+  // Prefabs
   prefabs: Entity[];
   createPrefab: (id: EntityId) => void;
   instantiatePrefab: (index: number) => void;
-  instantiateAsset: (fileName: string) => Promise<void>;
 
-  // Persistence (editor-only)
+  // Persistence
   savedScenes: SceneMetadata[];
   isSaving: boolean;
   saveCurrentScene: () => Promise<void>;
@@ -149,14 +154,15 @@ interface EditorStore {
   showSaveModal: boolean;
   setShowSaveModal: (v: boolean) => void;
 
-  // Toast notifications (editor-only)
+  // Toast notifications
   toast: { message: string; type: 'success' | 'info' | 'error' | 'warning' } | null;
   showToast: (message: string, type?: 'success' | 'info' | 'error' | 'warning') => void;
 
-  // Projects / Scenes management (editor-only)
+  // Projects / Scenes management
   createNewProject: (name: string) => Promise<void>;
   renameProject: (id: string, name: string) => Promise<void>;
 
+  // Project Scenes
   currentProjectName: string;
   activeSceneName: string;
   projectScenes: string[];
@@ -168,7 +174,6 @@ interface EditorStore {
 
   hasUnpublishedChanges: boolean;
 
-  // Undo / Redo (mirrored from runtime)
   historyPast: Scene[];
   historyFuture: Scene[];
   takeHistorySnapshot: () => void;
@@ -177,88 +182,78 @@ interface EditorStore {
 }
 
 export const useEditorStore = create<EditorStore>((set, get) => {
-  // Seed the mirrored shared fields with the runtime's current values.
-  const rt0 = useRuntimeStore.getState();
-
   return {
-    // ── Mirrored shared fields ──
-    scenes: rt0.scenes,
-    activeSceneId: rt0.activeSceneId,
-    activeScene: () => useRuntimeStore.getState().scenes[useRuntimeStore.getState().activeSceneId],
+    scenes: {},
+    activeSceneId: '',
+    activeScene: () => get().scenes[get().activeSceneId],
 
-    selectedEntityId: rt0.selectedEntityId,
-    selectEntity: (id) => useRuntimeStore.getState().selectEntity(id),
-    selectedEntity: () => {
-      const { selectedEntityId, activeScene } = useRuntimeStore.getState();
-      if (!selectedEntityId) return null;
-      return activeScene().entities[selectedEntityId] ?? null;
+    currentProjectName: '',
+    activeSceneName: 'Main Scene',
+    projectScenes: [],
+
+    hasUnpublishedChanges: false,
+
+    historyPast: [],
+    historyFuture: [],
+
+    takeHistorySnapshot: () => {
+      const { activeSceneId, scenes } = get();
+      if (!activeSceneId || !scenes[activeSceneId]) return;
+      const sceneClone = JSON.parse(JSON.stringify(scenes[activeSceneId]));
+      set((s) => {
+        const past = [...s.historyPast];
+        if (past.length >= 35) past.shift();
+        return {
+          historyPast: [...past, sceneClone],
+          historyFuture: []
+        };
+      });
     },
-    focusTrigger: rt0.focusTrigger,
-    focusEntity: (id) => useRuntimeStore.getState().focusEntity(id),
 
-    editorMode: rt0.editorMode,
-    setEditorMode: (mode) => useRuntimeStore.getState().setEditorMode(mode),
-    viewMode: 'perspective',
-    setViewMode: (mode) => set({ viewMode: mode }),
-    activeViewport: rt0.activeViewport,
-    setActiveViewport: (viewport) => useRuntimeStore.getState().setActiveViewport(viewport),
-    isPlaying: rt0.isPlaying,
-    playModeBackupScene: null,
-    showGrid: rt0.showGrid,
-    toggleGrid: () => useRuntimeStore.getState().toggleGrid(),
-    showGizmos: rt0.showGizmos,
-    toggleGizmos: () => useRuntimeStore.getState().toggleGizmos(),
-    showLighting: rt0.showLighting,
-    toggleLighting: () => useRuntimeStore.getState().toggleLighting(),
-    snapEnabled: rt0.snapEnabled,
-    toggleSnap: () => useRuntimeStore.getState().toggleSnap(),
-    snapValue: rt0.snapValue,
-    setSnapValue: (v) => useRuntimeStore.getState().setSnapValue(v),
-
-    bottomTab: 'explorer',
-    setBottomTab: (tab) => set({ bottomTab: tab }),
-
-    consoleLogs: rt0.consoleLogs,
-    addLog: (type, message) => useRuntimeStore.getState().addLog(type, message),
-    clearConsole: () => useRuntimeStore.getState().clearConsole(),
-
-    createEntity: (type) => useRuntimeStore.getState().createEntity(type),
-    deleteEntity: (id) => useRuntimeStore.getState().deleteEntity(id),
-    duplicateEntity: (id) => useRuntimeStore.getState().duplicateEntity(id),
-    renameEntity: (id, name) => useRuntimeStore.getState().renameEntity(id, name),
-    toggleEntityActive: (id) => useRuntimeStore.getState().toggleEntityActive(id),
-    updateEntityTags: (id, tags) => useRuntimeStore.getState().updateEntityTags(id, tags),
-    reparentEntity: (childId, newParentId) => useRuntimeStore.getState().reparentEntity(childId, newParentId),
-
-    addComponent: (entityId, component) => useRuntimeStore.getState().addComponent(entityId, component),
-    removeComponent: (entityId, type) => useRuntimeStore.getState().removeComponent(entityId, type),
-    updateComponent: (entityId, type, patch) => useRuntimeStore.getState().updateComponent(entityId, type, patch),
-
-    rigidBodyRefs: rt0.rigidBodyRefs,
-    setRigidBodyRef: (id, ref) => useRuntimeStore.getState().setRigidBodyRef(id, ref),
-
-    updateSceneSettings: (patch) => useRuntimeStore.getState().updateSceneSettings(patch),
-
-    prefabs: rt0.prefabs,
-    createPrefab: (id) => {
-      const scene = get().activeScene();
-      const entity = scene.entities[id];
-      if (!entity) return;
-
-      const prefab = JSON.parse(JSON.stringify(entity));
-      useRuntimeStore.setState((s) => ({ prefabs: [...s.prefabs, prefab] }));
-      get().addLog('info', `🎯 Prefab "${entity.name}" criado com sucesso.`);
+    undo: () => {
+      const { activeSceneId, scenes, historyPast, historyFuture } = get();
+      if (!activeSceneId || !scenes[activeSceneId] || historyPast.length === 0) return;
+      
+      const currentScene = scenes[activeSceneId];
+      const sceneClone = JSON.parse(JSON.stringify(currentScene));
+      
+      const newPast = [...historyPast];
+      const previousScene = newPast.pop()!;
+      
+      set((s) => ({
+        scenes: {
+          ...s.scenes,
+          [activeSceneId]: previousScene
+        },
+        historyPast: newPast,
+        historyFuture: [...historyFuture, sceneClone],
+        hasUnpublishedChanges: true
+      }));
+      get().addLog('info', '↩️ Desfazer (Undo) executado.');
     },
-    instantiatePrefab: (index) => useRuntimeStore.getState().instantiatePrefab(index),
-    instantiateAsset: (fileName) => useRuntimeStore.getState().instantiateAsset(fileName),
 
-    historyPast: rt0.historyPast,
-    historyFuture: rt0.historyFuture,
-    takeHistorySnapshot: () => useRuntimeStore.getState().takeHistorySnapshot(),
-    undo: () => useRuntimeStore.getState().undo(),
-    redo: () => useRuntimeStore.getState().redo(),
+    redo: () => {
+      const { activeSceneId, scenes, historyPast, historyFuture } = get();
+      if (!activeSceneId || !scenes[activeSceneId] || historyFuture.length === 0) return;
+      
+      const currentScene = scenes[activeSceneId];
+      const sceneClone = JSON.parse(JSON.stringify(currentScene));
+      
+      const newFuture = [...historyFuture];
+      const nextScene = newFuture.pop()!;
+      
+      set((s) => ({
+        scenes: {
+          ...s.scenes,
+          [activeSceneId]: nextScene
+        },
+        historyPast: [...historyPast, sceneClone],
+        historyFuture: newFuture,
+        hasUnpublishedChanges: true
+      }));
+      get().addLog('info', '↪️ Refazer (Redo) executado.');
+    },
 
-    // ── Editor-only state / actions ──
     toast: null,
     showToast: (message, type = 'success') => {
       set({ toast: { message, type } });
@@ -267,140 +262,405 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       }, 3000);
     },
 
-    currentProjectName: '',
-    activeSceneName: 'Main Scene',
-    projectScenes: [],
+    rigidBodyRefs: {},
+    setRigidBodyRef: (id, ref) => {
+      set((s) => ({
+        rigidBodyRefs: { ...s.rigidBodyRefs, [id]: ref }
+      }));
+    },
 
-    hasUnpublishedChanges: false,
+    selectedEntityId: null,
+    selectEntity: (id) => set({ selectedEntityId: id }),
+    selectedEntity: () => {
+      const { selectedEntityId, activeScene } = get();
+      if (!selectedEntityId) return null;
+      return activeScene().entities[selectedEntityId] ?? null;
+    },
+    focusTrigger: null,
+    focusEntity: (id) => set({ focusTrigger: { entityId: id, timestamp: Date.now() } }),
 
-    savedScenes: [],
-    isSaving: false,
-    showSaveModal: false,
-    setShowSaveModal: (v) => set({ showSaveModal: v }),
+    editorMode: 'translate',
+    setEditorMode: (mode) => set({ editorMode: mode }),
+    viewMode: 'perspective',
+    setViewMode: (mode) => set({ viewMode: mode }),
+    activeViewport: 'scene',
+    setActiveViewport: (viewport) => set({ activeViewport: viewport }),
+    isPlaying: false,
+    playModeBackupScene: null,
+    togglePlay: () => set((s) => {
+      const isNowPlaying = !s.isPlaying;
+      
+      if (isNowPlaying) {
+        // Salva backup da cena ativa antes de iniciar o play mode
+        const activeScene = s.scenes[s.activeSceneId];
+        const backup = activeScene ? JSON.parse(JSON.stringify(activeScene)) : null;
 
-    saveCurrentScene: async () => {
-      const { activeScene, currentProjectName, activeSceneName, addLog, showToast } = get();
-      set({ isSaving: true });
-      try {
-        const scene = activeScene();
-
-        // Filtra as entidades ghosts de multiplayer para não salvar no arquivo da cena
-        const cleanedEntities = { ...scene.entities };
-        Object.keys(cleanedEntities).forEach(id => {
-          if (id.startsWith('ghost-')) {
-            delete cleanedEntities[id];
+        // Solicita Tela Cheia (Fullscreen) e Pointer Lock de forma paralela para preservar o token de gesto
+        setTimeout(() => {
+          const container = document.querySelector('.scene-view') || document.body;
+          const canvas = document.querySelector('.scene-view canvas') || document.querySelector('canvas');
+          
+          if (container && container.requestFullscreen) {
+            container.requestFullscreen().catch((err) => {
+              console.warn("Falha ao entrar em tela cheia:", err);
+            });
           }
-        });
+          if (canvas && canvas.requestPointerLock) {
+            try {
+              const res = canvas.requestPointerLock();
+              if (res && typeof res.catch === 'function') {
+                res.catch((err: any) => {
+                  console.warn("Pointer Lock automático recusado pelo navegador (o usuário deve clicar na tela para travar o mouse):", err);
+                });
+              }
+            } catch (err) {
+              console.warn("Falha ao solicitar Pointer Lock:", err);
+            }
+          }
+        }, 150);
 
-        const cleanedScene = {
-          ...scene,
-          entities: cleanedEntities,
-          rootEntityIds: scene.rootEntityIds.filter(id => !id.startsWith('ghost-'))
+        return {
+          isPlaying: true,
+          playModeBackupScene: backup,
+          activeViewport: 'game',
+          consoleLogs: []
         };
+      } else {
+        // Restaura o backup preservando o estado original
+        const backup = s.playModeBackupScene;
+        const updatedScenes = backup ? { ...s.scenes, [s.activeSceneId]: backup } : s.scenes;
 
-        const finalProjName = currentProjectName || scene.name;
-        const finalSceneName = activeSceneName || 'Main Scene';
-
-        const response = await fetch('/api/project/save-scene', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            projectName: finalProjName,
-            sceneName: finalSceneName,
-            scene: cleanedScene
-          })
-        });
-        if (!response.ok) throw new Error('Falha ao salvar no servidor');
-
-        addLog('info', `💾 Projeto "${finalProjName}" (Cena: "${finalSceneName}") salvo no disco com sucesso.`);
-        showToast(`Cena "${finalSceneName}" salva com sucesso!`, 'success');
-        set({ hasUnpublishedChanges: false });
-        await get().refreshSavedScenes();
-        await get().refreshProjectScenes();
-      } catch (err) {
-        get().addLog('error', `Falha ao salvar no disco: ${String(err)}`);
-        showToast('Falha ao salvar o projeto!', 'error');
-      } finally {
-        set({ isSaving: false });
-      }
-    },
-
-    loadSavedScene: async (id) => {
-      const { addLog, showToast } = get();
-      try {
-        const response = await fetch(`/api/project/load-scene?name=${encodeURIComponent(id)}&sceneName=Main Scene`);
-        if (!response.ok) throw new Error('Projeto não encontrado no disco');
-        const scene = await response.json();
-
-        if (!scene.rootEntityIds || !Array.isArray(scene.rootEntityIds)) {
-          scene.rootEntityIds = Object.values(scene.entities || {})
-            .filter((e: any) => !e.parentId)
-            .map((e: any) => e.id);
+        // Garante a saída de tela cheia e de pointer lock caso ainda estejam ativos ao parar
+        if (document.fullscreenElement) {
+          document.exitFullscreen().catch(() => {});
+        }
+        if (document.pointerLockElement) {
+          document.exitPointerLock();
         }
 
-        if (!scene.roomId) {
-          scene.roomId = id;
-        }
-
-        for (const entity of Object.values(scene.entities || {}) as any[]) {
-          if (entity.components.GLTFModel) {
-            const { fileName } = entity.components.GLTFModel;
-            entity.components.GLTFModel.src = `/api/project/get-asset?project=${encodeURIComponent(id)}&file=${encodeURIComponent(fileName)}`;
-          }
-        }
-
-        useRuntimeStore.setState({
-          scenes: { ...useRuntimeStore.getState().scenes, [scene.id]: scene },
-          activeSceneId: scene.id,
+        return {
+          isPlaying: false,
+          scenes: updatedScenes,
+          playModeBackupScene: null,
+          activeViewport: 'scene',
           selectedEntityId: null,
-        });
-        set({
-          currentProjectName: id,
-          activeSceneName: 'Main Scene',
-          showSaveModal: false,
-          hasUnpublishedChanges: false,
-        });
-        addLog('info', `📂 Projeto "${id}" carregado.`);
-        showToast(`Projeto "${id}" carregado!`);
-        await get().refreshProjectScenes();
-      } catch (err) {
-        get().addLog('error', `Falha ao carregar do disco: ${String(err)}`);
-        showToast('Erro ao carregar o projeto', 'error');
+          rigidBodyRefs: {} // reseta referências dos rigidbodies físicos da execução anterior
+        };
       }
+    }),
+    showGrid: true,
+    toggleGrid: () => set((s) => ({ showGrid: !s.showGrid })),
+    showGizmos: true,
+    toggleGizmos: () => set((s) => ({ showGizmos: !s.showGizmos })),
+    showLighting: true,
+    toggleLighting: () => set((s) => ({ showLighting: !s.showLighting })),
+    snapEnabled: false,
+    toggleSnap: () => set((s) => ({ snapEnabled: !s.snapEnabled })),
+    snapValue: 0.5,
+    setSnapValue: (v) => set({ snapValue: v }),
+
+    bottomTab: 'explorer',
+    setBottomTab: (tab) => set({ bottomTab: tab }),
+
+    consoleLogs: [
+      { id: uuidv4(), type: 'info', message: '🚀 Orion Engine v0.1.0 iniciado.', timestamp: Date.now() },
+      { id: uuidv4(), type: 'log', message: 'Cena "Main Scene" carregada com sucesso.', timestamp: Date.now() },
+    ],
+    addLog: (type, message) =>
+      set((s) => ({
+        consoleLogs: [
+          ...s.consoleLogs.slice(-99),
+          { id: uuidv4(), type, message, timestamp: Date.now() },
+        ],
+      })),
+    clearConsole: () => set({ consoleLogs: [] }),
+
+    createEntity: (type) => {
+      get().takeHistorySnapshot();
+      const scene = get().activeScene();
+      let entity: Entity;
+      switch (type) {
+        case 'cube': entity = createCube(); break;
+        case 'sphere': entity = createSphere(); break;
+        case 'plane': entity = createPlane('Plane'); entity.components.Transform!.scale = [1,1,1]; break;
+        case 'cylinder': entity = createCylinder(); break;
+        case 'torus': entity = createTorus(); break;
+        case 'capsule': entity = createCapsule(); break;
+        case 'empty': entity = createEmpty(); break;
+        case 'directional': entity = createDirectionalLight(); break;
+        case 'point': entity = createPointLight(); break;
+        case 'camera': entity = createCamera(); break;
+        case 'first-person': entity = createFirstPersonPlayer(); break;
+        case 'third-person': entity = createThirdPersonPlayer(); break;
+        case 'vr-position': entity = createVRPosition(); break;
+        case 'hud-plane': entity = createHUDPlane(); break;
+        case 'video-mesh': entity = createVideoMesh(); break;
+        default: entity = createCube();
+      }
+      get().addLog('log', `Entidade criada: "${entity.name}"`);
+      set((s) => ({
+        scenes: {
+          ...s.scenes,
+          [scene.id]: {
+            ...scene,
+            entities: { ...scene.entities, [entity.id]: entity },
+            rootEntityIds: [...scene.rootEntityIds, entity.id],
+          },
+        },
+        selectedEntityId: entity.id,
+        hasUnpublishedChanges: true,
+      }));
     },
 
-    deleteSavedScene: async (id) => {
-      const { refreshSavedScenes, showToast } = get();
-      try {
-        const response = await fetch('/api/project/delete', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: id })
-        });
-        if (!response.ok) throw new Error('Erro ao deletar projeto');
-
-        await refreshSavedScenes();
-        showToast('Projeto removido do disco', 'warning');
-        get().addLog('warn', `Pasta do projeto "${id}" excluída com sucesso.`);
-      } catch (err) {
-        get().addLog('error', `Falha ao excluir projeto do disco: ${String(err)}`);
-        showToast('Erro ao excluir projeto', 'error');
-      }
+    deleteEntity: (id) => {
+      get().takeHistorySnapshot();
+      const scene = get().activeScene();
+      const entity = scene.entities[id];
+      if (!entity) return;
+      const newEntities = { ...scene.entities };
+      delete newEntities[id];
+      get().addLog('warn', `Entidade deletada: "${entity.name}"`);
+      set((s) => ({
+        scenes: {
+          ...s.scenes,
+          [scene.id]: {
+            ...scene,
+            entities: newEntities,
+            rootEntityIds: scene.rootEntityIds.filter((eid) => eid !== id),
+          },
+        },
+        selectedEntityId: s.selectedEntityId === id ? null : s.selectedEntityId,
+        hasUnpublishedChanges: true,
+      }));
     },
 
-    refreshSavedScenes: async () => {
-      try {
-        const response = await fetch('/api/projects');
-        if (response.ok) {
-          const list = await response.json();
-          set({ savedScenes: list });
+    duplicateEntity: (id) => {
+      get().takeHistorySnapshot();
+      const scene = get().activeScene();
+      const original = scene.entities[id];
+      if (!original) return;
+      const clone: Entity = JSON.parse(JSON.stringify(original));
+      clone.id = uuidv4();
+      clone.name = original.name + ' (copy)';
+      if (clone.components.Transform) {
+        clone.components.Transform.position = [
+          clone.components.Transform.position[0] + 1,
+          clone.components.Transform.position[1],
+          clone.components.Transform.position[2],
+        ];
+      }
+      get().addLog('log', `Entidade duplicada: "${clone.name}"`);
+      set((s) => ({
+        scenes: {
+          ...s.scenes,
+          [scene.id]: {
+            ...scene,
+            entities: { ...scene.entities, [clone.id]: clone },
+            rootEntityIds: [...scene.rootEntityIds, clone.id],
+          },
+        },
+        selectedEntityId: clone.id,
+        hasUnpublishedChanges: true,
+      }));
+    },
+
+    renameEntity: (id, name) => {
+      get().takeHistorySnapshot();
+      const scene = get().activeScene();
+      set((s) => ({
+        scenes: {
+          ...s.scenes,
+          [scene.id]: {
+            ...scene,
+            entities: {
+              ...scene.entities,
+              [id]: { ...scene.entities[id], name },
+            },
+          },
+        },
+        hasUnpublishedChanges: true,
+      }));
+    },
+
+    updateEntityTags: (id, tags) => {
+      const scene = get().activeScene();
+      set((s) => ({
+        scenes: {
+          ...s.scenes,
+          [scene.id]: {
+            ...scene,
+            entities: {
+              ...scene.entities,
+              [id]: { ...scene.entities[id], tags },
+            },
+          },
+        },
+        hasUnpublishedChanges: true,
+      }));
+    },
+
+    toggleEntityActive: (id) => {
+      get().takeHistorySnapshot();
+      const scene = get().activeScene();
+      const entity = scene.entities[id];
+      set((s) => ({
+        scenes: {
+          ...s.scenes,
+          [scene.id]: {
+            ...scene,
+            entities: {
+              ...scene.entities,
+              [id]: { ...entity, active: !entity.active },
+            },
+          },
+        },
+        hasUnpublishedChanges: true,
+      }));
+    },
+
+    reparentEntity: (childId, newParentId) => {
+      get().takeHistorySnapshot();
+      const scene = get().activeScene();
+      const child = scene.entities[childId];
+      if (!child) return;
+
+      // Prevent cyclical parenting
+      if (newParentId) {
+        let curr = scene.entities[newParentId];
+        while (curr) {
+          if (curr.id === childId) return; // Cycle detected
+          if (!curr.parentId) break;
+          curr = scene.entities[curr.parentId];
         }
-      } catch (_) { }
+      }
+
+      const newEntities = { ...scene.entities };
+      const newRootIds = [...scene.rootEntityIds];
+
+      // Remove from old parent
+      if (child.parentId) {
+        const oldParent = newEntities[child.parentId];
+        if (oldParent) {
+          newEntities[child.parentId] = {
+            ...oldParent,
+            childrenIds: oldParent.childrenIds.filter(id => id !== childId)
+          };
+        }
+      } else {
+        const idx = newRootIds.indexOf(childId);
+        if (idx !== -1) newRootIds.splice(idx, 1);
+      }
+
+      // Add to new parent
+      newEntities[childId] = { ...child, parentId: newParentId };
+      if (newParentId) {
+        const newParent = newEntities[newParentId];
+        if (newParent) {
+          newEntities[newParentId] = {
+            ...newParent,
+            childrenIds: [...newParent.childrenIds, childId]
+          };
+        }
+      } else {
+        if (!newRootIds.includes(childId)) {
+          newRootIds.push(childId);
+        }
+      }
+
+      set((s) => ({
+        scenes: {
+          ...s.scenes,
+          [scene.id]: {
+            ...scene,
+            entities: newEntities,
+            rootEntityIds: newRootIds,
+          },
+        },
+        hasUnpublishedChanges: true,
+      }));
+    },
+
+    addComponent: (entityId, component) => {
+      get().takeHistorySnapshot();
+      const scene = get().activeScene();
+      const entity = scene.entities[entityId];
+      if (!entity) return;
+      set((s) => ({
+        scenes: {
+          ...s.scenes,
+          [scene.id]: {
+            ...scene,
+            entities: {
+              ...scene.entities,
+              [entityId]: {
+                ...entity,
+                components: { ...entity.components, [component.type]: component },
+              },
+            },
+          },
+        },
+        hasUnpublishedChanges: true,
+      }));
+    },
+
+    removeComponent: (entityId, type) => {
+      get().takeHistorySnapshot();
+      const scene = get().activeScene();
+      const entity = scene.entities[entityId];
+      if (!entity) return;
+      const comps = { ...entity.components };
+      delete comps[type];
+      set((s) => ({
+        scenes: {
+          ...s.scenes,
+          [scene.id]: {
+            ...scene,
+            entities: { ...scene.entities, [entityId]: { ...entity, components: comps } },
+          },
+        },
+        hasUnpublishedChanges: true,
+      }));
+    },
+
+    updateComponent: (entityId, type, patch) => {
+      const scene = get().activeScene();
+      const entity = scene.entities[entityId];
+      if (!entity) return;
+      const existing = entity.components[type];
+      if (!existing) return;
+      set((s) => ({
+        scenes: {
+          ...s.scenes,
+          [scene.id]: {
+            ...scene,
+            entities: {
+              ...scene.entities,
+              [entityId]: {
+                ...entity,
+                components: {
+                  ...entity.components,
+                  [type]: { ...existing, ...patch },
+                },
+              },
+            },
+          },
+        },
+        hasUnpublishedChanges: true,
+      }));
+    },
+
+    updateSceneSettings: (patch) => {
+      const scene = get().activeScene();
+      set((s) => ({
+        scenes: { ...s.scenes, [scene.id]: { ...scene, ...patch } },
+        hasUnpublishedChanges: true,
+      }));
     },
 
     publishToPreview: async () => {
       const { activeScene, addLog, saveCurrentScene, showToast } = get();
       try {
+        // Salva a cena automaticamente antes de publicar
         await saveCurrentScene();
 
         const scene = activeScene();
@@ -415,12 +675,14 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       }
     },
 
+    // ── GLTF Import ────────────────────────────────────────────
     importGLTF: async (file: File) => {
       const { addLog, activeScene } = get();
       try {
         const scene = activeScene();
         const buffer = await file.arrayBuffer();
-
+        
+        // Faz o upload direto para o diretório de assets do projeto ativo
         const uploadUrl = `/api/project/upload-asset?project=${encodeURIComponent(scene.name)}&file=${encodeURIComponent(file.name)}`;
         const res = await fetch(uploadUrl, {
           method: 'POST',
@@ -464,7 +726,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         };
 
         addLog('info', `📦 Modelo importado no projeto: "${file.name}" (${(file.size / 1024).toFixed(1)} KB)`);
-        useRuntimeStore.setState((s) => ({
+        set((s) => ({
           scenes: {
             ...s.scenes,
             [scene.id]: {
@@ -474,9 +736,160 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             },
           },
           selectedEntityId: entity.id,
+          hasUnpublishedChanges: true,
         }));
       } catch (err) {
         addLog('error', `Falha ao importar "${file.name}": ${String(err)}`);
+      }
+    },
+
+    instantiateAsset: async (fileName: string) => {
+      const { addLog, activeScene } = get();
+      try {
+        const scene = activeScene();
+        const src = `/api/project/get-asset?project=${encodeURIComponent(scene.name)}&file=${encodeURIComponent(fileName)}`;
+
+        const entity: Entity = {
+          id: uuidv4(),
+          name: fileName.replace(/\.(gltf|glb|fbx)$/i, ''),
+          parentId: null,
+          childrenIds: [],
+          active: true,
+          tags: ['gltf'],
+          components: {
+            Transform: {
+              type: 'Transform',
+              position: [0, 0, 0],
+              rotation: [0, 0, 0],
+              scale: [1, 1, 1],
+            },
+            GLTFModel: {
+              type: 'GLTFModel',
+              src,
+              fileName,
+              modelScale: 1,
+              castShadow: true,
+              receiveShadow: true,
+              overrideMaterial: 'none',
+              color: '#ffffff',
+              roughness: 0.5,
+              metalness: 0.1,
+              textureUrl: '',
+              normalMapUrl: '',
+              normalScale: 1,
+            },
+          },
+        };
+
+        addLog('info', `📦 Instanciado do projeto: "${fileName}"`);
+        set((s) => ({
+          scenes: {
+            ...s.scenes,
+            [scene.id]: {
+              ...scene,
+              entities: { ...scene.entities, [entity.id]: entity },
+              rootEntityIds: [...scene.rootEntityIds, entity.id],
+            },
+          },
+          selectedEntityId: entity.id,
+          hasUnpublishedChanges: true,
+        }));
+      } catch (err) {
+        addLog('error', `Falha ao instanciar "${fileName}": ${String(err)}`);
+      }
+    },
+
+    // ── Prefabs ─────────────────────────────────────────────────
+    prefabs: [],
+    createPrefab: (id) => {
+      const scene = get().activeScene();
+      const entity = scene.entities[id];
+      if (!entity) return;
+      
+      const prefab = JSON.parse(JSON.stringify(entity));
+      set((s) => ({ prefabs: [...s.prefabs, prefab] }));
+      get().addLog('info', `🎯 Prefab "${entity.name}" criado com sucesso.`);
+    },
+    
+    instantiatePrefab: (index) => {
+      const prefab = get().prefabs[index];
+      if (!prefab) return;
+      
+      const scene = get().activeScene();
+      const newEntity: Entity = JSON.parse(JSON.stringify(prefab));
+      newEntity.id = uuidv4();
+      
+      // Se tiver Transform, desloca levemente
+      if (newEntity.components.Transform) {
+        newEntity.components.Transform.position[0] += 0.5;
+        newEntity.components.Transform.position[1] += 0.5;
+      }
+      
+      set((s) => ({
+        scenes: {
+          ...s.scenes,
+          [scene.id]: {
+            ...scene,
+            entities: { ...scene.entities, [newEntity.id]: newEntity },
+            rootEntityIds: [...scene.rootEntityIds, newEntity.id],
+          },
+        },
+        selectedEntityId: newEntity.id,
+        hasUnpublishedChanges: true,
+      }));
+      get().addLog('info', `🎯 Prefab instanciado: "${newEntity.name}"`);
+    },
+
+    // ── Persistence ─────────────────────────────────────────────
+    savedScenes: [],
+    isSaving: false,
+    showSaveModal: false,
+    setShowSaveModal: (v) => set({ showSaveModal: v }),
+
+    saveCurrentScene: async () => {
+      const { activeScene, currentProjectName, activeSceneName, addLog, showToast } = get();
+      set({ isSaving: true });
+      try {
+        const scene = activeScene();
+        
+        // Filtra as entidades ghosts de multiplayer para não salvar no arquivo da cena
+        const cleanedEntities = { ...scene.entities };
+        Object.keys(cleanedEntities).forEach(id => {
+          if (id.startsWith('ghost-')) {
+            delete cleanedEntities[id];
+          }
+        });
+        
+        const cleanedScene = {
+          ...scene,
+          entities: cleanedEntities,
+          rootEntityIds: scene.rootEntityIds.filter(id => !id.startsWith('ghost-'))
+        };
+
+        const finalProjName = currentProjectName || scene.name;
+        const finalSceneName = activeSceneName || 'Main Scene';
+
+        const response = await fetch('/api/project/save-scene', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            projectName: finalProjName, 
+            sceneName: finalSceneName,
+            scene: cleanedScene 
+          })
+        });
+        if (!response.ok) throw new Error('Falha ao salvar no servidor');
+
+        addLog('info', `💾 Projeto "${finalProjName}" (Cena: "${finalSceneName}") salvo no disco com sucesso.`);
+        showToast(`Cena "${finalSceneName}" salva com sucesso!`, 'success');
+        set({ hasUnpublishedChanges: false });
+        await get().refreshSavedScenes();
+        await get().refreshProjectScenes();
+      } catch (err) {
+        get().addLog('error', `Falha ao salvar no disco: ${String(err)}`);
+        showToast('Falha ao salvar o projeto!', 'error');
+      } finally {
+        set({ isSaving: false });
       }
     },
 
@@ -484,7 +897,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       const { refreshSavedScenes, showToast, addLog } = get();
       try {
         const cleanName = name.replace(/[^a-zA-Z0-9_\-\s]/g, '').trim() || 'Novo Projeto';
-
+        
+        // Cria a pasta e estrutura básica no servidor
         const response = await fetch('/api/projects', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -497,27 +911,27 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         const newScene = makeDefaultScene();
         newScene.id = finalName;
         newScene.name = finalName;
+        // Garante roomId único para o projeto
         if (!newScene.roomId) newScene.roomId = uuidv4();
 
+        // Salva o scene.json inicial na pasta do projeto
         const saveResponse = await fetch('/api/project/save-scene', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ projectName: finalName, sceneName: 'Main Scene', scene: newScene })
         });
         if (!saveResponse.ok) throw new Error('Erro ao inicializar scene.json do projeto');
-
-        useRuntimeStore.setState({
-          scenes: { ...useRuntimeStore.getState().scenes, [finalName]: newScene },
+        
+        set((s) => ({
+          scenes: { ...s.scenes, [finalName]: newScene },
           activeSceneId: finalName,
-          selectedEntityId: null,
-        });
-        set({
           currentProjectName: finalName,
           activeSceneName: 'Main Scene',
+          selectedEntityId: null,
           showSaveModal: false,
           hasUnpublishedChanges: false,
-        });
-
+        }));
+        
         addLog('info', `📁 Novo projeto criado no disco: "${finalName}"`);
         showToast(`Projeto "${finalName}" criado!`);
         await refreshSavedScenes();
@@ -532,7 +946,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       const { addLog, refreshSavedScenes, showToast } = get();
       try {
         const cleanName = name.replace(/[^a-zA-Z0-9_\-\s]/g, '').trim() || 'Sem nome';
-
+        
         const response = await fetch('/api/project/rename', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -543,16 +957,18 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         const finalNewName = data.name;
 
         if (get().activeSceneId === id || get().currentProjectName === id) {
-          const currentScene = useRuntimeStore.getState().scenes[id] || get().activeScene();
+          const currentScene = get().scenes[id] || get().activeScene();
           const updatedScene = { ...currentScene, id: finalNewName, name: finalNewName };
-          useRuntimeStore.setState({
-            scenes: { ...useRuntimeStore.getState().scenes, [finalNewName]: updatedScene },
+          set((s) => ({
+            scenes: {
+              ...s.scenes,
+              [finalNewName]: updatedScene
+            },
             activeSceneId: finalNewName,
-            selectedEntityId: null,
-          });
+            currentProjectName: finalNewName,
+            hasUnpublishedChanges: false
+          }));
         }
-
-        set({ currentProjectName: finalNewName, hasUnpublishedChanges: false });
 
         addLog('info', `✏️ Pasta do projeto renomeada de "${id}" para "${finalNewName}".`);
         showToast(`Projeto renomeado para "${finalNewName}"`);
@@ -560,6 +976,103 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       } catch (err) {
         addLog('error', `Falha ao renomear pasta: ${String(err)}`);
         showToast('Erro ao renomear projeto', 'error');
+      }
+    },
+
+    loadSavedScene: async (id) => {
+      const { addLog, showToast } = get();
+      try {
+        // Carrega Main Scene por padrão ao carregar o projeto
+        const response = await fetch(`/api/project/load-scene?name=${encodeURIComponent(id)}&sceneName=Main Scene`);
+        if (!response.ok) throw new Error('Projeto não encontrado no disco');
+        const scene = await response.json();
+
+        // Garante a existência do array rootEntityIds para evitar erros de renderização no HierarchyPanel
+        if (!scene.rootEntityIds || !Array.isArray(scene.rootEntityIds)) {
+          scene.rootEntityIds = Object.values(scene.entities || {})
+            .filter((e: any) => !e.parentId)
+            .map((e: any) => e.id);
+        }
+
+        // Garante roomId retrocompatível para projetos mais antigos
+        if (!scene.roomId) {
+          scene.roomId = id; // usa o nome do projeto como roomId (retrocompat)
+        }
+
+        // Reidrata blob URLs de modelos GLTF apontando para o endpoint do projeto
+        for (const entity of Object.values(scene.entities || {}) as any[]) {
+          if (entity.components.GLTFModel) {
+            const { fileName } = entity.components.GLTFModel;
+            entity.components.GLTFModel.src = `/api/project/get-asset?project=${encodeURIComponent(id)}&file=${encodeURIComponent(fileName)}`;
+          }
+        }
+
+        set((s) => ({
+          scenes: { ...s.scenes, [scene.id]: scene },
+          activeSceneId: scene.id,
+          currentProjectName: id,
+          activeSceneName: 'Main Scene',
+          selectedEntityId: null,
+          showSaveModal: false,
+          hasUnpublishedChanges: false
+        }));
+        addLog('info', `📂 Projeto "${id}" carregado.`);
+        showToast(`Projeto "${id}" carregado!`);
+        await get().refreshProjectScenes();
+      } catch (err) {
+        get().addLog('error', `Falha ao carregar do disco: ${String(err)}`);
+        showToast('Erro ao carregar o projeto', 'error');
+      }
+    },
+
+    refreshProjectScenes: async () => {
+      const { currentProjectName } = get();
+      if (!currentProjectName) return;
+      try {
+        const response = await fetch(`/api/project/scenes?project=${encodeURIComponent(currentProjectName)}`);
+        if (response.ok) {
+          const list = await response.json();
+          set({ projectScenes: list });
+        }
+      } catch (_) {}
+    },
+
+    createNewScene: async (sceneName: string) => {
+      const { currentProjectName, addLog, showToast, refreshProjectScenes } = get();
+      if (!currentProjectName) return;
+      
+      const sceneNameClean = sceneName.replace(/[^a-zA-Z0-9_\-\s]/g, '').trim() || 'Nova Cena';
+      
+      const newScene = makeDefaultScene();
+      newScene.id = uuidv4();
+      newScene.name = sceneNameClean;
+
+      try {
+        const response = await fetch('/api/project/save-scene', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            projectName: currentProjectName, 
+            sceneName: sceneNameClean, 
+            scene: newScene 
+          })
+        });
+        if (!response.ok) throw new Error('Erro ao salvar nova cena no servidor');
+        
+        set((s) => ({
+          scenes: { ...s.scenes, [newScene.id]: newScene },
+          activeSceneId: newScene.id,
+          activeSceneName: sceneNameClean,
+          selectedEntityId: null,
+          hasUnpublishedChanges: false
+        }));
+
+        addLog('info', `🎬 Nova cena "${sceneNameClean}" criada no projeto "${currentProjectName}".`);
+        showToast(`Cena "${sceneNameClean}" criada!`, 'success');
+        await refreshProjectScenes();
+      } catch (err) {
+        addLog('error', `Falha ao criar cena: ${String(err)}`);
+        showToast('Erro ao criar cena', 'error');
       }
     },
 
@@ -571,6 +1084,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         if (!response.ok) throw new Error('Cena não encontrada no disco');
         const scene = await response.json();
 
+        // Reidrata blob URLs de modelos GLTF apontando para o endpoint do projeto
         for (const entity of Object.values(scene.entities) as any[]) {
           if (entity.components.GLTFModel) {
             const { fileName } = entity.components.GLTFModel;
@@ -578,56 +1092,18 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           }
         }
 
-        useRuntimeStore.setState({
-          scenes: { ...useRuntimeStore.getState().scenes, [scene.id]: scene },
+        set((s) => ({
+          scenes: { ...s.scenes, [scene.id]: scene },
           activeSceneId: scene.id,
+          activeSceneName: sceneName,
           selectedEntityId: null,
-        });
-        set({ activeSceneName: sceneName, hasUnpublishedChanges: false });
+          hasUnpublishedChanges: false
+        }));
         addLog('info', `🎬 Cena "${sceneName}" carregada.`);
         showToast(`Cena "${sceneName}" carregada!`);
       } catch (err) {
         addLog('error', `Falha ao carregar cena: ${String(err)}`);
         showToast('Erro ao carregar cena', 'error');
-      }
-    },
-
-    createNewScene: async (sceneName: string) => {
-      const { currentProjectName, addLog, showToast, refreshProjectScenes } = get();
-      if (!currentProjectName) return;
-
-      const sceneNameClean = sceneName.replace(/[^a-zA-Z0-9_\-\s]/g, '').trim() || 'Nova Cena';
-
-      const newScene = makeDefaultScene();
-      newScene.id = uuidv4();
-      newScene.name = sceneNameClean;
-
-      try {
-        const response = await fetch('/api/project/save-scene', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            projectName: currentProjectName,
-            sceneName: sceneNameClean,
-            scene: newScene
-          })
-        });
-        if (!response.ok) throw new Error('Erro ao salvar nova cena no servidor');
-
-        useRuntimeStore.setState({
-          scenes: { ...useRuntimeStore.getState().scenes, [newScene.id]: newScene },
-          activeSceneId: newScene.id,
-          selectedEntityId: null,
-        });
-
-        set({ activeSceneName: sceneNameClean, hasUnpublishedChanges: false });
-
-        addLog('info', `🎬 Nova cena "${sceneNameClean}" criada no projeto "${currentProjectName}".`);
-        showToast(`Cena "${sceneNameClean}" criada!`, 'success');
-        await refreshProjectScenes();
-      } catch (err) {
-        addLog('error', `Falha ao criar cena: ${String(err)}`);
-        showToast('Erro ao criar cena', 'error');
       }
     },
 
@@ -669,19 +1145,20 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         const response = await fetch('/api/project/save-scene', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            projectName: currentProjectName,
-            sceneName: cleanName,
-            scene: clonedScene
+          body: JSON.stringify({ 
+            projectName: currentProjectName, 
+            sceneName: cleanName, 
+            scene: clonedScene 
           })
         });
         if (!response.ok) throw new Error('Erro ao salvar cena duplicada');
-        useRuntimeStore.setState({
-          scenes: { ...useRuntimeStore.getState().scenes, [clonedScene.id]: clonedScene },
+        set((s) => ({
+          scenes: { ...s.scenes, [clonedScene.id]: clonedScene },
           activeSceneId: clonedScene.id,
+          activeSceneName: cleanName,
           selectedEntityId: null,
-        });
-        set({ activeSceneName: cleanName, hasUnpublishedChanges: false });
+          hasUnpublishedChanges: false
+        }));
         addLog('info', `🎬 Cena duplicada com sucesso para "${cleanName}" no projeto "${currentProjectName}".`);
         showToast(`Cena duplicada como "${cleanName}"!`, 'success');
         await refreshProjectScenes();
@@ -691,111 +1168,42 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       }
     },
 
-    refreshProjectScenes: async () => {
-      const { currentProjectName } = get();
-      if (!currentProjectName) return;
+    deleteSavedScene: async (id) => {
+      const { refreshSavedScenes, showToast } = get();
       try {
-        const response = await fetch(`/api/project/scenes?project=${encodeURIComponent(currentProjectName)}`);
-        if (response.ok) {
-          const list = await response.json();
-          set({ projectScenes: list });
-        }
-      } catch (_) { }
+        const response = await fetch('/api/project/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: id })
+        });
+        if (!response.ok) throw new Error('Erro ao deletar projeto');
+
+        await refreshSavedScenes();
+        showToast('Projeto removido do disco', 'warning');
+        get().addLog('warn', `Pasta do projeto "${id}" excluída com sucesso.`);
+      } catch (err) {
+        get().addLog('error', `Falha ao excluir projeto do disco: ${String(err)}`);
+        showToast('Erro ao excluir projeto', 'error');
+      }
     },
 
-    togglePlay: () => {
-      const rt = useRuntimeStore.getState();
-      const isNowPlaying = !rt.isPlaying;
-
-      if (isNowPlaying) {
-        const activeScene = rt.scenes[rt.activeSceneId];
-        const backup = activeScene ? JSON.parse(JSON.stringify(activeScene)) : null;
-
-        setTimeout(() => {
-          const container = document.querySelector('.scene-view') || document.body;
-          const canvas = document.querySelector('.scene-view canvas') || document.querySelector('canvas');
-
-          if (container && container.requestFullscreen) {
-            container.requestFullscreen().catch(() => { });
-          }
-          if (canvas && canvas.requestPointerLock) {
-            try {
-              const res = canvas.requestPointerLock();
-              if (res && typeof res.catch === 'function') {
-                res.catch(() => { });
-              }
-            } catch (err) {
-              console.warn("Falha ao solicitar Pointer Lock:", err);
-            }
-          }
-        }, 150);
-
-        set({ playModeBackupScene: backup });
-        useRuntimeStore.setState({
-          isPlaying: true,
-          activeViewport: 'game',
-          consoleLogs: [],
-        });
-      } else {
-        const backup = get().playModeBackupScene;
-        const updatedScenes = backup ? { ...rt.scenes, [rt.activeSceneId]: backup } : rt.scenes;
-
-        if (document.fullscreenElement) {
-          document.exitFullscreen().catch(() => { });
+    refreshSavedScenes: async () => {
+      try {
+        const response = await fetch('/api/projects');
+        if (response.ok) {
+          const list = await response.json();
+          set({ savedScenes: list });
         }
-        if (document.pointerLockElement) {
-          document.exitPointerLock();
-        }
-
-        set({ playModeBackupScene: null });
-        useRuntimeStore.setState({
-          isPlaying: false,
-          scenes: updatedScenes,
-          activeViewport: 'scene',
-          selectedEntityId: null,
-          rigidBodyRefs: {},
-        });
-      }
+      } catch (_) {}
     },
   };
 });
 
-// ── Mirror runtime shared state → editor store ─────────────────────────────
-// This keeps the editor's view of the shared keys (scenes, activeSceneId,
-// selectedEntityId, consoleLogs, etc.) in sync with the engine's single source
-// of truth, so the panels that read `useEditorStore` need no edits. The
-// subscription is one-directional (runtime → editor); editor mutations go
-// through the wrappers/delegations above, which write into the runtime store
-// and thus trigger this mirror back into the editor — no infinite loop.
-const MIRRORED_KEYS = [
-  'scenes',
-  'activeSceneId',
-  'isPlaying',
-  'showGrid',
-  'showGizmos',
-  'showLighting',
-  'activeViewport',
-  'selectedEntityId',
-  'focusTrigger',
-  'editorMode',
-  'snapEnabled',
-  'snapValue',
-  'consoleLogs',
-  'rigidBodyRefs',
-  'prefabs',
-  'historyPast',
-  'historyFuture',
-] as const;
 
-function mirrorRuntimeToEditor() {
-  const s = useRuntimeStore.getState();
-  const patch: Partial<EditorStore> = {};
-  for (const k of MIRRORED_KEYS) {
-    (patch as any)[k] = (s as any)[k];
-  }
-  useEditorStore.setState(patch);
-}
 
-// Seed initial state, then keep it synced on every runtime change.
-mirrorRuntimeToEditor();
-useRuntimeStore.subscribe(mirrorRuntimeToEditor);
+
+
+
+
+
+

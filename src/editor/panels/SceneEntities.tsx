@@ -4,21 +4,21 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { TransformControls, Edges, Sparkles, PerspectiveCamera } from '@react-three/drei';
 import { RigidBody, MeshCollider, CuboidCollider, BallCollider, CapsuleCollider, CylinderCollider, ConeCollider } from '@react-three/rapier';
 import * as THREE from 'three';
-import { useRuntimeStore } from '../runtime/runtimeStore';
+import { useEditorStore } from '../store/editorStore';
 import { useShallow } from 'zustand/react/shallow';
 import type { Entity } from '../../engine/ecs/types';
 import { getOrCreateHUDCanvas, setHUDUpdateCallback } from '../../engine/ecs/types';
-import { attemptTeleport } from '../runtime/xrStore';
-import { Input } from '../systems/InputManager';
+import { attemptTeleport } from './SceneView';
+import { Input } from '../../engine/systems/InputManager';
 import { GLTFMesh } from './GLTFViewer';
-import { HUD3D } from '../systems/HUD';
+import { HUD3D } from '../../engine/systems/HUD';
 
 
 const HUDPlaneRenderer = ({ entity, isGameView }: { entity: Entity; isGameView: boolean }) => {
   const hudComp = entity.components.HUDPlane;
   if (!hudComp) return null;
 
-  const isPlaying = useRuntimeStore(s => s.isPlaying);
+  const isPlaying = useEditorStore(s => s.isPlaying);
   const { size } = useThree();
   const aspect = size.width / size.height;
 
@@ -377,8 +377,8 @@ const VideoMeshRenderer = ({ entity, isGameView }: { entity: Entity; isGameView:
   const videoComp = entity.components.VideoMesh;
   if (!videoComp) return null;
 
-  const isPlaying = useRuntimeStore(s => s.isPlaying);
-  const isSelected = useRuntimeStore(s => s.selectedEntityId === entity.id);
+  const isPlaying = useEditorStore(s => s.isPlaying);
+  const isSelected = useEditorStore(s => s.selectedEntityId === entity.id);
 
   const { gl } = useThree();
   const [isPresenting, setIsPresenting] = useState(gl.xr.isPresenting);
@@ -583,10 +583,10 @@ const VideoMeshRenderer = ({ entity, isGameView }: { entity: Entity; isGameView:
       if (wasGamepadButtonPressedThisFrame('D')) {
         if (video.paused) {
           video.play().catch(() => {});
-          useRuntimeStore.getState().updateComponent(entity.id, 'VideoMesh', { play: true });
+          useEditorStore.getState().updateComponent(entity.id, 'VideoMesh', { play: true });
         } else {
           video.pause();
-          useRuntimeStore.getState().updateComponent(entity.id, 'VideoMesh', { play: false });
+          useEditorStore.getState().updateComponent(entity.id, 'VideoMesh', { play: false });
         }
       }
 
@@ -710,7 +710,7 @@ function getGlobalAudioListener(): THREE.AudioListener {
 
 function GlobalAudioListenerHandler() {
   const camera = useThree(s => s.camera);
-  const isPlaying = useRuntimeStore(s => s.isPlaying);
+  const isPlaying = useEditorStore(s => s.isPlaying);
   
   useEffect(() => {
     const listener = getGlobalAudioListener();
@@ -839,14 +839,14 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
   const raycaster = useRef(new THREE.Raycaster());
   const hoveredRing = useRef<any>(null);
   const crosshairRef = useRef<THREE.Mesh>(null);
-  const sceneActiveId = useRuntimeStore(s => s.activeSceneId);
+  const sceneActiveId = useEditorStore(s => s.activeSceneId);
 
   // Seletores reativos via ref para evitar getState() por frame
-  const rigidBodyRefs = useRuntimeStore(s => s.rigidBodyRefs);
+  const rigidBodyRefs = useEditorStore(s => s.rigidBodyRefs);
   const rigidBodyRefsRef = useRef(rigidBodyRefs);
   rigidBodyRefsRef.current = rigidBodyRefs;
 
-  const updateComponent = useRuntimeStore(s => s.updateComponent);
+  const updateComponent = useEditorStore(s => s.updateComponent);
   const updateComponentRef = useRef(updateComponent);
   updateComponentRef.current = updateComponent;
 
@@ -1131,7 +1131,7 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
         }
 
         // Resolve a entidade alvo (player físico) para aplicar a locomoção, rotação, pulo e agachamento
-        const storeState = useRuntimeStore.getState();
+        const storeState = useEditorStore.getState();
         const currentScene = storeState.activeScene();
         if (currentScene) {
           if (!cachedPlayerId.current || !currentScene.entities[cachedPlayerId.current]) {
@@ -1328,7 +1328,7 @@ function VRTeleportRing({ entity }: { entity: Entity }) {
     if (!attemptTeleport()) return;
 
     // Move a câmera via atualização da entidade que tem Camera principal
-    const storeState = useRuntimeStore.getState();
+    const storeState = useEditorStore.getState();
     const scene = storeState.activeScene();
     Object.values(scene.entities).forEach(e => {
       if (e.tags?.includes('player') || e.components.Camera?.isMain) {
@@ -1781,7 +1781,7 @@ export function EntityMesh({ entity, entities }: { entity: Entity; entities: Rec
     setRigidBodyRef,
     activeViewport,
     showLighting
-  } = useRuntimeStore(useShallow(s => ({
+  } = useEditorStore(useShallow(s => ({
     selectedEntityId: s.selectedEntityId,
     selectEntity: s.selectEntity,
     editorMode: s.editorMode,
@@ -2137,7 +2137,7 @@ export function EntityMesh({ entity, entities }: { entity: Entity; entities: Rec
             rotationSnap={snapEnabled ? (Math.PI / 12) : null}
             scaleSnap={snapEnabled ? snapValue : null}
             onChange={handleChange}
-            onMouseDown={() => useRuntimeStore.getState().takeHistorySnapshot()}
+            onMouseDown={() => useEditorStore.getState().takeHistorySnapshot()}
           />
         )}
       </>
@@ -2496,7 +2496,7 @@ export function EntityMesh({ entity, entities }: { entity: Entity; entities: Rec
           rotationSnap={snapEnabled ? (Math.PI / 12) : null}
           scaleSnap={snapEnabled ? snapValue : null}
           onChange={handleChange}
-          onMouseDown={() => useRuntimeStore.getState().takeHistorySnapshot()}
+          onMouseDown={() => useEditorStore.getState().takeHistorySnapshot()}
         />
       )}
     </>
@@ -2507,14 +2507,14 @@ function XRSync() {
   const groupRef = useRef<THREE.Group>(null);
   // Cache do player para evitar Object.values().find() a cada frame
   const cachedPlayerId = useRef<string | null>(null);
-  const sceneActiveId = useRuntimeStore(s => s.activeSceneId);
+  const sceneActiveId = useEditorStore(s => s.activeSceneId);
 
   // Seletores reativos do editorStore via ref para evitar getState() por frame
-  const scene = useRuntimeStore(s => s.scenes[s.activeSceneId]);
+  const scene = useEditorStore(s => s.scenes[s.activeSceneId]);
   const sceneRef = useRef(scene);
   sceneRef.current = scene;
 
-  const rigidBodyRefs = useRuntimeStore(s => s.rigidBodyRefs);
+  const rigidBodyRefs = useEditorStore(s => s.rigidBodyRefs);
   const rigidBodyRefsRef = useRef(rigidBodyRefs);
   rigidBodyRefsRef.current = rigidBodyRefs;
 
@@ -2610,7 +2610,7 @@ function XRSync() {
 }
 
 export function SceneEntities() {
-  const scene = useRuntimeStore(s => s.scenes[s.activeSceneId]);
+  const scene = useEditorStore(s => s.scenes[s.activeSceneId]);
   const isStandalone = typeof window !== 'undefined' && window.location.pathname === '/preview';
 
   if (!scene) return null;

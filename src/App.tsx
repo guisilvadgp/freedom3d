@@ -1,7 +1,7 @@
 import { StandalonePlayer } from './engine/StandalonePlayer';
 import { Toolbar } from './editor/panels/Toolbar';
 import { HierarchyPanel } from './editor/panels/HierarchyPanel';
-import { SceneView } from './engine/render/SceneView';
+import { SceneView } from './editor/panels/SceneView';
 import { InspectorPanel } from './editor/panels/InspectorPanel';
 import { ConsolePanel } from './editor/panels/ConsolePanel';
 import { AssetBrowser } from './editor/panels/AssetBrowser';

@@ -1,16 +1,67 @@
 import { Canvas, useThree, useFrame, useLoader } from '@react-three/fiber';
 import { OrbitControls, Grid, GizmoHelper, GizmoViewport, Stats } from '@react-three/drei';
 import { useRef, Suspense, useEffect, useState } from 'react';
-import { useRuntimeStore } from '../runtime/runtimeStore';
+import { useEditorStore } from '../store/editorStore';
 import { SceneEntities } from './SceneEntities';
-import { GameLoop } from '../systems/GameLoop';
+import { GameLoop } from '../../engine/systems/GameLoop';
 import { Physics } from '@react-three/rapier';
-import { XR } from '@react-three/xr';
+import { XR, createXRStore, XRSpace, useXRInputSourceStateContext } from '@react-three/xr';
 import * as THREE from 'three';
 import { Eye, Gamepad, Sun } from 'lucide-react';
-import { HUD2D } from '../systems/HUD';
+import { HUD2D } from '../../engine/systems/HUD';
 import { VirtualARScreen } from './VirtualARScreen';
-import { xrStore } from '../runtime/xrStore';
+
+const XR_JOINTS = [
+  'wrist',
+  'thumb-metacarpal', 'thumb-phalanx-proximal', 'thumb-phalanx-distal', 'thumb-tip',
+  'index-finger-metacarpal', 'index-finger-phalanx-proximal', 'index-finger-phalanx-intermediate', 'index-finger-phalanx-distal', 'index-finger-tip',
+  'middle-finger-metacarpal', 'middle-finger-phalanx-proximal', 'middle-finger-phalanx-intermediate', 'middle-finger-phalanx-distal', 'middle-finger-tip',
+  'ring-finger-metacarpal', 'ring-finger-phalanx-proximal', 'ring-finger-phalanx-intermediate', 'ring-finger-phalanx-distal', 'ring-finger-tip',
+  'pinky-finger-metacarpal', 'pinky-finger-phalanx-proximal', 'pinky-finger-phalanx-intermediate', 'pinky-finger-phalanx-distal', 'pinky-finger-tip'
+];
+
+function CustomXRHand() {
+  const state = useXRInputSourceStateContext('hand');
+  if (!state?.inputSource?.hand) return null;
+
+  return (
+    <group>
+      {XR_JOINTS.map((jointName) => {
+        // @ts-ignore
+        const jointSpace = state.inputSource.hand.get(jointName);
+        if (!jointSpace) return null;
+
+        return (
+          <XRSpace key={jointName} space={jointSpace}>
+            <mesh>
+              <sphereGeometry args={[0.015, 12, 12]} />
+              <meshStandardMaterial
+                color="#00ffd8"
+                emissive="#00ffd8"
+                emissiveIntensity={1.2}
+                roughness={0.1}
+                metalness={0.9}
+              />
+            </mesh>
+          </XRSpace>
+        );
+      })}
+    </group>
+  );
+}
+
+export const xrStore = createXRStore({
+  hand: CustomXRHand
+});
+
+let lastTeleportTime = 0;
+export function attemptTeleport(): boolean {
+  const now = Date.now();
+  if (now - lastTeleportTime < 600) return false;
+  lastTeleportTime = now;
+  return true;
+}
+
 
 
 
@@ -110,9 +161,9 @@ function LoadingTracker({
 
 function EditorCameraHandler() {
   const { controls } = useThree();
-  const focusTrigger = useRuntimeStore(s => s.focusTrigger);
-  const activeSceneId = useRuntimeStore(s => s.activeSceneId);
-  const scene = useRuntimeStore(s => s.scenes[activeSceneId]);
+  const focusTrigger = useEditorStore(s => s.focusTrigger);
+  const activeSceneId = useEditorStore(s => s.activeSceneId);
+  const scene = useEditorStore(s => s.scenes[activeSceneId]);
   
   const targetPos = useRef<THREE.Vector3 | null>(null);
   const animateTo = useRef<boolean>(false);
@@ -194,13 +245,13 @@ export function SceneView({
   onLoaded?: () => void;
   roomId?: string;
 }) {
-  const showGrid = useRuntimeStore(s => s.showGrid);
-  const isPlaying = useRuntimeStore(s => s.isPlaying);
-  const showGizmos = useRuntimeStore(s => s.showGizmos);
-  const showLighting = useRuntimeStore(s => s.showLighting);
-  const activeViewport = useRuntimeStore(s => s.activeViewport);
-  const setActiveViewport = useRuntimeStore(s => s.setActiveViewport);
-  const scene = useRuntimeStore(s => s.scenes[s.activeSceneId]);
+  const showGrid = useEditorStore(s => s.showGrid);
+  const isPlaying = useEditorStore(s => s.isPlaying);
+  const showGizmos = useEditorStore(s => s.showGizmos);
+  const showLighting = useEditorStore(s => s.showLighting);
+  const activeViewport = useEditorStore(s => s.activeViewport);
+  const setActiveViewport = useEditorStore(s => s.setActiveViewport);
+  const scene = useEditorStore(s => s.scenes[s.activeSceneId]);
   const isGameView = isStandalone || activeViewport === 'game';
   const isDragging = useRef(false);
 
@@ -273,7 +324,7 @@ export function SceneView({
 
     try {
       const data = JSON.parse(dataStr);
-      const store = useRuntimeStore.getState();
+      const store = useEditorStore.getState();
 
       if (data.type === 'prefab') {
         store.instantiatePrefab(data.index);
@@ -412,7 +463,7 @@ export function SceneView({
               alignItems: 'center',
               gap: '4px'
             }}
-            onClick={() => useRuntimeStore.getState().toggleLighting()}
+            onClick={() => useEditorStore.getState().toggleLighting()}
             title={showLighting ? "Desativar Iluminação no Editor" : "Ativar Iluminação no Editor"}
           >
             <Sun size={14} color={showLighting ? "#ffffff" : "#cbd5e1"} />
@@ -486,7 +537,7 @@ export function SceneView({
           camera={{ fov: 60, near: 0.1, far: 1000, position: [5, 5, 8] }}
           onPointerMissed={() => {
             if (!isGameView && !isDragging.current) {
-              useRuntimeStore.getState().selectEntity(null);
+              useEditorStore.getState().selectEntity(null);
             }
           }}
           style={{

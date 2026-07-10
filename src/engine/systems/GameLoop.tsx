@@ -1,6 +1,6 @@
 import { useFrame } from '@react-three/fiber';
 import { useRef } from 'react';
-import { useRuntimeStore } from '../runtime/runtimeStore';
+import { useEditorStore } from '../../editor/store/editorStore';
 import { getOrCreateHUDCanvas } from '../ecs/types';
 import { Input } from './InputManager';
 import { useRapier } from '@react-three/rapier';
@@ -21,9 +21,9 @@ const FIXED_STEP = 1 / 60; // 60Hz para todos os scripts
 const MAX_ACCUMULATED = FIXED_STEP * 5; // Evita espiral da morte (max 5 steps por frame)
 
 export function GameLoop() {
-  const isPlaying = useRuntimeStore(s => s.isPlaying);
-  const scene = useRuntimeStore(s => s.scenes[s.activeSceneId]);
-  const addLog = useRuntimeStore(s => s.addLog);
+  const isPlaying = useEditorStore(s => s.isPlaying);
+  const scene = useEditorStore(s => s.scenes[s.activeSceneId]);
+  const addLog = useEditorStore(s => s.addLog);
   const rapierContext = useRapier();
 
   const accumulated = useRef(0);
@@ -35,11 +35,11 @@ export function GameLoop() {
   const compiledScripts = useRef<Record<string, any>>({});
 
   // Cache das fatias da store para evitar chamadas de getState por frame
-  const rigidBodyRefs = useRuntimeStore(s => s.rigidBodyRefs);
+  const rigidBodyRefs = useEditorStore(s => s.rigidBodyRefs);
   const rigidBodyRefsRef = useRef(rigidBodyRefs);
   rigidBodyRefsRef.current = rigidBodyRefs;
 
-  const updateComponent = useRuntimeStore(s => s.updateComponent);
+  const updateComponent = useEditorStore(s => s.updateComponent);
   const updateComponentRef = useRef(updateComponent);
   updateComponentRef.current = updateComponent;
 

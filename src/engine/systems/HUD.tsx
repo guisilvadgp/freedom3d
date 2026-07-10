@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useMemo } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { Input } from './InputManager';
-import { useRuntimeStore } from '../runtime/runtimeStore';
+import { useEditorStore } from '../../editor/store/editorStore';
 import { Network } from './NetworkManager';
 
 // ── Interface de Estado do HUD ───────────────────────────────
@@ -36,8 +36,8 @@ export const getSceneHUDConfig = (scene: any) => {
 
 // Helper para escutar e inicializar o estado comum do HUD
 function useHUDState() {
-  const activeSceneId = useRuntimeStore(s => s.activeSceneId);
-  const activeScene = useRuntimeStore(s => s.scenes[activeSceneId]);
+  const activeSceneId = useEditorStore(s => s.activeSceneId);
+  const activeScene = useEditorStore(s => s.scenes[activeSceneId]);
   const hudConfig = useMemo(() => getSceneHUDConfig(activeScene), [activeScene]);
 
   const [score, setScore] = useState<{ home: number; away: number; labelHome?: string; labelAway?: string }>({
@@ -126,8 +126,8 @@ function useHUDState() {
 }
 
 export function HUD2D({ isGameView, isStandalone }: { isGameView: boolean; isStandalone?: boolean }) {
-  const activeSceneId = useRuntimeStore(s => s.activeSceneId);
-  const activeScene = useRuntimeStore(s => s.scenes[activeSceneId]);
+  const activeSceneId = useEditorStore(s => s.activeSceneId);
+  const activeScene = useEditorStore(s => s.scenes[activeSceneId]);
   const hudEnabled = getSceneHUDEnabled(activeScene);
   const hudConfig = useMemo(() => getSceneHUDConfig(activeScene), [activeScene]);
 
@@ -169,7 +169,7 @@ export function HUD2D({ isGameView, isStandalone }: { isGameView: boolean; isSta
     });
 
     // Fantasmas remotos
-    const state = useRuntimeStore.getState();
+    const state = useEditorStore.getState();
     const scene = state.activeScene();
     if (scene) {
       Object.values(scene.entities).forEach((entity) => {
@@ -740,8 +740,8 @@ export function HUD2D({ isGameView, isStandalone }: { isGameView: boolean; isSta
 // ── COMPONENTE HUD 3D (WebXR World-Space Mesh HUD) ───────────
 // Renderizado na tela tridimensional interna do óculos de VR
 export function HUD3D() {
-  const activeSceneId = useRuntimeStore(s => s.activeSceneId);
-  const activeScene = useRuntimeStore(s => s.scenes[activeSceneId]);
+  const activeSceneId = useEditorStore(s => s.activeSceneId);
+  const activeScene = useEditorStore(s => s.scenes[activeSceneId]);
   const hudEnabled = getSceneHUDEnabled(activeScene);
   const hudConfig = useMemo(() => getSceneHUDConfig(activeScene), [activeScene]);
 
