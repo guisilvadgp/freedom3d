@@ -1199,6 +1199,9 @@ export const useEditorStore = create<EditorStore>((set, get) => {
   };
 });
 
+import { registerEditorStore } from '../../engine/runtime/runtimeStore';
+registerEditorStore(useEditorStore);
+
 
 
 

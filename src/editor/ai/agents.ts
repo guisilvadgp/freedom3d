@@ -199,7 +199,6 @@ export async function runAIAgent(intent: Intent): Promise<AgentResult> {
   const scripts: string[] = [];
   const nextSteps: string[] = [];
 
-  const isChase = intent.action === 'create_enemy_chase';
   const isPatrol = intent.action === 'create_enemy_patrol';
   const isFSM = intent.action === 'create_fsm';
   const isBasic = ['create_ai_basic', 'create_enemy_basic'].includes(intent.action);

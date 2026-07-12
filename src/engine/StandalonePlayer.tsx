@@ -1,7 +1,8 @@
 import { useEffect, useState, useRef } from 'react';
 import * as THREE from 'three';
-import { SceneView, xrStore } from '../editor/panels/SceneView';
-import { useEditorStore } from '../editor/store/editorStore';
+import { SceneView } from './render/SceneView';
+import { xrStore } from './runtime/xrStore';
+import { useRuntimeStore } from './runtime/runtimeStore';
 import { HardDrive } from 'lucide-react';
 
 // Helper para formatar bytes em formato legÃ­vel
@@ -58,8 +59,8 @@ async function clearAssetsCache() {
 
 
 function DebugUI() {
-  const consoleLogs = useEditorStore(state => state.consoleLogs);
-  const clearConsole = useEditorStore(state => state.clearConsole);
+  const consoleLogs = useRuntimeStore(state => state.consoleLogs);
+  const clearConsole = useRuntimeStore(state => state.clearConsole);
   const [minimized, setMinimized] = useState(false);
   const [activeTab, setActiveTab] = useState<'perf' | 'logs'>('perf');
   const [fps, setFps] = useState(60);
@@ -314,10 +315,10 @@ function DebugUI() {
 }
 
 export function StandalonePlayer({ roomId }: { roomId?: string } = {}) {
-  const setActiveViewport = useEditorStore(state => state.setActiveViewport);
-  const togglePlay = useEditorStore(state => state.togglePlay);
-  const addLog = useEditorStore(state => state.addLog);
-  const activeSceneId = useEditorStore(state => state.activeSceneId);
+  const setActiveViewport = useRuntimeStore(state => state.setActiveViewport);
+  const togglePlay = useRuntimeStore(state => state.togglePlay);
+  const addLog = useRuntimeStore(state => state.addLog);
+  const activeSceneId = useRuntimeStore(state => state.activeSceneId);
   const [showDebug, setShowDebug] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
 
@@ -382,7 +383,7 @@ export function StandalonePlayer({ roomId }: { roomId?: string } = {}) {
 
   const triggerPlay = () => {
     setGameStarted(true);
-    if (!useEditorStore.getState().isPlaying) {
+    if (!useRuntimeStore.getState().isPlaying) {
       togglePlay();
     }
     // Tenta entrar em VR automaticamente se suportado â€” sem avisos se falhar
@@ -400,7 +401,7 @@ export function StandalonePlayer({ roomId }: { roomId?: string } = {}) {
       videoElementRef.current.srcObject = null;
     }
     setGameStarted(true);
-    if (!useEditorStore.getState().isPlaying) {
+    if (!useRuntimeStore.getState().isPlaying) {
       togglePlay();
     }
   };
@@ -414,7 +415,7 @@ export function StandalonePlayer({ roomId }: { roomId?: string } = {}) {
       videoElementRef.current.srcObject = null;
     }
     setGameStarted(true);
-    if (!useEditorStore.getState().isPlaying) {
+    if (!useRuntimeStore.getState().isPlaying) {
       togglePlay();
     }
     xrStore.enterVR().catch(() => {});
@@ -445,16 +446,13 @@ export function StandalonePlayer({ roomId }: { roomId?: string } = {}) {
     }
 
     setGameStarted(true);
-    if (!useEditorStore.getState().isPlaying) {
+    if (!useRuntimeStore.getState().isPlaying) {
       togglePlay();
     }
     xrStore.enterVR().catch(() => {});
   };
 
-  const handlePlay = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    triggerPlay();
-  };
+
 
   const triggerPlayRef = useRef(triggerPlay);
   triggerPlayRef.current = triggerPlay;
@@ -470,7 +468,7 @@ export function StandalonePlayer({ roomId }: { roomId?: string } = {}) {
     const isFirstLoad = !window.sessionStorage.getItem('firstLoadDone');
     if (isFirstLoad) {
       window.sessionStorage.setItem('firstLoadDone', 'true');
-      if (useEditorStore.getState().isPlaying) {
+      if (useRuntimeStore.getState().isPlaying) {
         togglePlay();
       }
     }
@@ -546,8 +544,8 @@ export function StandalonePlayer({ roomId }: { roomId?: string } = {}) {
     THREE.ImageLoader.prototype.load = function (
       url: string,
       onLoad?: (image: HTMLImageElement) => void,
-      onProgress?: (event: ProgressEvent) => void,
-      onError?: (event: ErrorEvent) => void
+      onProgress?: (event: any) => void,
+      onError?: (err: any) => void
     ) {
       if (!url || url.startsWith('blob:') || url.startsWith('data:')) {
         return originalImageLoaderLoad.call(this, url, onLoad, onProgress, onError);
@@ -617,7 +615,7 @@ export function StandalonePlayer({ roomId }: { roomId?: string } = {}) {
               : '/api/project/get-asset?project=' + encodeURIComponent(finalProjectName) + '&file=' + encodeURIComponent(e.components.Audio.fileName);
           }
         });
-        useEditorStore.setState(state => ({
+        useRuntimeStore.setState(state => ({
           scenes: { ...state.scenes, [scene.id]: scene },
           activeSceneId: scene.id
         }));
@@ -727,7 +725,7 @@ export function StandalonePlayer({ roomId }: { roomId?: string } = {}) {
   }, []);
 
     // Lê coverImage e roomName da cena carregada para usar no overlay
-  const activeScene = useEditorStore(state =>
+  const activeScene = useRuntimeStore(state =>
     state.activeSceneId ? state.scenes[state.activeSceneId] : null
   );
   const coverImage = (activeScene as any)?.coverImage || '';

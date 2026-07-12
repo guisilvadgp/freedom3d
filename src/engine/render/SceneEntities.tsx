@@ -4,21 +4,23 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { TransformControls, Edges, Sparkles, PerspectiveCamera } from '@react-three/drei';
 import { RigidBody, MeshCollider, CuboidCollider, BallCollider, CapsuleCollider, CylinderCollider, ConeCollider } from '@react-three/rapier';
 import * as THREE from 'three';
-import { useEditorStore } from '../store/editorStore';
+import { useContext } from 'react';
+import { useEngineStore, getEngineStore, checkIsStandalone } from '../runtime/runtimeStore';
+import { EditorConfigContext } from './SceneView';
 import { useShallow } from 'zustand/react/shallow';
-import type { Entity } from '../../engine/ecs/types';
-import { getOrCreateHUDCanvas, setHUDUpdateCallback } from '../../engine/ecs/types';
+import type { Entity } from '../ecs/types';
+import { getOrCreateHUDCanvas, setHUDUpdateCallback } from '../ecs/types';
 import { attemptTeleport } from './SceneView';
-import { Input } from '../../engine/systems/InputManager';
+import { Input } from '../systems/InputManager';
 import { GLTFMesh } from './GLTFViewer';
-import { HUD3D } from '../../engine/systems/HUD';
+import { HUD3D } from '../systems/HUD';
 
 
 const HUDPlaneRenderer = ({ entity, isGameView }: { entity: Entity; isGameView: boolean }) => {
   const hudComp = entity.components.HUDPlane;
   if (!hudComp) return null;
 
-  const isPlaying = useEditorStore(s => s.isPlaying);
+  const isPlaying = useEngineStore(s => s.isPlaying);
   const { size } = useThree();
   const aspect = size.width / size.height;
 
@@ -377,8 +379,8 @@ const VideoMeshRenderer = ({ entity, isGameView }: { entity: Entity; isGameView:
   const videoComp = entity.components.VideoMesh;
   if (!videoComp) return null;
 
-  const isPlaying = useEditorStore(s => s.isPlaying);
-  const isSelected = useEditorStore(s => s.selectedEntityId === entity.id);
+  const isPlaying = useEngineStore(s => s.isPlaying);
+  const isSelected = useEngineStore(s => s.selectedEntityId === entity.id);
 
   const { gl } = useThree();
   const [isPresenting, setIsPresenting] = useState(gl.xr.isPresenting);
@@ -582,10 +584,10 @@ const VideoMeshRenderer = ({ entity, isGameView }: { entity: Entity; isGameView:
       if (wasGamepadButtonPressedThisFrame('D')) {
         if (video.paused) {
           video.play().catch(() => {});
-          useEditorStore.getState().updateComponent(entity.id, 'VideoMesh', { play: true });
+          getEngineStore().getState().updateComponent(entity.id, 'VideoMesh', { play: true });
         } else {
           video.pause();
-          useEditorStore.getState().updateComponent(entity.id, 'VideoMesh', { play: false });
+          getEngineStore().getState().updateComponent(entity.id, 'VideoMesh', { play: false });
         }
       }
 
@@ -709,7 +711,7 @@ function getGlobalAudioListener(): THREE.AudioListener {
 
 function GlobalAudioListenerHandler() {
   const camera = useThree(s => s.camera);
-  const isPlaying = useEditorStore(s => s.isPlaying);
+  const isPlaying = useEngineStore(s => s.isPlaying);
   
   useEffect(() => {
     const listener = getGlobalAudioListener();
@@ -811,6 +813,7 @@ function GlobalAudioListenerHandler() {
 
 // Referência global ao grupo do XROrigin.
 // Controlada exclusivamente pelo PerspectiveCameraWrapper da entidade com Camera isMain.
+// Nenhum outro sistema deve escrever nessa ref.
 const xrOriginGroupRef = { current: null as THREE.Group | null };
 
 // Cache global de anéis de teleporte — evita scene.traverse() a cada frame
@@ -843,14 +846,14 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
   const raycaster = useRef(new THREE.Raycaster());
   const hoveredRing = useRef<any>(null);
   const crosshairRef = useRef<THREE.Mesh>(null);
-  const sceneActiveId = useEditorStore(s => s.activeSceneId);
+  const sceneActiveId = useEngineStore(s => s.activeSceneId);
 
   // Seletores reativos via ref para evitar getState() por frame
-  const rigidBodyRefs = useEditorStore(s => s.rigidBodyRefs);
+  const rigidBodyRefs = useEngineStore(s => s.rigidBodyRefs);
   const rigidBodyRefsRef = useRef(rigidBodyRefs);
   rigidBodyRefsRef.current = rigidBodyRefs;
 
-  const updateComponent = useEditorStore(s => s.updateComponent);
+  const updateComponent = useEngineStore(s => s.updateComponent);
   const updateComponentRef = useRef(updateComponent);
   updateComponentRef.current = updateComponent;
 
@@ -879,6 +882,7 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
   }, [sceneActiveId]);
 
   // ── XR Origin positioning (responsabilidade da entidade Camera) ──────────
+  // Refs de room-scale e altura do headset — antes viviam no XRSync.
   const xrLastNonVRPos = useRef(new THREE.Vector3(5, 5, 8));
   const xrLastNonVRRot = useRef(new THREE.Euler(0, 0, 0));
   const xrLastHLocalWorld = useRef(new THREE.Vector3());
@@ -973,11 +977,13 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
       // Se useGyroscope = false, NÃO aplicamos lógica de headset/gaze/locomotion VR.
       // Os scripts do jogo têm controle total da câmera, igual ao Screen mode.
       if (!useGyroscope) {
+        // Apenas reset de estado se a sessão terminar é tratado no else abaixo.
         return;
       }
 
       const xrCamera = (state.gl.xr as any).getCamera(state.camera);
       const subCam = xrCamera.cameras?.[0] || xrCamera;
+
       
       const subCamPos = new THREE.Vector3();
       const subCamQuat = new THREE.Quaternion();
@@ -1162,14 +1168,14 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
         }
 
         // Resolve a entidade alvo (player físico) para aplicar a locomoção, rotação, pulo e agachamento
-        const storeState = useEditorStore.getState();
-        const currentScene = storeState.activeScene();
+        const storeState = getEngineStore().getState();
+        const currentScene = storeState.scenes[storeState.activeSceneId];
         if (currentScene) {
           if (!cachedPlayerId.current || !currentScene.entities[cachedPlayerId.current]) {
             // Apenas entidades explícitas com a tag 'player' são controladas pela
             // locomoção VR. Câmeras isMain (ex.: drone FPV) NÃO devem ser
             // sequestradas — assim o drone voa só pelo próprio script, igual ao Screen.
-            const found = Object.values(currentScene.entities).find(e => e.tags?.includes('player'));
+            const found = (Object.values(currentScene.entities) as any[]).find(e => e.tags?.includes('player'));
             cachedPlayerId.current = found?.id ?? null;
           }
         }
@@ -1307,6 +1313,7 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
         }
       }
       // ── Posiciona o XROrigin com base nesta entidade Camera (isMain) ────
+      // Apenas a câmera principal controla o XROrigin.
       if (camera.isMain) {
         const xrGroup = xrOriginGroupRef.current;
         if (xrGroup) {
@@ -1327,6 +1334,8 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
           }
 
           const offset = camera?.offset || [0, 0, 0];
+
+          // Altura do headset e calibração inicial
           const xrCamObj = (state.gl.xr as any).getCamera(state.camera);
           const localHPos = new THREE.Vector3();
           if (xrCamObj) {
@@ -1337,6 +1346,7 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
             }
           }
 
+          // Room-scale: rastreia movimento físico horizontal do headset
           const hLocalWorld = new THREE.Vector3(localHPos.x, 0, localHPos.z);
           hLocalWorld.applyAxisAngle(new THREE.Vector3(0, 1, 0), eRotY * Math.PI / 180);
 
@@ -1360,6 +1370,7 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
             }
           }
 
+          // Altura com lerp para suavizar agachamento
           const targetH = (window as any).isFreedom3DCrouching ? 0.8 : 1.6;
           xrCurrentHeight.current = THREE.MathUtils.lerp(xrCurrentHeight.current, targetH, Math.min(12 * delta, 1.0));
           const targetY = xrInitialHeadsetHeight.current !== null
@@ -1378,8 +1389,10 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
       if (initialHeadsetHeight !== null) {
         setInitialHeadsetHeight(null);
       }
+      // Grava posição da câmera Screen para fallback no próximo enter VR
       xrLastNonVRPos.current.copy(state.camera.position);
       xrLastNonVRRot.current.copy(state.camera.rotation);
+      // Reseta room-scale ao sair do VR
       xrLastHLocalWorld.current.set(0, 0, 0);
       xrIsFirstFrame.current = true;
       xrInitialHeadsetHeight.current = null;
@@ -1429,9 +1442,9 @@ function VRTeleportRing({ entity }: { entity: Entity }) {
     if (!attemptTeleport()) return;
 
     // Move a câmera via atualização da entidade que tem Camera principal
-    const storeState = useEditorStore.getState();
-    const scene = storeState.activeScene();
-    Object.values(scene.entities).forEach(e => {
+    const storeState = getEngineStore().getState();
+    const scene = storeState.scenes[storeState.activeSceneId];
+    (Object.values(scene.entities) as any[]).forEach(e => {
       if (e.tags?.includes('player') || e.components.Camera?.isMain) {
         const targetPos = [pos[0], pos[1] + 1.05, pos[2]] as [number, number, number];
         storeState.updateComponent(e.id, 'Transform', {
@@ -1868,7 +1881,7 @@ function CustomSpotLight({ light, shadowMapSize }: { light: any; shadowMapSize: 
 }
 
 export function EntityMesh({ id }: { id: string }) {
-  const entity = useEditorStore(s => s.scenes[s.activeSceneId]?.entities[id]);
+  const entity = useEngineStore(s => s.scenes[s.activeSceneId]?.entities[id]);
   const meshRef = useRef<THREE.Mesh>(null!);
   const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
   if (!entity) return null;
@@ -1876,29 +1889,23 @@ export function EntityMesh({ id }: { id: string }) {
   const {
     selectedEntityId,
     selectEntity,
-    editorMode,
     isPlaying,
     updateComponent,
-    snapEnabled,
-    snapValue,
     setRigidBodyRef,
-    activeViewport,
-    showLighting
-  } = useEditorStore(useShallow(s => ({
+    activeViewport
+  } = useEngineStore(useShallow(s => ({
     selectedEntityId: s.selectedEntityId,
     selectEntity: s.selectEntity,
-    editorMode: s.editorMode,
     isPlaying: s.isPlaying,
     updateComponent: s.updateComponent,
-    snapEnabled: s.snapEnabled,
-    snapValue: s.snapValue,
     setRigidBodyRef: s.setRigidBodyRef,
-    activeViewport: s.activeViewport,
-    showLighting: s.showLighting
+    activeViewport: s.activeViewport
   })));
 
+  const { editorMode, snapEnabled, snapValue, showLighting } = useContext(EditorConfigContext);
+
   const isGameView = activeViewport === 'game';
-  const isStandalone = typeof window !== 'undefined' && window.location.pathname === '/preview';
+  const isStandalone = checkIsStandalone();
   const transform = entity.components.Transform;
   const mesh = entity.components.MeshRenderer;
   const light = entity.components.Light;
@@ -2234,7 +2241,7 @@ export function EntityMesh({ id }: { id: string }) {
             rotationSnap={snapEnabled ? (Math.PI / 12) : null}
             scaleSnap={snapEnabled ? snapValue : null}
             onChange={handleChange}
-            onMouseDown={() => useEditorStore.getState().takeHistorySnapshot()}
+            onMouseDown={() => getEngineStore().getState().triggerBeforeMutate()}
           />
         )}
       </>
@@ -2589,7 +2596,7 @@ export function EntityMesh({ id }: { id: string }) {
           rotationSnap={snapEnabled ? (Math.PI / 12) : null}
           scaleSnap={snapEnabled ? snapValue : null}
           onChange={handleChange}
-          onMouseDown={() => useEditorStore.getState().takeHistorySnapshot()}
+          onMouseDown={() => getEngineStore().getState().triggerBeforeMutate()}
         />
       )}
     </>
@@ -2612,8 +2619,8 @@ function XRSync() {
 }
 
 export function SceneEntities() {
-  const rootEntityIds = useEditorStore(s => s.scenes[s.activeSceneId]?.rootEntityIds || []);
-  const isStandalone = typeof window !== 'undefined' && window.location.pathname === '/preview';
+  const rootEntityIds = useEngineStore(s => s.scenes[s.activeSceneId]?.rootEntityIds || []);
+  const isStandalone = checkIsStandalone();
 
   return (
     <>

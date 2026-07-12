@@ -1684,6 +1684,16 @@ function CameraInspector({ entityId }: { entityId: string }) {
         />
       </div>
       <div className="field-row">
+        <label className="field-label" title="Quando ativado (padrão), o modo VR usa o headset para controlar a câmera (FPS/imersivo). Desative para que os Scripts do jogo controlem a câmera no VR — ideal para câmeras de 3ª pessoa, FPV de drone, orbital, etc.">
+          Use Gyroscope (VR)
+        </label>
+        <input
+          type="checkbox"
+          checked={c.useGyroscope ?? true}
+          onChange={(e) => updateComponent(entityId, 'Camera', { useGyroscope: e.target.checked })}
+        />
+      </div>
+      <div className="field-row">
         <label className="field-label">FOV</label>
         <input
           type="number"
@@ -1733,8 +1743,7 @@ function ScriptInspector({ entityId }: { entityId: string }) {
   if (!entity) return null;
   const s = entity.components.Script as ScriptComponent;
 
-  const scene = useEditorStore.getState().activeScene();
-  const allEntities = scene ? Object.values(scene.entities) : [];
+
 
   const currentProjectName = useEditorStore(s => s.currentProjectName);
   const sceneName = currentProjectName || 'default';
@@ -1902,7 +1911,8 @@ function ScriptInspector({ entityId }: { entityId: string }) {
     );
   };
 
-  const renderVariablesSection = (
+  /*
+  const _renderVariablesSection = (
     variablesList: any[] = [], 
     onUpdateVars: (newVars: any[]) => void
   ) => {
@@ -2229,6 +2239,7 @@ function ScriptInspector({ entityId }: { entityId: string }) {
       </div>
     );
   };
+  */
 
   return (
     <>
@@ -2907,7 +2918,7 @@ export function InspectorPanel({ style }: { style?: React.CSSProperties }) {
               <input 
                 type="checkbox" 
                 checked={scene.hudEnabled ?? false}
-                onChange={(e) => updateScene('hudEnabled', e.target.checked)}
+                onChange={(e) => updateSceneSettings({ hudEnabled: e.target.checked })}
               />
               Habilitar HUD (Overlay 2D/3D)
             </label>

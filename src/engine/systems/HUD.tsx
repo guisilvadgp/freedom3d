@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useMemo } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { Input } from './InputManager';
-import { useEditorStore } from '../../editor/store/editorStore';
+import { useEngineStore, getEngineStore } from '../runtime/runtimeStore';
 import { Network } from './NetworkManager';
 
 // ── Interface de Estado do HUD ───────────────────────────────
@@ -36,8 +36,8 @@ export const getSceneHUDConfig = (scene: any) => {
 
 // Helper para escutar e inicializar o estado comum do HUD
 function useHUDState() {
-  const activeSceneId = useEditorStore(s => s.activeSceneId);
-  const activeScene = useEditorStore(s => s.scenes[activeSceneId]);
+  const activeSceneId = useEngineStore(s => s.activeSceneId);
+  const activeScene = useEngineStore(s => s.scenes[activeSceneId]);
   const hudConfig = useMemo(() => getSceneHUDConfig(activeScene), [activeScene]);
 
   const [score, setScore] = useState<{ home: number; away: number; labelHome?: string; labelAway?: string }>({
@@ -92,12 +92,12 @@ function useHUDState() {
 
     // Inicialização com valores globais de fallback (caso já existam na window)
     if (typeof window !== 'undefined') {
-      if ((window as any).gameScore) {
+      if (window.gameScore) {
         setScore({
-          home: (window as any).gameScore.home ?? 0,
-          away: (window as any).gameScore.away ?? 0,
-          labelHome: (window as any).gameScore.labelHome || hudConfig.labelHome,
-          labelAway: (window as any).gameScore.labelAway || hudConfig.labelAway
+          home: window.gameScore.home ?? 0,
+          away: window.gameScore.away ?? 0,
+          labelHome: window.gameScore.labelHome || hudConfig.labelHome,
+          labelAway: window.gameScore.labelAway || hudConfig.labelAway
         });
       } else if (hudConfig) {
         setScore({
@@ -126,8 +126,8 @@ function useHUDState() {
 }
 
 export function HUD2D({ isGameView, isStandalone }: { isGameView: boolean; isStandalone?: boolean }) {
-  const activeSceneId = useEditorStore(s => s.activeSceneId);
-  const activeScene = useEditorStore(s => s.scenes[activeSceneId]);
+  const activeSceneId = useEngineStore(s => s.activeSceneId);
+  const activeScene = useEngineStore(s => s.scenes[activeSceneId]);
   const hudEnabled = getSceneHUDEnabled(activeScene);
   const hudConfig = useMemo(() => getSceneHUDConfig(activeScene), [activeScene]);
 
@@ -148,13 +148,13 @@ export function HUD2D({ isGameView, isStandalone }: { isGameView: boolean; isSta
     const isConn = Network.isConnected();
     setConnected(isConn);
     
-    const r = (window as any).playerRole || (hasScoreboard ? 'red' : 'player');
+    const r = window.playerRole || (hasScoreboard ? 'red' : 'player');
     const adjustedRole = !hasScoreboard && (r === 'red' || r === 'blue') ? 'player' : (hasScoreboard && r === 'player' ? 'red' : r);
     if (adjustedRole !== r) {
-      (window as any).playerRole = adjustedRole;
+      window.playerRole = adjustedRole;
     }
     setLocalRole(adjustedRole);
-    setLocalReady(!!(window as any).localReady);
+    setLocalReady(!!window.localReady);
 
     const list = [];
     const myId = Network.getPlayerId() || 'local-player';
@@ -165,18 +165,18 @@ export function HUD2D({ isGameView, isStandalone }: { isGameView: boolean; isSta
       name: `Você (${myId.substring(0, 6)})`,
       role: adjustedRole,
       isLocal: true,
-      ready: !!(window as any).localReady
+      ready: !!window.localReady
     });
 
     // Fantasmas remotos
-    const state = useEditorStore.getState();
+    const state = getEngineStore().getState();
     const scene = state.activeScene();
     if (scene) {
       Object.values(scene.entities).forEach((entity) => {
         if (entity && entity.tags && entity.tags.includes('multiplayer-ghost')) {
           const remoteId = entity.id.replace('ghost-', '');
-          const ghostRole = (entity.components.Network as any)?.role || (hasScoreboard ? 'red' : 'player');
-          const ghostReady = !!(entity.components.Network as any)?.ready;
+          const ghostRole = entity.components.Network?.role || (hasScoreboard ? 'red' : 'player');
+          const ghostReady = !!entity.components.Network?.ready;
           list.push({
             id: remoteId,
             name: `Player_${remoteId.substring(0, 6)}`,
@@ -193,7 +193,7 @@ export function HUD2D({ isGameView, isStandalone }: { isGameView: boolean; isSta
   useEffect(() => {
     const checkVR = () => {
       if (typeof window !== 'undefined') {
-        setIsVR(!!(window as any).isVRActive);
+        setIsVR(!!window.isVRActive);
       }
     };
     checkVR();
@@ -221,11 +221,11 @@ export function HUD2D({ isGameView, isStandalone }: { isGameView: boolean; isSta
   };
 
   const handleChangeRole = (role: string) => {
-    (window as any).playerRole = role;
+    window.playerRole = role;
     setLocalRole(role);
     
     if (role === 'spectator') {
-      (window as any).localReady = false;
+      window.localReady = false;
       setLocalReady(false);
       if (Network.isConnected()) {
         Network.send({ type: 'player-ready', ready: false });
@@ -406,7 +406,7 @@ export function HUD2D({ isGameView, isStandalone }: { isGameView: boolean; isSta
             <button
               onClick={() => {
                 const nextReady = !localReady;
-                (window as any).localReady = nextReady;
+                window.localReady = nextReady;
                 setLocalReady(nextReady);
                 if (Network.isConnected()) {
                   Network.send({ type: 'player-ready', ready: nextReady });
@@ -740,8 +740,8 @@ export function HUD2D({ isGameView, isStandalone }: { isGameView: boolean; isSta
 // ── COMPONENTE HUD 3D (WebXR World-Space Mesh HUD) ───────────
 // Renderizado na tela tridimensional interna do óculos de VR
 export function HUD3D() {
-  const activeSceneId = useEditorStore(s => s.activeSceneId);
-  const activeScene = useEditorStore(s => s.scenes[activeSceneId]);
+  const activeSceneId = useEngineStore(s => s.activeSceneId);
+  const activeScene = useEngineStore(s => s.scenes[activeSceneId]);
   const hudEnabled = getSceneHUDEnabled(activeScene);
   const hudConfig = useMemo(() => getSceneHUDConfig(activeScene), [activeScene]);
 

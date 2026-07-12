@@ -71,7 +71,6 @@ export function HierarchyPanel({ style }: { style?: React.CSSProperties }) {
     activeScene,
     createEntity,
     renameEntity,
-    currentProjectName,
   } = useEditorStore();
   const scene = activeScene();
   const [renamingId, setRenamingId] = useState<string | null>(null);

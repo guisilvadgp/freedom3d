@@ -1,6 +1,6 @@
 import { useFrame } from '@react-three/fiber';
 import { useRef } from 'react';
-import { useEditorStore } from '../../editor/store/editorStore';
+import { useEngineStore } from '../runtime/runtimeStore';
 import { getOrCreateHUDCanvas } from '../ecs/types';
 import { Input } from './InputManager';
 import { useRapier } from '@react-three/rapier';
@@ -21,9 +21,9 @@ const FIXED_STEP = 1 / 60; // 60Hz para todos os scripts
 const MAX_ACCUMULATED = FIXED_STEP * 5; // Evita espiral da morte (max 5 steps por frame)
 
 export function GameLoop() {
-  const isPlaying = useEditorStore(s => s.isPlaying);
-  const scene = useEditorStore(s => s.scenes[s.activeSceneId]);
-  const addLog = useEditorStore(s => s.addLog);
+  const isPlaying = useEngineStore(s => s.isPlaying);
+  const scene = useEngineStore(s => s.scenes[s.activeSceneId]);
+  const addLog = useEngineStore(s => s.addLog);
   const rapierContext = useRapier();
 
   const accumulated = useRef(0);
@@ -35,11 +35,11 @@ export function GameLoop() {
   const compiledScripts = useRef<Record<string, any>>({});
 
   // Cache das fatias da store para evitar chamadas de getState por frame
-  const rigidBodyRefs = useEditorStore(s => s.rigidBodyRefs);
+  const rigidBodyRefs = useEngineStore(s => s.rigidBodyRefs);
   const rigidBodyRefsRef = useRef(rigidBodyRefs);
   rigidBodyRefsRef.current = rigidBodyRefs;
 
-  const updateComponent = useEditorStore(s => s.updateComponent);
+  const updateComponent = useEngineStore(s => s.updateComponent);
   const updateComponentRef = useRef(updateComponent);
   updateComponentRef.current = updateComponent;
 
@@ -113,7 +113,7 @@ export function GameLoop() {
       for (const entity of Object.values(scene.entities)) {
         if (!entity?.active || !entity.components.Script) continue;
 
-        const scriptComp = entity.components.Script as any;
+        const scriptComp = entity.components.Script;
         const instances: any[] = [];
 
         const compileSingleScript = (name: string, code: string, variables: any[] = []) => {
@@ -225,7 +225,8 @@ export function GameLoop() {
                   if (v.type === 'entity') return scene.entities[v.value] || null;
                   if (v.type === 'component') {
                     const targetEntity = scene.entities[v.entityId];
-                    return (targetEntity?.components as any)[v.componentType] || null;
+                    const key = v.componentType as keyof import('../ecs/types').ComponentsMap;
+                    return targetEntity?.components[key] || null;
                   }
                   if (v.type === 'number') return Number(v.value);
                   if (v.type === 'boolean') return v.value === 'true';

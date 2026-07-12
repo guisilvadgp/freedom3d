@@ -1,4 +1,4 @@
-import { useEditorStore } from '../../editor/store/editorStore';
+import { getEngineStore } from '../runtime/runtimeStore';
 import type { Entity } from '../ecs/types';
 
 export interface NetworkConfig {
@@ -32,7 +32,7 @@ export class NetworkManager {
     this.playerId = 'player-' + Math.floor(Math.random() * 10000);
 
     console.log(`[Network] Conectando a ${this.serverUrl} (Room: ${this.roomId}) como ${this.playerId}...`);
-    useEditorStore.getState().addLog('info', `Conectando ao multiplayer como ${this.playerId}...`);
+    getEngineStore().getState().addLog('info', `Conectando ao multiplayer como ${this.playerId}...`);
 
     try {
       this.socket = new WebSocket(this.serverUrl);
@@ -40,7 +40,7 @@ export class NetworkManager {
       this.socket.onopen = () => {
         this.connected = true;
         console.log(`[Network] Conectado com sucesso!`);
-        useEditorStore.getState().addLog('info', `Multiplayer: Conectado ao servidor.`);
+        getEngineStore().getState().addLog('info', `Multiplayer: Conectado ao servidor.`);
 
         // Busca posição/rotação do jogador local para enviar no join
         const localData = this.findLocalPlayerTransform();
@@ -56,7 +56,7 @@ export class NetworkManager {
           position: initialPos,
           rotation: initialRot,
           name: `Player_${this.playerId}`,
-          role: (window as any).playerRole || 'red'
+          role: window.playerRole || 'red'
         }));
 
         window.dispatchEvent(new CustomEvent('multiplayer-players-update'));
@@ -77,7 +77,7 @@ export class NetworkManager {
 
       this.socket.onerror = (err) => {
         console.error('[Network] WebSocket error:', err);
-        useEditorStore.getState().addLog('error', `Multiplayer: Erro de conexão`);
+        getEngineStore().getState().addLog('error', `Multiplayer: Erro de conexão`);
       };
 
     } catch (err) {
@@ -97,7 +97,7 @@ export class NetworkManager {
     if (this.connected) {
       this.connected = false;
       console.log('[Network] Desconectado do servidor.');
-      useEditorStore.getState().addLog('warn', `Multiplayer: Desconectado.`);
+      getEngineStore().getState().addLog('warn', `Multiplayer: Desconectado.`);
 
       // Remove todos os ghosts do jogador remoto da cena para limpar
       this.removeAllGhosts();
@@ -135,13 +135,13 @@ export class NetworkManager {
     if (now - this.lastSentTime < 50) return;
     this.lastSentTime = now;
 
-    const store = useEditorStore.getState();
+    const store = getEngineStore().getState();
     const scene = store.activeScene();
     let playbackRate: number | undefined;
     let volume: number | undefined;
     if (scene) {
-      const localPlayerEntity = Object.values(scene.entities).find(e => 
-        e.components.Network && (e.components.Network as any).isLocal
+      const localPlayerEntity = Object.values(scene.entities).find((e) => 
+        e.components.Network && e.components.Network.isLocal
       );
       if (localPlayerEntity && localPlayerEntity.components.Audio) {
         playbackRate = localPlayerEntity.components.Audio.playbackRate;
@@ -154,7 +154,7 @@ export class NetworkManager {
       playerId: this.playerId,
       position: transform.position,
       rotation: transform.rotation,
-      role: (window as any).playerRole || 'red',
+      role: window.playerRole || 'red',
       playbackRate,
       volume
     };
@@ -170,7 +170,7 @@ export class NetworkManager {
   private onReceiveState(packet: any) {
     if (!packet || packet.playerId === this.playerId) return;
 
-    const store = useEditorStore.getState();
+    const store = getEngineStore().getState();
     const scene = store.activeScene();
     if (!scene) return;
 
@@ -186,7 +186,7 @@ export class NetworkManager {
 
       case 'player-joined':
         // Outro jogador entrou
-        useEditorStore.getState().addLog('info', `Jogador ${packet.playerId} entrou no jogo como ${packet.role || 'red'}.`);
+        getEngineStore().getState().addLog('info', `Jogador ${packet.playerId} entrou no jogo como ${packet.role || 'red'}.`);
         this.createOrUpdateGhost(packet.playerId, packet.position, packet.rotation, packet.role || 'red', packet.ready || false, packet.playbackRate, packet.volume);
         break;
 
@@ -197,7 +197,7 @@ export class NetworkManager {
 
       case 'role-update':
         // Outro jogador mudou de papel
-        useEditorStore.getState().addLog('info', `Jogador ${packet.playerId} mudou para o time ${packet.role}.`);
+        getEngineStore().getState().addLog('info', `Jogador ${packet.playerId} mudou para o time ${packet.role}.`);
         this.createOrUpdateGhost(packet.playerId, packet.position || [0, 1.5, 0], packet.rotation || [0, 0, 0], packet.role, packet.ready || false, packet.playbackRate, packet.volume);
         break;
 
@@ -208,17 +208,17 @@ export class NetworkManager {
 
       case 'player-left':
         // Outro jogador saiu
-        useEditorStore.getState().addLog('warn', `Jogador ${packet.playerId} saiu do jogo.`);
+        getEngineStore().getState().addLog('warn', `Jogador ${packet.playerId} saiu do jogo.`);
         this.removeGhost(packet.playerId);
         break;
 
       default:
         // Qualquer outro tipo de pacote (ball-sync, score-sync, etc.)
         if (typeof window !== 'undefined') {
-          if (!(window as any).soccerMultiplayerState) {
-            (window as any).soccerMultiplayerState = {};
+          if (!window.soccerMultiplayerState) {
+            window.soccerMultiplayerState = {};
           }
-          (window as any).soccerMultiplayerState[packet.type] = packet;
+          window.soccerMultiplayerState[packet.type] = packet;
 
           // Dispara um evento global com o conteúdo do pacote para extensibilidade
           window.dispatchEvent(new CustomEvent('network-packet', { detail: packet }));
@@ -241,7 +241,7 @@ export class NetworkManager {
     playbackRate?: number,
     volume?: number
   ) {
-    const store = useEditorStore.getState();
+    const store = getEngineStore().getState();
     const scene = store.activeScene();
     if (!scene) return;
 
@@ -258,7 +258,7 @@ export class NetworkManager {
       let playerGltfModel: any = null;
       let playerAnimator: any = null;
       let playerAudio: any = null;
-      for (const [id, entity] of Object.entries(scene.entities)) {
+      for (const [id, entity] of Object.entries(scene.entities) as [string, any][]) {
         if (!id.startsWith('ghost-')) {
           if (entity.components.GLTFModel) {
             playerGltfModel = entity.components.GLTFModel;
@@ -334,7 +334,7 @@ export class NetworkManager {
         components: ghostComponents
       };
 
-      useEditorStore.setState((s) => ({
+      getEngineStore().setState((s: any) => ({
         scenes: {
           ...s.scenes,
           [scene.id]: {
@@ -353,7 +353,7 @@ export class NetworkManager {
 
       // Atualiza o estado ativo se necessário
       if (existingGhost.active !== active) {
-        useEditorStore.setState((s) => {
+        getEngineStore().setState((s: any) => {
           const currentScene = s.scenes[scene.id];
           if (!currentScene) return {};
           const currentGhost = currentScene.entities[ghostId];
@@ -382,9 +382,9 @@ export class NetworkManager {
       // Atualiza o papel e o status ready no componente Network se necessário
       const currentNetwork = existingGhost.components.Network;
       if (currentNetwork) {
-        const updates: any = {};
-        if ((currentNetwork as any).role !== role) updates.role = role;
-        if ((currentNetwork as any).ready !== ready) updates.ready = ready;
+        const updates: Partial<import('../ecs/types').NetworkComponent> = {};
+        if (currentNetwork.role !== role) updates.role = role;
+        if (currentNetwork.ready !== ready) updates.ready = ready;
         if (Object.keys(updates).length > 0) {
           store.updateComponent(ghostId, 'Network', updates);
         }
@@ -408,7 +408,7 @@ export class NetworkManager {
   }
 
   private updateGhostReadyStatus(remotePlayerId: string, ready: boolean) {
-    const store = useEditorStore.getState();
+    const store = getEngineStore().getState();
     const scene = store.activeScene();
     if (!scene) return;
 
@@ -420,7 +420,7 @@ export class NetworkManager {
   }
 
   private removeGhost(remotePlayerId: string) {
-    const store = useEditorStore.getState();
+    const store = getEngineStore().getState();
     const scene = store.activeScene();
     if (!scene) return;
 
@@ -430,20 +430,20 @@ export class NetworkManager {
     const newEntities = { ...scene.entities };
     delete newEntities[ghostId];
 
-    useEditorStore.setState((s) => ({
+    getEngineStore().setState((s) => ({
       scenes: {
         ...s.scenes,
         [scene.id]: {
           ...scene,
           entities: newEntities,
-          rootEntityIds: scene.rootEntityIds.filter(id => id !== ghostId)
+          rootEntityIds: scene.rootEntityIds.filter((id) => id !== ghostId)
         }
       }
     }));
   }
 
   private removeAllGhosts() {
-    const store = useEditorStore.getState();
+    const store = getEngineStore().getState();
     const scene = store.activeScene();
     if (!scene) return;
 
@@ -458,13 +458,13 @@ export class NetworkManager {
     });
 
     if (changed) {
-      useEditorStore.setState((s) => ({
+      getEngineStore().setState((s) => ({
         scenes: {
           ...s.scenes,
           [scene.id]: {
             ...scene,
             entities: newEntities,
-            rootEntityIds: scene.rootEntityIds.filter(id => !id.startsWith('ghost-'))
+            rootEntityIds: scene.rootEntityIds.filter((id) => !id.startsWith('ghost-'))
           }
         }
       }));
@@ -472,7 +472,7 @@ export class NetworkManager {
   }
 
   private findLocalPlayerTransform(): { id: string; position: [number, number, number]; rotation: [number, number, number] } | null {
-    const store = useEditorStore.getState();
+    const store = getEngineStore().getState();
     const scene = store.activeScene();
     if (!scene) return null;
 

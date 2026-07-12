@@ -87,7 +87,7 @@ export const Input = {
     const isXRActive = typeof navigator !== 'undefined' &&
       typeof (navigator as any).xr !== 'undefined' &&
       (document.querySelector('canvas') !== null) &&
-      !!(window as any).__freedom3d_xr_presenting__;
+      !!window.__freedom3d_xr_presenting__;
 
     // IDs que denotam sensores de movimento / giroscópio expostos como
     // "gamepad" (bug comum do Chrome no Android, usado nos modos AR/MR).

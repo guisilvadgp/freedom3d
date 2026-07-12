@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useEditorStore } from '../store/editorStore';
 import {
-  Sparkles, Send, Loader2, Settings, HelpCircle, Rocket, Target, Layers, Coins,
+  Sparkles, Send, Loader2, Settings, Rocket, Target,
   CheckCircle, AlertTriangle, Bot, Clapperboard, Gamepad2, Brain, ScrollText, Package, Link2, ChevronRight, X
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';

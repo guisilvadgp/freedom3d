@@ -395,7 +395,6 @@ export function HandTrackingTest() {
   const cameraHelperRef = useRef<any>(null);
   const loopActiveRef = useRef<boolean>(false);
   
-  const lastFrameTimeRef = useRef<number>(performance.now());
   const frameCountRef = useRef<number>(0);
   const lastFpsUpdateRef = useRef<number>(performance.now());
 
@@ -578,22 +577,17 @@ export function HandTrackingTest() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
 
-    // @ts-ignore
-    const drawingUtils = window;
-    // @ts-ignore
-    const mpHands = window;
-
     if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
       updateHudState({ status: 'Mão rastreada', handsCount: results.multiHandLandmarks.length });
 
       for (const landmarks of results.multiHandLandmarks) {
-        if (drawingUtils.drawConnectors && mpHands.HAND_CONNECTIONS) {
-          drawingUtils.drawConnectors(ctx, landmarks, mpHands.HAND_CONNECTIONS, {
+        if (window.drawConnectors && window.HAND_CONNECTIONS) {
+          window.drawConnectors(ctx, landmarks, window.HAND_CONNECTIONS, {
             color: '#00ffd8', lineWidth: 4
           });
         }
-        if (drawingUtils.drawLandmarks) {
-          drawingUtils.drawLandmarks(ctx, landmarks, {
+        if (window.drawLandmarks) {
+          window.drawLandmarks(ctx, landmarks, {
             color: '#ff00ff', lineWidth: 2, radius: 4
           });
         }

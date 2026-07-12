@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense, useContext } from 'react';
 import type { ReactNode } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -7,16 +7,13 @@ import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { TransformControls } from '@react-three/drei';
 import { RigidBody, MeshCollider, CuboidCollider, BallCollider, CapsuleCollider, CylinderCollider, ConeCollider } from '@react-three/rapier';
 import * as THREE from 'three';
-import { useEditorStore } from '../store/editorStore';
+import { useEngineStore, getEngineStore, checkIsStandalone } from '../runtime/runtimeStore';
+import { EditorConfigContext } from './SceneView';
 import { useShallow } from 'zustand/react/shallow';
 import type { Entity } from '../../engine/ecs/types';
 
-// Desabilitar cache interno do Three.js em memoria RAM para evitar duplicacao de buffers gigantes no JS.
-// O cacheamento persistente e ultrarrapido ja e feito nativamente pelo Cache Storage no patch do fetch.
 THREE.Cache.enabled = false;
 
-// Monkey patch para THREE.ImageBitmapLoader para evitar falhas ao carregar blob URLs
-// Isso resolve o erro "Couldn't load texture blob:..." usando ImageLoader + createImageBitmap
 if (typeof window !== 'undefined' && THREE.ImageBitmapLoader) {
   const originalImageBitmapLoaderLoad = THREE.ImageBitmapLoader.prototype.load;
   THREE.ImageBitmapLoader.prototype.load = function (
@@ -50,17 +47,12 @@ if (typeof window !== 'undefined' && THREE.ImageBitmapLoader) {
   };
 }
 
-
-// Detecção simples de dispositivo móvel
 const isMobile = typeof navigator !== 'undefined' && /Mobi|Android|iPhone/i.test(navigator.userAgent);
-
-// Cache global para evitar carregar e decodificar o mesmo arquivo múltiplas vezes
 const modelCache = new Map<string, any>();
 const pendingLoads = new Map<string, Promise<any>>();
 // const EMPTY_ANIMATIONS: THREE.AnimationClip[] = [];
 let loadQueue: Promise<any> = Promise.resolve();
 
-// Limpa o cache global de modelos e descarta suas geometrias e texturas da GPU
 export function clearModelCache() {
   modelCache.forEach((model) => {
     const scene = model.scene || model;
@@ -93,15 +85,11 @@ export function clearModelCache() {
   modelCache.clear();
 }
 
-// Sanitiza propriedades circulares no userData do FBX que causam loops infinitos no SkeletonUtils.clone
 function sanitizeFBXUserData(object: THREE.Object3D) {
   object.traverse((child: any) => {
     if (child.userData) {
-      // FBXLoader anexa relações de conexões que apontam circularmente para outros Object3D
       delete child.userData.connections;
       delete child.userData.relations;
-      
-      // Limpa qualquer outra referência cíclica para instâncias Object3D no userData
       for (const key in child.userData) {
         const val = child.userData[key];
         if (val && typeof val === 'object') {
@@ -114,7 +102,6 @@ function sanitizeFBXUserData(object: THREE.Object3D) {
   });
 }
 
-// Otimiza as faixas de animação descartando tracks estáticas redundantes (ex: scale constante)
 function optimizeAnimations(animations: THREE.AnimationClip[]) {
   if (!animations) return;
   for (let i = 0; i < animations.length; i++) {
@@ -122,7 +109,6 @@ function optimizeAnimations(animations: THREE.AnimationClip[]) {
     if (!clip || !clip.tracks) continue;
     
     clip.tracks = clip.tracks.filter(track => {
-      // Remove tracks de escala dos ossos que são estáticas (iguais a 1) para poupar CPU/RAM
       if (track.name.endsWith('.scale')) {
         let isStaticOne = true;
         if (track.values) {
@@ -138,13 +124,10 @@ function optimizeAnimations(animations: THREE.AnimationClip[]) {
       return true;
     });
 
-    // Força o cache do Three.js a ler as novas tracks filtradas
     (clip as any)._cacheKey = null;
   }
 }
 
-// Remove assinaturas de animação no nível do buffer binário do FBX no mobile.
-// Isso impede que o FBXLoader processe as curvas complexas poupando toneladas de memória RAM e CPU.
 function stripAnimationsFromFBXBuffer(buffer: ArrayBuffer): ArrayBuffer {
   const view = new Uint8Array(buffer);
   const targets = [
@@ -168,9 +151,8 @@ function stripAnimationsFromFBXBuffer(buffer: ArrayBuffer): ArrayBuffer {
       }
       
       if (match) {
-        // Substitui a palavra por 'X's para invalidar a leitura sem corromper o alinhamento
         for (let j = 0; j < len; j++) {
-          view[i + j] = 88; // ASCII 'X'
+          view[i + j] = 88;
         }
         i += len - 1;
       }
@@ -188,7 +170,6 @@ async function loadModelAsync(src: string, isFbx: boolean): Promise<any> {
   }
 
   const promise = (async () => {
-    // Aguarda que os itens anteriores na fila de carregamento terminem para evitar picos de CPU
     await loadQueue;
 
     if (isFbx) {
@@ -204,14 +185,12 @@ async function loadModelAsync(src: string, isFbx: boolean): Promise<any> {
         const loader = new FBXLoader(THREE.DefaultLoadingManager);
         const fbx = loader.parse(buffer, src);
         
-        // Sanitiza dados de relações circulares no FBX para evitar recursão infinita no clone
         sanitizeFBXUserData(fbx);
         
         if (fbx.animations) {
           optimizeAnimations(fbx.animations);
         }
         
-        // Encolhe texturas do modelo template assim que carrega para otimizar VRAM
         shrinkModelTextures(fbx);
         
         modelCache.set(src, fbx);
@@ -234,12 +213,10 @@ async function loadModelAsync(src: string, isFbx: boolean): Promise<any> {
       const loader = new GLTFLoader(THREE.DefaultLoadingManager);
       const gltf = await loader.loadAsync(src);
       
-      // Otimiza as faixas de animação do GLTF
       if (gltf.animations) {
         optimizeAnimations(gltf.animations);
       }
 
-      // Encolhe texturas do modelo template assim que carrega para otimizar VRAM
       shrinkModelTextures(gltf.scene);
       
       modelCache.set(src, gltf);
@@ -247,7 +224,6 @@ async function loadModelAsync(src: string, isFbx: boolean): Promise<any> {
     }
   })();
 
-  // Para não prender a fila caso haja erros
   loadQueue = promise.then(() => {}, () => {});
 
   pendingLoads.set(src, promise);
@@ -290,7 +266,6 @@ function shrinkTexture(texture: THREE.Texture, maxSize = 512) {
     if (ctx) {
       ctx.drawImage(img, 0, 0, newWidth, newHeight);
 
-      // Libera o ImageBitmap/imagem original da memória GPU imediatamente
       if (img && typeof img.close === 'function') {
         try {
           img.close();
@@ -342,25 +317,21 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
   const {
     selectedEntityId,
     selectEntity,
-    editorMode,
     isPlaying,
     updateComponent,
-    snapEnabled,
-    snapValue,
     activeViewport
-  } = useEditorStore(useShallow(s => ({
+  } = useEngineStore(useShallow(s => ({
     selectedEntityId: s.selectedEntityId,
     selectEntity: s.selectEntity,
-    editorMode: s.editorMode,
     isPlaying: s.isPlaying,
     updateComponent: s.updateComponent,
-    snapEnabled: s.snapEnabled,
-    snapValue: s.snapValue,
     activeViewport: s.activeViewport
   })));
 
+  const { editorMode, snapEnabled, snapValue } = useContext(EditorConfigContext);
+
   const isGameView = activeViewport === 'game';
-  const isStandalone = typeof window !== 'undefined' && window.location.pathname === '/preview';
+  const isStandalone = checkIsStandalone();
 
   const transform = entity.components.Transform!;
   const model = entity.components.GLTFModel!;
@@ -368,7 +339,6 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
   const isSelected = selectedEntityId === entity.id;
   const customCollider = entity.components.Collider as any;
 
-  // Drag detection: evita seleção acidental ao arrastar a câmera
   const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
   const handlePointerDown = (e: any) => {
     mouseDownPos.current = { x: e.clientX, y: e.clientY };
@@ -401,7 +371,6 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
     }
   }, [loadedData]);
 
-  // 1. Carregamento Assíncrono do Modelo
   useEffect(() => {
     let isMounted = true;
 
@@ -414,11 +383,9 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
         const rawScene = isFbx ? rawModel : rawModel.scene;
         const animations = rawModel.animations || [];
 
-        // Clona a cena original de forma segura (com userData limpo de refs circulares, SkeletonUtils funciona perfeitamente para FBX e GLTF)
         const clone = SkeletonUtils.clone(rawScene);
         clone.userData.entityId = entity.id;
 
-        // Aplica configurações iniciais (as texturas já estão devidamente reduzidas no template)
         clone.traverse((child: any) => {
           if (child.isMesh) {
             child.castShadow = model.castShadow;
@@ -459,7 +426,6 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
     };
   }, [model.src, isFbx]);
 
-  // 2. Atualiza sombras de forma reativa sem recarregar o modelo inteiro
   useEffect(() => {
     if (loadedData?.scene) {
       loadedData.scene.traverse((child: any) => {
@@ -471,7 +437,6 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
     }
   }, [loadedData, model.castShadow, model.receiveShadow]);
 
-  // 3. Efeito reativo para modificar materiais e texturas do clone em tempo real
   useEffect(() => {
     if (!loadedData?.scene) return;
     const clonedScene = loadedData.scene;
@@ -481,7 +446,7 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
       if (fileName.startsWith('/') || fileName.startsWith('http') || fileName.startsWith('blob:') || fileName.startsWith('data:')) {
         return fileName;
       }
-      const sceneActive = useEditorStore.getState().scenes[useEditorStore.getState().activeSceneId];
+      const sceneActive = getEngineStore().getState().scenes[getEngineStore().getState().activeSceneId];
       const projectName = sceneActive?.name || 'default';
       
       if (isStandalone) {
@@ -548,7 +513,6 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
                   shrinkTexture(tex, 512);
                   if (renderer.initTexture) renderer.initTexture(tex);
                   
-                  // Libera textura override anterior para evitar vazamento em VRAM
                   if (mat.map && mat.map.isTexture && (!mesh.userData.originalMaterial || mat.map !== mesh.userData.originalMaterial.map)) {
                     mat.map.dispose();
                   }
@@ -572,7 +536,6 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
                   shrinkTexture(tex, 512);
                   if (renderer.initTexture) renderer.initTexture(tex);
 
-                  // Libera normal map override anterior para evitar vazamento em VRAM
                   if (mat.normalMap && mat.normalMap.isTexture && (!mesh.userData.originalMaterial || mat.normalMap !== mesh.userData.originalMaterial.normalMap)) {
                     mat.normalMap.dispose();
                   }
@@ -692,7 +655,6 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
   const [names, setNames] = useState<string[]>([]);
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
 
-  // Inicializa o AnimationMixer assim que o modelo é carregado
   useEffect(() => {
     if (!loadedData?.scene) {
       mixerRef.current = null;
@@ -731,7 +693,6 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
       mixer.uncacheRoot(scene);
       mixerRef.current = null;
 
-      // Limpa os materiais clonados e texturas criadas dinamicamente para liberar VRAM
       scene.traverse((child: any) => {
         if (child.isMesh) {
           if (child.material) {
@@ -754,7 +715,6 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
     };
   }, [loadedData]);
 
-  // Atualiza o mixer a cada frame de forma segura e encapsulada em try-catch
   useFrame((_, delta) => {
     if (mixerRef.current) {
       try {
@@ -840,7 +800,6 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
     isPlaying
   ]);
 
-  // Se os dados do modelo ainda não foram carregados, renderiza o placeholder mas MANTÉM os filhos montados.
   if (!loadedData) {
     return (
       <group
@@ -893,7 +852,6 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
     </group>
   );
 
-  // Fallback seguro de colisores primitivos para SkinnedMeshes (previne crash de Heap no Rapier WASM)
   const renderSkinnedCollider = () => {
     const box = new THREE.Box3().setFromObject(loadedData.scene);
     const size = new THREE.Vector3();
@@ -901,7 +859,6 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
     const center = new THREE.Vector3();
     box.getCenter(center);
 
-    // Ajusta o tamanho baseado na escala
     const hx = Math.max(size.x * 0.5 * scale[0], 0.1);
     const hy = Math.max(size.y * 0.5 * scale[1], 0.1);
     const hz = Math.max(size.z * 0.5 * scale[2], 0.1);
@@ -931,22 +888,22 @@ export function UnifiedModelRender({ entity, isFbx, children }: { entity: Entity
     if (customCollider.shape === 'capsule') {
       const radiusScale = Math.max(entityScale[0], entityScale[2]);
       args.push(
-        customCollider.scale[1] * entityScale[1], // halfHeight
-        customCollider.scale[0] * radiusScale // radius
+        customCollider.scale[1] * entityScale[1],
+        customCollider.scale[0] * radiusScale
       );
     }
     if (customCollider.shape === 'cylinder') {
       const radiusScale = Math.max(entityScale[0], entityScale[2]);
       args.push(
-        customCollider.scale[1] * entityScale[1], // halfHeight
-        customCollider.scale[0] * radiusScale // radius
+        customCollider.scale[1] * entityScale[1],
+        customCollider.scale[0] * radiusScale
       );
     }
     if (customCollider.shape === 'cone') {
       const radiusScale = Math.max(entityScale[0], entityScale[2]);
       args.push(
-        customCollider.scale[1] * entityScale[1], // halfHeight
-        customCollider.scale[0] * radiusScale // radius
+        customCollider.scale[1] * entityScale[1],
+        customCollider.scale[0] * radiusScale
       );
     }
 
@@ -1055,8 +1012,6 @@ export function GLTFMesh({ entity, children }: { entity: Entity; children?: Reac
   }
 }
 
-// ── Error boundary simples ───────────────────────────────────
-
 export function GLTFErrorFallback({ fileName }: { fileName: string }) {
   return (
     <mesh>
@@ -1067,22 +1022,21 @@ export function GLTFErrorFallback({ fileName }: { fileName: string }) {
   );
 }
 
-// ── Renderiza todos os GLTF da cena ─────────────────────────
-
 export function GLTFViewers() {
-  const scene = useEditorStore(s => s.scenes[s.activeSceneId]);
-  const activeSceneId = useEditorStore(s => s.activeSceneId);
+  const scene = useEngineStore(s => s.scenes[s.activeSceneId]);
+  const activeSceneId = useEngineStore(s => s.activeSceneId);
 
-  // Limpa o cache global de modelos carregados na RAM/VRAM ao trocar de cena no editor
   useEffect(() => {
     return () => {
       clearModelCache();
     };
   }, [activeSceneId]);
 
+  if (!scene) return null;
+
   return (
     <>
-      {scene.rootEntityIds.map((id) => {
+      {scene.rootEntityIds.map((id: string) => {
         const entity = scene.entities[id];
         if (!entity?.components.GLTFModel || !entity.active) return null;
 

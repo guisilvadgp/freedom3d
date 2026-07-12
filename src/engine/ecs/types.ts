@@ -41,6 +41,13 @@ export interface CameraComponent {
   rotation?: [number, number, number];
   showCrosshair?: boolean;
   antialias?: boolean;
+  /**
+   * useGyroscope (padrão: true)
+   * Quando true  → modo VR usa a pose do headset para controlar a câmera (comportamento FPS/imersivo padrão).
+   * Quando false → o engine NÃO substitui a câmera pelo headset no VR; os Scripts do jogo continuam
+   *               controlando a câmera normalmente (câmera de 3ª pessoa, FPV de drone, orbital, etc.).
+   */
+  useGyroscope?: boolean;
 }
 
 export interface ScriptVariable {
@@ -319,6 +326,46 @@ export function getOrCreateHUDCanvas(entity: any): HTMLCanvasElement {
 export function setHUDUpdateCallback(entityId: string, callback: () => void) {
   if (hudCanvasCache[entityId]) {
     hudCanvasCache[entityId].onHUDUpdate = callback;
+  }
+}
+
+declare global {
+  interface Window {
+    // Orion / Audio properties
+    __orion_audio_patched__?: boolean;
+    __orion_active_audios__?: Set<any>;
+    
+    // Gameplay & Multiplayer properties
+    playerRole?: string;
+    soccerMultiplayerState?: Record<string, any>;
+    gameScore?: {
+      home: number;
+      away: number;
+      labelHome?: string;
+      labelAway?: string;
+    };
+    localReady?: boolean;
+    isVRActive?: boolean;
+    isFreedom3DCrouching?: boolean;
+    _soccerResetListeners?: Record<string, any>;
+    _soccerBallListeners?: Record<string, any>;
+
+    // Engine Standalone / AR / VR properties
+    __freedom3d_standalone__?: boolean;
+    __freedom3d_xr_presenting__?: boolean;
+    __freedom3d_webgl_info?: string;
+    __freedom3d_ar_video__?: HTMLVideoElement;
+    __freedom3d_ar_mode__?: boolean;
+    __freedom3d_ar_tv_mode__?: string | boolean;
+    __freedom3d_ar_tv_quality__?: string;
+    __freedom3d_simulated_ar__?: boolean;
+    __orionNativeFetch__?: typeof fetch;
+    __updateFreedom3DCacheSize?: (size: string) => void;
+
+    // MediaPipe / Hand Tracking properties
+    drawConnectors?: (ctx: CanvasRenderingContext2D, landmarks: any, connections: any, options: any) => void;
+    drawLandmarks?: (ctx: CanvasRenderingContext2D, landmarks: any, options: any) => void;
+    HAND_CONNECTIONS?: any;
   }
 }
 

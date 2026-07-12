@@ -1,7 +1,7 @@
 import { StandalonePlayer } from './engine/StandalonePlayer';
 import { Toolbar } from './editor/panels/Toolbar';
 import { HierarchyPanel } from './editor/panels/HierarchyPanel';
-import { SceneView } from './editor/panels/SceneView';
+import { SceneView } from './engine/render/SceneView';
 import { InspectorPanel } from './editor/panels/InspectorPanel';
 import { ConsolePanel } from './editor/panels/ConsolePanel';
 import { AssetBrowser } from './editor/panels/AssetBrowser';
@@ -85,6 +85,15 @@ export default function App() {
   // ── Módulo: Editor (/)
   const { bottomTab, setBottomTab } = useEditorStore();
   const activeSceneId = useEditorStore(state => state.activeSceneId);
+  const showGrid = useEditorStore(s => s.showGrid);
+  const showGizmos = useEditorStore(s => s.showGizmos);
+  const showLighting = useEditorStore(s => s.showLighting);
+  const editorMode = useEditorStore(s => s.editorMode);
+  const snapEnabled = useEditorStore(s => s.snapEnabled);
+  const snapValue = useEditorStore(s => s.snapValue);
+  const toggleLighting = useEditorStore(s => s.toggleLighting);
+  const instantiateAsset = useEditorStore(s => s.instantiateAsset);
+  const instantiatePrefab = useEditorStore(s => s.instantiatePrefab);
 
   // Aba do painel direito: 'inspector' | 'ai'
   const [rightTab, setRightTab] = useState<'inspector' | 'ai'>('inspector');
@@ -272,7 +281,17 @@ export default function App() {
         <div className="resizer-col" onMouseDown={handleHierarchyResize} />
 
         <div className="editor-center">
-          <SceneView />
+          <SceneView
+            showGrid={showGrid}
+            showGizmos={showGizmos}
+            showLighting={showLighting}
+            editorMode={editorMode}
+            snapEnabled={snapEnabled}
+            snapValue={snapValue}
+            onToggleLighting={toggleLighting}
+            onDropAsset={instantiateAsset}
+            onDropPrefab={instantiatePrefab}
+          />
           <div className="resizer-row" onMouseDown={handleBottomResize} />
           <div className="bottom-panel" style={{ height: bottomHeight }}>
             <div className="bottom-tabs">

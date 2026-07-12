@@ -1,58 +1,16 @@
+import React, { useRef, Suspense, useEffect, useState } from 'react';
 import { Canvas, useThree, useFrame, useLoader } from '@react-three/fiber';
 import { OrbitControls, Grid, GizmoHelper, GizmoViewport, Stats } from '@react-three/drei';
-import { useRef, Suspense, useEffect, useState } from 'react';
-import { useEditorStore } from '../store/editorStore';
-import { SceneEntities } from './SceneEntities';
-import { GameLoop } from '../../engine/systems/GameLoop';
 import { Physics } from '@react-three/rapier';
-import { XR, createXRStore, XRSpace, useXRInputSourceStateContext } from '@react-three/xr';
+import { XR } from '@react-three/xr';
 import * as THREE from 'three';
 import { Eye, Gamepad, Sun } from 'lucide-react';
-import { HUD2D } from '../../engine/systems/HUD';
+import { useEngineStore, getEngineStore } from '../runtime/runtimeStore';
+import { xrStore } from '../runtime/xrStore';
+import { SceneEntities } from './SceneEntities';
+import { GameLoop } from '../systems/GameLoop';
+import { HUD2D } from '../systems/HUD';
 import { VirtualARScreen } from './VirtualARScreen';
-
-const XR_JOINTS = [
-  'wrist',
-  'thumb-metacarpal', 'thumb-phalanx-proximal', 'thumb-phalanx-distal', 'thumb-tip',
-  'index-finger-metacarpal', 'index-finger-phalanx-proximal', 'index-finger-phalanx-intermediate', 'index-finger-phalanx-distal', 'index-finger-tip',
-  'middle-finger-metacarpal', 'middle-finger-phalanx-proximal', 'middle-finger-phalanx-intermediate', 'middle-finger-phalanx-distal', 'middle-finger-tip',
-  'ring-finger-metacarpal', 'ring-finger-phalanx-proximal', 'ring-finger-phalanx-intermediate', 'ring-finger-phalanx-distal', 'ring-finger-tip',
-  'pinky-finger-metacarpal', 'pinky-finger-phalanx-proximal', 'pinky-finger-phalanx-intermediate', 'pinky-finger-phalanx-distal', 'pinky-finger-tip'
-];
-
-function CustomXRHand() {
-  const state = useXRInputSourceStateContext('hand');
-  if (!state?.inputSource?.hand) return null;
-
-  return (
-    <group>
-      {XR_JOINTS.map((jointName) => {
-        // @ts-ignore
-        const jointSpace = state.inputSource.hand.get(jointName);
-        if (!jointSpace) return null;
-
-        return (
-          <XRSpace key={jointName} space={jointSpace}>
-            <mesh>
-              <sphereGeometry args={[0.015, 12, 12]} />
-              <meshStandardMaterial
-                color="#00ffd8"
-                emissive="#00ffd8"
-                emissiveIntensity={1.2}
-                roughness={0.1}
-                metalness={0.9}
-              />
-            </mesh>
-          </XRSpace>
-        );
-      })}
-    </group>
-  );
-}
-
-export const xrStore = createXRStore({
-  hand: CustomXRHand
-});
 
 let lastTeleportTime = 0;
 export function attemptTeleport(): boolean {
@@ -61,9 +19,6 @@ export function attemptTeleport(): boolean {
   lastTeleportTime = now;
   return true;
 }
-
-
-
 
 function LoadingTracker({
   sceneLoaded,
@@ -129,7 +84,6 @@ function LoadingTracker({
       if (origError) origError(url);
     };
 
-    // Caso já tenha carregado algo e o onStart não seja chamado
     updateState(false, 1, 1);
 
     return () => {
@@ -139,13 +93,11 @@ function LoadingTracker({
       manager.onLoad = origLoad;
       manager.onError = origError;
     };
-  }, []); // Dependência vazia: roda uma única vez no mount
+  }, []);
 
   const { active, progress } = loadingState;
 
   useEffect(() => {
-    // Só considera carregado se a estrutura da cena do servidor já foi injetada no Zustand,
-    // e os loaders de assets terminaram (ou a fila está vazia após a injeção).
     if (sceneLoaded && (!active || progress === 100)) {
       if (onLoadedRef.current) {
         const timer = setTimeout(() => {
@@ -161,9 +113,9 @@ function LoadingTracker({
 
 function EditorCameraHandler() {
   const { controls } = useThree();
-  const focusTrigger = useEditorStore(s => s.focusTrigger);
-  const activeSceneId = useEditorStore(s => s.activeSceneId);
-  const scene = useEditorStore(s => s.scenes[activeSceneId]);
+  const focusTrigger = useEngineStore(s => s.focusTrigger);
+  const activeSceneId = useEngineStore(s => s.activeSceneId);
+  const scene = useEngineStore(s => s.scenes[activeSceneId]);
   
   const targetPos = useRef<THREE.Vector3 | null>(null);
   const animateTo = useRef<boolean>(false);
@@ -180,7 +132,6 @@ function EditorCameraHandler() {
   }, [focusTrigger]);
 
   useFrame((state) => {
-    // Expõe telemetria do WebGL Renderer para o Profiler/DebugUI
     const gl = state.gl;
     (window as any).__freedom3d_webgl_info = {
       drawCalls: gl.info.render.calls,
@@ -232,35 +183,61 @@ function Skybox({ url }: { url: string }) {
   return null;
 }
 
+export const EditorConfigContext = React.createContext<{
+  editorMode: string;
+  snapEnabled: boolean;
+  snapValue: number;
+  showLighting: boolean;
+}>({
+  editorMode: 'translate',
+  snapEnabled: false,
+  snapValue: 0.5,
+  showLighting: true,
+});
+
 export function SceneView({
   isStandalone,
   sceneLoaded = true,
   onProgress,
   onLoaded,
-  roomId
+  roomId,
+  showGrid = false,
+  showGizmos = false,
+  showLighting = true,
+  editorMode = 'translate',
+  snapEnabled = false,
+  snapValue = 0.5,
+  onToggleLighting,
+  onDropAsset,
+  onDropPrefab,
 }: {
   isStandalone?: boolean;
   sceneLoaded?: boolean;
   onProgress?: (progress: number, statusText?: string) => void;
   onLoaded?: () => void;
   roomId?: string;
+  showGrid?: boolean;
+  showGizmos?: boolean;
+  showLighting?: boolean;
+  editorMode?: string;
+  snapEnabled?: boolean;
+  snapValue?: number;
+  onToggleLighting?: () => void;
+  onDropAsset?: (fileName: string) => void;
+  onDropPrefab?: (index: number) => void;
 }) {
-  const showGrid = useEditorStore(s => s.showGrid);
-  const isPlaying = useEditorStore(s => s.isPlaying);
-  const showGizmos = useEditorStore(s => s.showGizmos);
-  const showLighting = useEditorStore(s => s.showLighting);
-  const activeViewport = useEditorStore(s => s.activeViewport);
-  const setActiveViewport = useEditorStore(s => s.setActiveViewport);
-  const scene = useEditorStore(s => s.scenes[s.activeSceneId]);
+  const isPlaying = useEngineStore(s => s.isPlaying);
+  const activeViewport = useEngineStore(s => s.activeViewport);
+  const setActiveViewport = useEngineStore(s => s.setActiveViewport);
+  const scene = useEngineStore(s => s.scenes[s.activeSceneId]);
   const isGameView = isStandalone || activeViewport === 'game';
   const isDragging = useRef(false);
 
 
 
-
   if (!scene) return null;
 
-  const mainCameraEntity = Object.values(scene.entities).find(
+  const mainCameraEntity = (Object.values(scene.entities) as any[]).find(
     entity => entity.active && entity.components.Camera?.isMain
   );
   const showCrosshair = mainCameraEntity?.components.Camera?.showCrosshair ?? false;
@@ -273,12 +250,10 @@ export function SceneView({
 
     try {
       const data = JSON.parse(dataStr);
-      const store = useEditorStore.getState();
-
-      if (data.type === 'prefab') {
-        store.instantiatePrefab(data.index);
-      } else if (data.type === 'gltf') {
-        store.instantiateAsset(data.fileName);
+      if (data.type === 'prefab' && onDropPrefab) {
+        onDropPrefab(data.index);
+      } else if (data.type === 'gltf' && onDropAsset) {
+        onDropAsset(data.fileName);
       }
     } catch (err) {
       console.error('Failed to handle drop', err);
@@ -303,11 +278,11 @@ export function SceneView({
   };
 
   const content = (
-    <>
+    <EditorConfigContext.Provider value={{ editorMode, snapEnabled, snapValue, showLighting }}>
       {!isGameView && <EditorCameraHandler />}
       <LoadingTracker sceneLoaded={sceneLoaded} onProgress={onProgress} onLoaded={onLoaded} />
       {isStandalone && <VirtualARScreen roomId={roomId} />}
-      {/* Background */}
+      
       {scene.skyboxUrl ? (
         <Suspense fallback={<color attach="background" args={[scene.backgroundColor]} />}>
           <Skybox url={getSkyboxUrl(scene.skyboxUrl)} />
@@ -316,28 +291,23 @@ export function SceneView({
         <color attach="background" args={[scene.backgroundColor]} />
       )}
 
-      {/* Fog */}
       {scene.fogEnabled && (
         <fog attach="fog" args={[scene.fogColor, scene.fogNear, scene.fogFar]} />
       )}
 
-      {/* Ambient */}
       {showLighting || isGameView ? (
         <ambientLight color={scene.ambientColor} intensity={scene.ambientIntensity} />
       ) : (
         <ambientLight color="#ffffff" intensity={1.5} />
       )}
 
-      {/* Entities and Physics */}
       <Suspense fallback={null}>
         <Physics paused={!isPlaying} debug={showGizmos && !isGameView}>
           <SceneEntities />
-          {/* Systems */}
           <GameLoop />
         </Physics>
       </Suspense>
 
-      {/* Grid */}
       {showGrid && !isGameView && (
         <Grid
           position={[0, -0.001, 0]}
@@ -355,7 +325,6 @@ export function SceneView({
         />
       )}
 
-      {/* Controls */}
       {!isGameView && (
         <OrbitControls
           makeDefault
@@ -368,7 +337,6 @@ export function SceneView({
         />
       )}
 
-      {/* Gizmos */}
       {showGizmos && !isGameView && (
         <GizmoHelper alignment="bottom-right" margin={[80, 80]}>
           <GizmoViewport
@@ -378,9 +346,8 @@ export function SceneView({
         </GizmoHelper>
       )}
 
-      {/* Performance stats in play mode */}
       {isPlaying && !isStandalone && <Stats />}
-    </>
+    </EditorConfigContext.Provider>
   );
 
   return (
@@ -403,21 +370,23 @@ export function SceneView({
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, background: '#1e293b', display: 'flex', padding: '4px 8px', gap: '8px', borderBottom: '1px solid #334155' }}>
           <button className="panel-btn" style={{ background: activeViewport === 'scene' ? '#3b82f6' : 'transparent', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => setActiveViewport('scene')}><Eye size={14} /> Scene</button>
           <button className="panel-btn" style={{ background: activeViewport === 'game' ? '#3b82f6' : 'transparent', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => setActiveViewport('game')}><Gamepad size={14} /> Game</button>
-          <button
-            className="panel-btn"
-            style={{
-              marginLeft: 'auto',
-              background: showLighting ? 'transparent' : '#b45309',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px'
-            }}
-            onClick={() => useEditorStore.getState().toggleLighting()}
-            title={showLighting ? "Desativar Iluminação no Editor" : "Ativar Iluminação no Editor"}
-          >
-            <Sun size={14} color={showLighting ? "#ffffff" : "#cbd5e1"} />
-            {showLighting ? "Luzes: Ligadas" : "Luzes: Desligadas"}
-          </button>
+          {onToggleLighting && (
+            <button
+              className="panel-btn"
+              style={{
+                marginLeft: 'auto',
+                background: showLighting ? 'transparent' : '#b45309',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+              onClick={onToggleLighting}
+              title={showLighting ? "Desativar Iluminação no Editor" : "Ativar Iluminação no Editor"}
+            >
+              <Sun size={14} color={showLighting ? "#ffffff" : "#cbd5e1"} />
+              {showLighting ? "Luzes: Ligadas" : "Luzes: Desligadas"}
+            </button>
+          )}
         </div>
       )}
 
@@ -428,7 +397,6 @@ export function SceneView({
         </div>
       )}
 
-      {/* Cursor de mira HTML puro — zero custo de processamento no game loop */}
       {isGameView && showCrosshair && (
         <div
           style={{
@@ -452,7 +420,6 @@ export function SceneView({
         </div>
       )}
 
-      {/* HUD Híbrido 2D (HTML) da Engine */}
       <HUD2D isGameView={isGameView} isStandalone={isStandalone} />
 
       <div
@@ -486,7 +453,7 @@ export function SceneView({
           camera={{ fov: 60, near: 0.1, far: 1000, position: [5, 5, 8] }}
           onPointerMissed={() => {
             if (!isGameView && !isDragging.current) {
-              useEditorStore.getState().selectEntity(null);
+              getEngineStore().getState().selectEntity(null);
             }
           }}
           style={{
