@@ -1690,9 +1690,37 @@ function CameraInspector({ entityId }: { entityId: string }) {
         <input
           type="checkbox"
           checked={c.useGyroscope ?? true}
-          onChange={(e) => updateComponent(entityId, 'Camera', { useGyroscope: e.target.checked })}
+          onChange={(e) => updateComponent(entityId, 'Camera', { useGyroscope: e.target.checked, cameraType: e.target.checked ? 'Headset' : 'Scriptable' })}
         />
       </div>
+      <div className="field-row">
+        <label className="field-label" title="Modo de câmera no VR. 'Headset' = pose do headset controla (FPS). 'Scriptable' = scripts controlam CFrame/FOV (Roblox-like); o headset vira offset opcional.">
+          Camera Type (VR)
+        </label>
+        <select
+          className="field-input"
+          value={c.cameraType || (c.useGyroscope === false ? 'Scriptable' : 'Headset')}
+          onChange={(e) => {
+            const t = e.target.value as 'Headset' | 'Scriptable';
+            updateComponent(entityId, 'Camera', { cameraType: t, useGyroscope: t !== 'Scriptable' });
+          }}
+        >
+          <option value="Headset">Headset (Gyro)</option>
+          <option value="Scriptable">Scriptable (Scripts)</option>
+        </select>
+      </div>
+      {(!c.useGyroscope || c.cameraType === 'Scriptable') && (
+        <div className="field-row">
+          <label className="field-label" title="Apenas em Scriptable: se ativo, a pose do headset vira um offset local sobre a câmera do script (ex.: olhar ao redor numa câmera de 3ª pessoa). Se desativado, a câmera fica 100% travada no script.">
+            Headset Offset
+          </label>
+          <input
+            type="checkbox"
+            checked={c.headsetOffset ?? false}
+            onChange={(e) => updateComponent(entityId, 'Camera', { headsetOffset: e.target.checked })}
+          />
+        </div>
+      )}
       <div className="field-row">
         <label className="field-label">FOV</label>
         <input

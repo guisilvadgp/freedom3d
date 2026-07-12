@@ -46,8 +46,24 @@ export interface CameraComponent {
    * Quando true  → modo VR usa a pose do headset para controlar a câmera (comportamento FPS/imersivo padrão).
    * Quando false → o engine NÃO substitui a câmera pelo headset no VR; os Scripts do jogo continuam
    *               controlando a câmera normalmente (câmera de 3ª pessoa, FPV de drone, orbital, etc.).
+   * @deprecated use cameraType; useGyroscope=false é equivalente a cameraType='Scriptable'.
    */
   useGyroscope?: boolean;
+  /**
+   * cameraType (padrão: 'Headset')
+   * 'Headset'    → equivalente a useGyroscope=true: VR usa a pose do headset (FPS/imersivo padrão).
+   * 'Scriptable' → equivalente a useGyroscope=false: o script controla CFrame/FOV da câmera;
+   *                o headset vira um offset opcional (ver headsetOffset) sobre a câmera do script.
+   *                Modelo "Roblox-like": o editor tem controle total via scripts.
+   */
+  cameraType?: 'Headset' | 'Scriptable';
+  /**
+   * headsetOffset (só tem efeito quando cameraType='Scriptable' / useGyroscope=false)
+   * true  → a pose do headset é aplicada como OFFSET LOCAL sobre a câmera do script
+   *         (ex.: câmera de 3ª pessoa onde a cabeça do jogador vira o olhar ao redor).
+   * false → câmera 100% travada no script; a pose do headset é totalmente cancelada (matriz inversa).
+   */
+  headsetOffset?: boolean;
 }
 
 export interface ScriptVariable {

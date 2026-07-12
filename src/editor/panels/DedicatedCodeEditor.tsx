@@ -302,6 +302,15 @@ CRITICAL ENGINE API & ARCHITECTURE GUIDELINES:
 
 WEBXR & VR/AR COMPATIBILITY GUIDELINES (MANDATORY, BASED ON IMMERSIVE-WEB/WEBXR-SAMPLES):
 1. DYNAMIC XR MODE CHECK: Check if the user is in WebXR/VR/AR immersive session using the global flag 'window.isVRActive'. If 'window.isVRActive === true', bypass desktop-specific controls (like mouse locking, direct screen-space DOM overlays, or WASD-only keys) which break inside the headset.
+
+   CAMERA CONTROL (Scriptable VR): When the main Camera component has 'cameraType' = 'Scriptable' (or 'useGyroscope' = false), YOUR SCRIPT fully owns the VR view. Use the global 'window.Camera' API to drive it (Roblox-like):
+   - window.Camera.setCFrame(x, y, z, rotX=0, rotY=0, rotZ=0): set camera position/rotation (degrees).
+   - window.Camera.getCFrame(): returns { position:[x,y,z], rotation:[x,y,z] }.
+   - window.Camera.setFOV(deg) / getFOV(): control field of view (note: headset-native FOV may override in immersive VR).
+   - window.Camera.cameraType / .headsetOffset: read or set the mode ('Headset' | 'Scriptable') and whether the headset pose is applied as a local offset over the script camera.
+   - window.Camera.getHeadsetCFrame(): returns the live headset pose { position, rotation } so you can blend it (e.g., look-around on a 3rd-person rig).
+   - window.Camera.isVRActive(): true while an immersive XR session is active.
+   Example (drone/3rd-person that still lets the head look around): set cameraType='Scriptable' and headsetOffset=true, then each frame setCFrame(drone pos) and read getHeadsetCFrame() to aim a turret.
 2. XR CONTROLLER GAMEPAD INPUTS: When in XR mode, use gamepad mappings for the WebXR input sources. Mapped inputs via 'Input' or direct controller gamepad polling:
    - Stick Left (axes 0 & 1): Smooth translation/movement relative to the viewer direction.
    - Stick Right (axes 2 & 3): Rotation. Support "Snap Turn" (instant rotation of 30 or 45 degrees when tilting horizontal axis > 0.7 or < -0.7) or "Smooth Turn" to prevent motion sickness.

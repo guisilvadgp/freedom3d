@@ -891,11 +891,54 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
   const xrCurrentHeight = useRef(1.6);
   const xrEulerTemp = useRef(new THREE.Euler());
   const xrQuatTemp = useRef(new THREE.Quaternion());
+  // Refs temporárias para a matriz inversa do worldRoot (modo Scriptable / cameraType='Scriptable')
+  const xrMatA = useRef(new THREE.Matrix4());
+  const xrMatB = useRef(new THREE.Matrix4());
+  const xrMatC = useRef(new THREE.Matrix4());
+  const latestHeadsetPose = useRef(new THREE.Matrix4());
   useEffect(() => {
     xrLastHLocalWorld.current.set(0, 0, 0);
     xrIsFirstFrame.current = true;
     xrInitialHeadsetHeight.current = null;
   }, [sceneActiveId]);
+
+  // ── API Roblox-like: window.Camera ──
+  // Expõe a câmera principal (isMain) para os scripts controlarem CFrame/FOV
+  // e lerem a pose do headset no VR, dando independência total ao editor.
+  useEffect(() => {
+    if (!camera?.isMain) return;
+    const store = getEngineStore();
+    const api = {
+      get cameraType() { return (camera.cameraType === 'Scriptable' || camera.useGyroscope === false) ? 'Scriptable' : 'Headset'; },
+      set cameraType(t: 'Headset' | 'Scriptable') {
+        store.getState().updateComponent(entity.id, 'Camera', { cameraType: t, useGyroscope: t !== 'Scriptable' });
+      },
+      get headsetOffset() { return !!camera.headsetOffset; },
+      set headsetOffset(v: boolean) { store.getState().updateComponent(entity.id, 'Camera', { headsetOffset: v }); },
+      getFOV() { return camera.fov ?? 70; },
+      setFOV(fov: number) { store.getState().updateComponent(entity.id, 'Camera', { fov }); },
+      setCFrame(x: number, y: number, z: number, rx = 0, ry = 0, rz = 0) {
+        store.getState().updateComponent(entity.id, 'Camera', { offset: [x, y, z], rotation: [rx, ry, rz] });
+      },
+      getCFrame() {
+        const o = camera.offset || [0, 0, 0];
+        const r = camera.rotation || [0, 0, 0];
+        return { position: [o[0], o[1], o[2]], rotation: [r[0], r[1], r[2]] };
+      },
+      getHeadsetCFrame() {
+        const m = latestHeadsetPose.current;
+        const p = new THREE.Vector3();
+        const q = new THREE.Quaternion();
+        const s = new THREE.Vector3();
+        m.decompose(p, q, s);
+        const e = new THREE.Euler().setFromQuaternion(q, 'YXZ');
+        return { position: [p.x, p.y, p.z], rotation: [e.x * 180 / Math.PI, e.y * 180 / Math.PI, e.z * 180 / Math.PI] };
+      },
+      isVRActive() { return typeof window !== 'undefined' && !!(window as any).isVRActive; },
+    };
+    (window as any).Camera = api;
+    return () => { if ((window as any).Camera === api) (window as any).Camera = undefined; };
+  }, [camera, entity.id]);
 
   // Setup WebXR "Tap" Event
   useEffect(() => {
@@ -974,10 +1017,48 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
         (window as any).isVRActive = true;
       }
 
-      // Se useGyroscope = false, NÃO aplicamos lógica de headset/gaze/locomotion VR.
-      // Os scripts do jogo têm controle total da câmera, igual ao Screen mode.
-      if (!useGyroscope) {
-        // Apenas reset de estado se a sessão terminar é tratado no else abaixo.
+      // ── Decisão de modo de câmera ─────────────────────────────────────
+      // 'Headset'   (useGyroscope=true / cameraType!=='Scriptable'): VR usa a pose do headset.
+      // 'Scriptable'(useGyroscope=false / cameraType==='Scriptable'): scripts controlam a câmera;
+      //              o headset vira offset opcional (headsetOffset) sobre a câmera do script.
+      const isScriptable = !useGyroscope || camera?.cameraType === 'Scriptable';
+
+      if (isScriptable) {
+        // MODO SCRIPTABLE (Roblox-like): a visão final é 100% definida pelo script
+        // (componente Camera: offset/rotation/fov controlados via updateComponent ou window.Camera).
+        // Aplicamos a matriz inversa no worldRoot (xrGroup) para que a câmera XR coincida com a do script.
+        const xrGroup = xrOriginGroupRef.current;
+        const xrCamObj = (state.gl.xr as any).getCamera(state.camera);
+        if (xrGroup && xrCamObj && ref.current) {
+          // Matriz world da câmera do script (controlada pelo script)
+          ref.current.updateMatrixWorld();
+          const scriptWorld = xrMatA.current.copy(ref.current.matrixWorld);
+          // Pose do headset fornecida pelo WebXR (world space)
+          const headsetWorld = xrMatB.current.copy(xrCamObj.matrixWorld);
+          // Pose LOCAL do headset relativa ao xrGroup do frame anterior:
+          //   headsetLocal = inverse(xrGroupPrev.matrix) * headsetWorld
+          const prevXr = xrMatC.current.copy(xrGroup.matrix);
+          const headsetLocal = new THREE.Matrix4().multiplyMatrices(prevXr.invert(), headsetWorld);
+
+          if (camera?.headsetOffset) {
+            // Headset aplicado como OFFSET LOCAL sobre a câmera do script
+            // (ex.: câmera de 3ª pessoa onde a cabeça do jogador vira o olhar).
+            xrGroup.matrixAutoUpdate = false;
+            xrGroup.matrix.copy(scriptWorld);
+            xrGroup.matrixWorldNeedsUpdate = true;
+          } else {
+            // Câmera 100% travada no script: cancela TOTALMENTE a pose do headset (matriz inversa).
+            const invHeadset = headsetLocal.clone().invert();
+            const newXr = new THREE.Matrix4().multiplyMatrices(scriptWorld, invHeadset);
+            xrGroup.matrixAutoUpdate = false;
+            xrGroup.matrix.copy(newXr);
+            xrGroup.matrixWorldNeedsUpdate = true;
+          }
+          // Exposição da pose do headset para scripts (API window.Camera.getHeadsetCFrame)
+          latestHeadsetPose.current.copy(headsetWorld);
+        }
+        // Crosshair/HUD3D já são renderizados no JSX. A locomotion/room-scale do player
+        // fica a cargo do script. O reset de estado ocorre no else externo.
         return;
       }
 
@@ -1317,6 +1398,8 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
       if (camera.isMain) {
         const xrGroup = xrOriginGroupRef.current;
         if (xrGroup) {
+          // Volta ao auto-update de matriz (modo Headset usa position/rotation)
+          xrGroup.matrixAutoUpdate = true;
           const rbRefs = rigidBodyRefsRef.current || {};
           const rb = rbRefs[entity.id];
           let ePos: [number, number, number] = entity.components.Transform?.position || [0, 0, 0];
@@ -1386,6 +1469,9 @@ function PerspectiveCameraWrapper({ entity, camera, isGameView, isStandalone }: 
       if (typeof window !== 'undefined' && (window as any).isVRActive) {
         (window as any).isVRActive = false;
       }
+      // Reativa auto-update de matriz do worldRoot ao sair do VR (modo Scriptable o desliga)
+      const _xg = xrOriginGroupRef.current;
+      if (_xg) _xg.matrixAutoUpdate = true;
       if (initialHeadsetHeight !== null) {
         setInitialHeadsetHeight(null);
       }
