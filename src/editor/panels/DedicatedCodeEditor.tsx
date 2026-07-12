@@ -237,36 +237,44 @@ CRITICAL ENGINE API & ARCHITECTURE GUIDELINES:
      updateComponent(entity.id, 'MeshRenderer', { color: '#ff0000' });
    - Enabling emissive material (neon glow):
      updateComponent(entity.id, 'MeshRenderer', { material: 'emissive', color: '#00ffff', emissiveIntensity: 5.0 });
-   - Manual transform movement (non-physics):
+   - Manual transform movement (non-physics only):
      updateComponent(entity.id, 'Transform', { position: [x, y, z] });
    - Changing light intensity:
      updateComponent(entity.id, 'Light', { intensity: 2.5, color: '#00ff00' });
-3. RAPIER PHYSICS (CRITICAL): If the entity has a 'RigidBody' component, the global 'rigidBody' instance is available during play. Use Rapier methods for physics-based movement:
+3. RAPIER PHYSICS & RIGIDBODY (CRITICAL): If the entity has a 'RigidBody' component, the global 'rigidBody' instance is automatically available during play. Use Rapier methods for all physics-based movement and rotations:
    - Teleport: rigidBody.setTranslation({ x, y, z }, true);
    - Linear velocity: rigidBody.setLinvel({ x, y, z }, true);
    - Angular velocity: rigidBody.setAngvel({ x, y, z }, true);
    - Check linear velocity: const vel = rigidBody.linvel(); (returns {x, y, z})
    - Check quaternion rotation: const rot = rigidBody.rotation(); (returns {x, y, z, w})
    - Set quaternion rotation: rigidBody.setRotation({ x, y, z, w }, true);
-   NEVER use 'updateComponent' to move dynamic/kinematic physics objects; always interact through the global 'rigidBody' if it is defined. If you use 'updateComponent' on a rigid body, it will jitter and break the physics simulation.
+   AVISO CRÍTICO: NUNCA chame 'updateComponent(entity.id, "Transform", ...)' em entidades que possuam um componente 'RigidBody' ativo. Isso causa um conflito direto entre a simulação física do Rapier e o React, resultando em tremores intensos e física quebrada (jitter). Deixe o RigidBody gerenciar a rotação e a posição. Se desejar girar a física usando Euler/graus, converta para quaternion usando a classe THREE injetada globalmente e chame rigidBody.setRotation.
 4. INPUT & CONTROLS (CRITICAL):
-   - ALWAYS use 'Input.getKey("KeyName")' (e.g., 'Input.getKey("Space")', 'Input.getKey("KeyW")') for keyboard checks.
-   - ALWAYS use 'Input.getGamepadButton("ButtonName")' (e.g., 'Input.getGamepadButton("L1")', 'Input.getGamepadButton("A")') for gamepad/VR controller button checks.
+   - Keyboard checks: Input.getKey("KeyName") (e.g., Input.getKey("Space"), Input.getKey("KeyW"), Input.getKey("ArrowUp"), Input.getKey("KeyE")).
+   - Mouse buttons: Input.getMouseButton(index) (0 = Left, 1 = Middle, 2 = Right).
+   - Mouse Lock: To lock the mouse in FPS mode, chame Input.lockMouse() (normalmente ativado se Input.getMouseButton(0) for true). Destrave com Input.unlockMouse(). Use Input.mouse.isLocked (boolean) e acumule o movimento relativo via Input.mouse.movementX e Input.mouse.movementY.
+   - Gamepad/VR buttons: Input.getGamepadButton("ButtonName"). Valid buttons are: "A", "B", "C", "D", "L1", "R1", "L2", "R2", "L3", "R3", "Share", "Options".
+   - Gamepad analog sticks (eixos): Input.getGamepadAxis(axisIdx). Apenas os índices numéricos de 0 a 3 são válidos:
+     * 0: Analógico Esquerdo - Eixo Horizontal (X) [Esquerda/Direita]
+     * 1: Analógico Esquerdo - Eixo Vertical (Y) [Frente/Trás]
+     * 2: Analógico Direito - Eixo Horizontal (X) [Snap/Smooth Turn]
+     * 3: Analógico Direito - Eixo Vertical (Y)
+     Exemplo: const stickX = Input.getGamepadAxis(0);
    - NEVER use non-existent methods like 'Input.isKeyPressed', 'Input.isMouseButtonPressed', 'Input.getKeyPressed', etc. Only 'getKey', 'getMouseButton', and 'getGamepadButton' are valid.
-5. DEGREES TO RADIANS CONVERSION (CRITICAL): The entity's 'Transform.rotation' components are stored in DEGREES (e.g. [pitch, yaw, roll] in degrees). JavaScript trigonometric functions (Math.sin, Math.cos) expect RADIANS. You MUST convert degrees to radians:
+5. DEGREES TO RADIANS CONVERSION (CRITICAL): The entity's 'Transform.rotation' components are stored in DEGREES (e.g. [pitch, yaw, roll] in degrees). JavaScript trigonometric functions (Math.sin, Math.cos, and Euler rotations) expect RADIANS. You MUST convert degrees to radians:
    const yawRad = yawDeg * (Math.PI / 180);
    Then use Math.sin(yawRad) and Math.cos(yawRad).
-6. LERP & MOVEMENT STATES: Ensure clean animation state tracking. If animating a sequence like advancing and returning, store target coordinates in separate variables (e.g., 'targetPos') rather than interpolating from basePos to basePos.
-7. LOCAL VARIABLES & PERSISTENCE: Declare local state variables in the outer scope of the script (outside functions). They persist correctly through closure. Do NOT use 'this', 'globalThis', 'window', or function properties (e.g. 'onUpdate._t').
-8. REAL-TIME ENTITY POSITIONING (CRITICAL): To query the current position of another entity in real-time (especially those that move with Rapier Physics), ALWAYS use the global function:
+6. THREE.JS & MATH GLOBALS (CRITICAL): The Three.js library ('THREE') and the JavaScript 'Math' object are injected directly into the script scope as globals. You DO NOT need to write any import statements (like 'import * as THREE') or access 'window.THREE'.
+   Use 'new THREE.Vector3()', 'new THREE.Quaternion()', etc. directly.
+7. REAL-TIME ENTITY POSITIONING (CRITICAL): To query the current position of another entity in real-time (especially those that move with Rapier Physics), ALWAYS use the global function:
    getEntityPosition(entityId)
-   It returns an array '[x, y, z]' representing the real-time physical position of that entity (falling back to Transform component if not physical). Avoid reading 'otherEntity.components.Transform.position' directly if it moves via physics, as React ECS stores do not mutate positions per-frame for performance reasons.
+   It returns an array '[x, y, z]' representing the real-time physical position of that entity. Avoid reading 'otherEntity.components.Transform.position' directly if it moves via physics, as React ECS stores do not mutate positions per-frame for performance reasons.
    Example:
    const playerPos = getEntityPosition(playerEntity.id);
    if (playerPos) {
      const dist = new THREE.Vector3().fromArray(playerPos).distanceTo(myPos);
    }
-9. REAL-TIME PLAYER VIEW DIRECTION / RAYCASTING (CRITICAL): To determine where the player is looking (in both desktop mode and WebXR/VR imersivo headset mode), ALWAYS use the global Three.js camera instance:
+8. REAL-TIME PLAYER VIEW DIRECTION / RAYCASTING (CRITICAL): To determine where the player is looking (in both desktop mode and WebXR/VR immersive headset mode), ALWAYS use the global Three.js camera instance:
    threeCamera
    - To get camera position:
      const camPos = new THREE.Vector3();
@@ -276,7 +284,7 @@ CRITICAL ENGINE API & ARCHITECTURE GUIDELINES:
      threeCamera.getWorldDirection(viewDir);
    - To spawn or position an object 2 meters directly in front of the player's eyes:
      const spawnPos = new THREE.Vector3().copy(camPos).addScaledVector(viewDir, 2.0);
-10. DYNAMIC AUDIO ASSET SELECTORS (CRITICAL): If your script needs to trigger audio clips (sound effects, background music, etc.), declare a public variable ending with 'Sound', 'Audio', or 'Clip' (e.g. 'export let jumpSound = "";' or 'export let shootClip = "";').
+9. DYNAMIC AUDIO ASSET SELECTORS: If your script needs to trigger audio clips (sound effects, background music, etc.), declare a public variable ending with 'Sound', 'Audio', or 'Clip' (e.g. 'export let jumpSound = "";' or 'export let shootClip = "";').
     - The Freedom3D Inspector will automatically detect this naming convention and render a drop-down selector listing all audio files inside the project folders.
     - Inside the script, you can trigger these sounds dynamically at runtime by instantiating the native browser Audio player using the variable value.
     - Example:
@@ -285,12 +293,12 @@ CRITICAL ENGINE API & ARCHITECTURE GUIDELINES:
       if (hasHit && hitSound) {
         new Audio(hitSound).play().catch(e => {});
       }
-11. MULTIPLAYER NETWORKING (CRITICAL): If your script requires real-time network synchronizations or handles multiplayer games (such as Soccer/Futebol), use 'engine.network':
+10. MULTIPLAYER NETWORKING (CRITICAL): If your script requires real-time network synchronizations or handles multiplayer games, use 'engine.network':
     - Check network state: engine.network.isConnected()
     - Get local player identity: engine.network.getPlayerId()
     - Send packets to room participants: engine.network.send({ type: 'your-event-name', ... })
     - Retrieve custom packets received from other players via the global buffer: 'window.soccerMultiplayerState' (e.g. check for incoming ball physics updates using 'window.soccerMultiplayerState["ball-sync"]').
-12. HUD VISOR EVENT INTERACTION (CRITICAL): To update game stats, timers, goals, and alerts on both desktop (HUD2D overlay) and immersive VR environments (HUD3D spatial panel), dispatch global CustomEvents on the 'window' object:
+11. HUD VISOR EVENT INTERACTION (CRITICAL): To update game stats, timers, goals, and alerts on both desktop (HUD2D overlay) and immersive VR environments (HUD3D spatial panel), dispatch global CustomEvents on the 'window' object:
     - Displaying an on-screen overlay notification:
       window.dispatchEvent(new CustomEvent('hud-notification', { detail: { text: "Alert Message!" } }));
     - Modifying scores and label identifiers (e.g. for Home/Away teams):
